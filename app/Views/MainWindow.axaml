@@ -248,9 +248,11 @@
       <!-- barra de status -->
       <Border Grid.Row="2" Background="{DynamicResource BgPanel}" Padding="12,4"
               BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
-        <Grid ColumnDefinitions="*,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto">
           <TextBlock Grid.Column="0" Text="{Binding StatusLine}" Classes="faint" FontSize="11" />
           <TextBlock Grid.Column="1" Text="{Binding RepoCountText}" Classes="faint" FontSize="11" />
+          <TextBlock Grid.Column="2" Text="{Binding VersaoTexto}" Classes="faint" FontSize="11"
+                     Margin="14,0,0,0" ToolTip.Tip="Data do executável em uso" />
         </Grid>
       </Border>
 

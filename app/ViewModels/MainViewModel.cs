@@ -221,6 +221,28 @@ public sealed partial class MainViewModel : ObservableObject
     public string StashBadge => CurrentStatus is { Stashes: > 0 } s ? s.Stashes.ToString() : "";
     public string RepoCountText => $"{_ws.Repos.Count} repositório(s)";
 
+    /// <summary>
+    /// Data do executável em uso. Serve para saber, olhando a tela, se o que está
+    /// rodando é mesmo a versão recém-publicada.
+    /// </summary>
+    public static string VersaoTexto
+    {
+        get
+        {
+            try
+            {
+                var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                if (string.IsNullOrEmpty(exe)) return "";
+                var quando = System.IO.File.GetLastWriteTime(exe);
+                return $"build {quando:dd/MM HH:mm}";
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
+    }
+
     public string StatusLine
     {
         get
@@ -527,6 +549,7 @@ public sealed partial class MainViewModel : ObservableObject
         var repo = CurrentRepo;
         if (repo is null) return;
         Busy = true;
+        Notify($"{label} em andamento…"); // a barra desabilitada precisa dizer por quê
         try
         {
             var outp = await action(repo.Path);

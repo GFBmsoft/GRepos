@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using GRepos.Models;
 
@@ -26,12 +27,40 @@ public static class GitService
     private const string LogFormat =
         "--pretty=format:%H" + "%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%D%x1f%s%x1e";
 
+    /// <summary>
+    /// Teto para operações de rede. Sem ele, um git esperando o credential manager
+    /// deixa a barra inteira desabilitada para sempre.
+    /// </summary>
+    internal static TimeSpan TempoLimiteRede { get; set; } = TimeSpan.FromSeconds(75);
+
     public static Task<string> RunAsync(string repo, IEnumerable<string> args, string? stdin = null) =>
         RunWithEnvAsync(repo, args, stdin);
 
     /// <param name="env">Variáveis extras para o processo do git (ex.: desligar prompts).</param>
-    public static async Task<string> RunWithEnvAsync(
-        string repo, IEnumerable<string> args, string? stdin = null, params (string Nome, string Valor)[] env)
+    public static Task<string> RunWithEnvAsync(
+        string repo, IEnumerable<string> args, string? stdin = null, params (string Nome, string Valor)[] env) =>
+        ExecutarAsync(repo, args, stdin, default, env);
+
+    /// <summary>Operação de rede: leva o usuário ao credential manager e tem prazo.</summary>
+    private static async Task<string> RedeAsync(string repo, params string[] args)
+    {
+        try
+        {
+            return await ExecutarAsync(repo, ComCredencial(args), null, TempoLimiteRede,
+                Array.Empty<(string, string)>());
+        }
+        catch (OperationCanceledException)
+        {
+            throw new GitException(
+                "A operação passou de " + (int)TempoLimiteRede.TotalSeconds + " segundos e foi cancelada. " +
+                "Costuma ser uma janela de login do Git Credential Manager esperando resposta — " +
+                "procure-a na barra de tarefas, ou configure o usuário em Preferências → Autenticação.");
+        }
+    }
+
+    private static async Task<string> ExecutarAsync(
+        string repo, IEnumerable<string> args, string? stdin, TimeSpan tempoLimite,
+        (string Nome, string Valor)[] env)
     {
         var psi = new ProcessStartInfo("git")
         {
@@ -67,9 +96,42 @@ public static class GitService
 
         var outTask = proc.StandardOutput.ReadToEndAsync();
         var errTask = proc.StandardError.ReadToEndAsync();
-        await proc.WaitForExitAsync();
-        var stdout = await outTask;
-        var stderr = await errTask;
+
+        string stdout;
+        string stderr;
+
+        if (tempoLimite > TimeSpan.Zero)
+        {
+            try
+            {
+                await proc.WaitForExitAsync().WaitAsync(tempoLimite);
+            }
+            catch (TimeoutException)
+            {
+                // derruba o git e o que ele abriu (o credential manager, por exemplo)
+                try { proc.Kill(entireProcessTree: true); } catch (Exception) { /* já morreu */ }
+                throw new OperationCanceledException();
+            }
+
+            // Processos-netos herdam os pipes: se um deles sobreviver, a leitura
+            // trava mesmo com o git já encerrado. Daí o teto separado aqui.
+            try
+            {
+                stdout = await outTask.WaitAsync(TimeSpan.FromSeconds(5));
+                stderr = await errTask.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (TimeoutException)
+            {
+                try { proc.Kill(entireProcessTree: true); } catch (Exception) { /* já morreu */ }
+                throw new OperationCanceledException();
+            }
+        }
+        else
+        {
+            await proc.WaitForExitAsync();
+            stdout = await outTask;
+            stderr = await errTask;
+        }
 
         if (proc.ExitCode != 0)
         {
@@ -375,17 +437,19 @@ public static class GitService
 
     // ---------------------------------------------------------------- remoto
 
-    public static Task<string> FetchAsync(string repo) =>
-        RunAsync(repo, ComCredencial("fetch", "--all", "--prune"));
+    // rede sempre por RedeAsync: é o que aplica o prazo e informa o usuário ao
+    // credential manager
+
+    public static Task<string> FetchAsync(string repo) => RedeAsync(repo, "fetch", "--all", "--prune");
 
     public static Task<string> PullAsync(string repo, bool rebase) =>
-        RunAsync(repo, rebase ? ComCredencial("pull", "--rebase") : ComCredencial("pull"));
+        rebase ? RedeAsync(repo, "pull", "--rebase") : RedeAsync(repo, "pull");
 
     public static async Task<string> PushAsync(string repo, bool setUpstream)
     {
-        if (!setUpstream) return await RunAsync(repo, ComCredencial("push"));
+        if (!setUpstream) return await RedeAsync(repo, "push");
         var branch = (await Run(repo, "rev-parse", "--abbrev-ref", "HEAD")).Trim();
-        return await RunAsync(repo, ComCredencial("push", "--set-upstream", "origin", branch));
+        return await RedeAsync(repo, "push", "--set-upstream", "origin", branch);
     }
 
     // -------------------------------------------------------------- branches

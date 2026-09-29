@@ -26,4 +26,9 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- os testes ajustam limites internos (ex.: o prazo das operações de rede) -->
+    <InternalsVisibleTo Include="GRepos.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -18,7 +18,7 @@ o SDK do .NET resolve tudo.
 dotnet run --project app      # abre o aplicativo
 dotnet build                  # compila tudo
 dotnet test                   # 15 testes (parser, grafo, workspace e telas)
-dotnet publish app -c Release -r win-x64 --self-contained false   # gera o .exe distribuível
+dotnet publish app -c Release -r win-x64 --self-contained false -o dist   # gera dist/GRepos.exe
 ```
 
 ## Como usar

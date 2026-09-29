@@ -12,6 +12,7 @@ mesmo módulo em dois bancos (DBISAM/MySQL) tratado como uma entidade só.
 
 ```bash
 dotnet run --project app   # abre o aplicativo
+dotnet publish app -c Release -r win-x64 --self-contained false -o dist   # gera dist/GRepos.exe
 dotnet build               # compila
 dotnet test                # xunit (parser, grafo, workspace e telas headless)
 ```
@@ -28,6 +29,13 @@ escrever no `%APPDATA%\GRepos\workspace.json` real do usuário.
   `MainViewModel` é o centro: workspace, árvore da sidebar, seleção e comandos do repositório.
   Diálogos e seletor de pasta entram por `IDialogService` (implementado pela `MainWindow`).
 - **Views** — Avalonia XAML; `DiffView` é reutilizada por Alterações e Histórico.
+
+## Publicação
+
+**Sempre publicar com `-o dist`.** Sem isso o `dotnet publish -r win-x64` grava em
+`app/bin/Release/net8.0/win-x64/publish/`, e sobra um executável antigo em
+`app/bin/Release/net8.0/` — já aconteceu de o usuário abrir o errado e testar a versão
+velha. A barra de status mostra a data do executável em uso, justamente para conferir.
 
 ## Regras
 

@@ -158,7 +158,9 @@ public sealed partial class BranchesViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    // o botão "Trocar" existe em cada linha e aponta para este mesmo comando: se ele
+    // ficar indisponível durante a execução, a lista inteira acinzenta (piscada)
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task Trocar(BranchItemViewModel item) =>
         ExecutarAsync(() => GitService.CheckoutAsync(_repo.Path, item.Name));
 

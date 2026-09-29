@@ -97,8 +97,9 @@ public sealed partial class ChangesViewModel : ObservableObject
             var keepStaged = SelectedStaged?.Path;
             var keepUnstaged = SelectedUnstaged?.Path;
 
-            Staged = new ObservableCollection<FileItemViewModel>(staged);
-            Unstaged = new ObservableCollection<FileItemViewModel>(unstaged);
+            // atualiza no lugar: recriar as coleções faz a lista piscar a cada stage
+            ListaSync.Aplicar(Staged, staged.ToList(), f => f.Path, MesmoItem);
+            ListaSync.Aplicar(Unstaged, unstaged.ToList(), f => f.Path, MesmoItem);
             OnPropertyChanged(nameof(CanCommit));
             OnPropertyChanged(nameof(CommitCaption));
 
@@ -121,6 +122,10 @@ public sealed partial class ChangesViewModel : ObservableObject
             if (!silent) _main.Notify(e.Message, true);
         }
     }
+
+    /// <summary>Dois itens são o mesmo quando caminho e situação coincidem.</summary>
+    private static bool MesmoItem(FileItemViewModel a, FileItemViewModel b) =>
+        a.Path == b.Path && a.Code == b.Code && a.Change.Kind == b.Change.Kind;
 
     private string _lastDiffKey = "";
     private string _lastDiffRaw = "";
@@ -169,19 +174,23 @@ public sealed partial class ChangesViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    // AllowConcurrentExecutions: por padrão o comando fica indisponível enquanto roda.
+    // Como os botões de TODAS as linhas apontam para o mesmo comando, a lista inteira
+    // acinzentava e voltava a cada clique — era a piscada do grid.
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task StageAll() => RunAsync(() => GitService.StageAsync(_repo.Path, Unstaged.Select(f => f.Path)));
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task UnstageAll() => RunAsync(() => GitService.UnstageAsync(_repo.Path, Staged.Select(f => f.Path)));
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task Stage(FileItemViewModel item) => RunAsync(() => GitService.StageAsync(_repo.Path, new[] { item.Path }));
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task Unstage(FileItemViewModel item) => RunAsync(() => GitService.UnstageAsync(_repo.Path, new[] { item.Path }));
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task Discard(FileItemViewModel item)
     {
         var ok = await _main.ConfirmAsync(
