@@ -46,6 +46,15 @@ public static class GitService
         psi.ArgumentList.Add("-C");
         psi.ArgumentList.Add(repo);
         foreach (var a in args) psi.ArgumentList.Add(a);
+
+        // Herdar estas variáveis de quem abriu o app (terminal, script, agente) impede o
+        // credential manager de pedir login e quebra push/pull com "terminal prompts
+        // disabled". Quem precisa delas passa em `env`, nunca por herança.
+        psi.Environment.Remove("GIT_TERMINAL_PROMPT");
+        psi.Environment.Remove("GCM_INTERACTIVE");
+        psi.Environment.Remove("GIT_ASKPASS");
+        psi.Environment.Remove("SSH_ASKPASS");
+
         foreach (var (nome, valor) in env) psi.Environment[nome] = valor;
 
         using var proc = Process.Start(psi) ?? throw new GitException("não foi possível executar o git");
@@ -71,6 +80,24 @@ public static class GitService
     }
 
     private static Task<string> Run(string repo, params string[] args) => RunAsync(repo, args);
+
+    /// <summary>
+    /// Usuário do GitHub configurado nas preferências. Informá-lo ao credential manager
+    /// é o que faz o token salvo ser encontrado: sem isso, o git procura a credencial
+    /// de "https://github.com" sem conta e acaba abrindo a janela de login.
+    /// </summary>
+    public static string CredentialUser { get; set; } = "";
+
+    private static string[] ComCredencial(params string[] args)
+    {
+        if (string.IsNullOrWhiteSpace(CredentialUser)) return args;
+
+        var completo = new string[args.Length + 2];
+        completo[0] = "-c";
+        completo[1] = $"credential.https://github.com.username={CredentialUser.Trim()}";
+        args.CopyTo(completo, 2);
+        return completo;
+    }
 
     // --------------------------------------------------------------- status
 
@@ -348,16 +375,17 @@ public static class GitService
 
     // ---------------------------------------------------------------- remoto
 
-    public static Task<string> FetchAsync(string repo) => Run(repo, "fetch", "--all", "--prune");
+    public static Task<string> FetchAsync(string repo) =>
+        RunAsync(repo, ComCredencial("fetch", "--all", "--prune"));
 
     public static Task<string> PullAsync(string repo, bool rebase) =>
-        rebase ? Run(repo, "pull", "--rebase") : Run(repo, "pull");
+        RunAsync(repo, rebase ? ComCredencial("pull", "--rebase") : ComCredencial("pull"));
 
     public static async Task<string> PushAsync(string repo, bool setUpstream)
     {
-        if (!setUpstream) return await Run(repo, "push");
+        if (!setUpstream) return await RunAsync(repo, ComCredencial("push"));
         var branch = (await Run(repo, "rev-parse", "--abbrev-ref", "HEAD")).Trim();
-        return await Run(repo, "push", "--set-upstream", "origin", branch);
+        return await RunAsync(repo, ComCredencial("push", "--set-upstream", "origin", branch));
     }
 
     // -------------------------------------------------------------- branches
