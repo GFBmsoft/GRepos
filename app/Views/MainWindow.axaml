@@ -1,0 +1,271 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:views="using:GRepos.Views"
+        xmlns:controls="using:GRepos.Controls"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="GRepos" Width="1440" Height="900" MinWidth="960" MinHeight="600"
+        Icon="avares://GRepos/Assets/app.ico"
+        Background="{DynamicResource Bg}">
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <!-- a sidebar não encolhe além do logo + os quatro ícones da barra -->
+      <ColumnDefinition Width="280" MinWidth="196" />
+      <ColumnDefinition Width="4" />
+      <ColumnDefinition Width="*" MinWidth="420" />
+    </Grid.ColumnDefinitions>
+
+    <!-- ===================================================== sidebar -->
+    <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,Auto,*">
+
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="10,10,6,8">
+          <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                      ClipToBounds="True">
+            <TextBlock Text="G" FontWeight="Bold" FontSize="15" />
+            <TextBlock Text="Repos" FontWeight="Bold" FontSize="15"
+                       Foreground="{DynamicResource Accent}" />
+          </StackPanel>
+          <Button Grid.Column="1" Classes="ghost icon" Content="&#xE710;"
+                  ToolTip.Tip="Adicionar repositório" Command="{Binding AddRepoCommand}" />
+          <Button Grid.Column="2" Classes="ghost icon" Content="&#xE8F4;"
+                  ToolTip.Tip="Novo grupo" Command="{Binding AddGroupCommand}" />
+          <Button Grid.Column="3" Classes="ghost icon" Content="&#xE72C;"
+                  ToolTip.Tip="Atualizar todos" IsEnabled="{Binding !Scanning}"
+                  Command="{Binding RefreshAllCommand}" />
+          <Button Grid.Column="4" Classes="ghost icon" Content="&#xE713;"
+                  ToolTip.Tip="Preferências" Command="{Binding OpenSettingsCommand}" />
+        </Grid>
+
+        <TextBox Grid.Row="1" Margin="10,0,10,8" Watermark="Filtrar repositórios..."
+                 Text="{Binding Filter}" />
+
+        <ListBox Grid.Row="2" x:Name="TreeList" ItemsSource="{Binding Tree}"
+                 SelectionChanged="OnTreeSelectionChanged">
+          <ListBox.Styles>
+            <!-- o realce do container é retangular e vazava por fora da pílula:
+                 cada linha pinta o próprio realce, com o mesmo formato que tem -->
+            <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+              <Setter Property="Background" Value="Transparent" />
+            </Style>
+            <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+              <Setter Property="Background" Value="Transparent" />
+            </Style>
+            <Style Selector="ListBoxItem:selected Border.linha">
+              <Setter Property="Background" Value="{DynamicResource BgActive}" />
+            </Style>
+            <Style Selector="Border.linha:pointerover">
+              <Setter Property="Background" Value="{DynamicResource BgHover}" />
+            </Style>
+            <Style Selector="Border.pilula > Panel > Border#Realce">
+              <Setter Property="Opacity" Value="0" />
+            </Style>
+            <Style Selector="Border.pilula:pointerover > Panel > Border#Realce">
+              <Setter Property="Opacity" Value="0.10" />
+            </Style>
+          </ListBox.Styles>
+
+          <ListBox.DataTemplates>
+
+            <!-- cabeçalho do grupo: pílula com a cor do grupo como acento suave -->
+            <DataTemplate DataType="vm:GroupNode">
+              <Border Classes="pilula" Margin="8,4,8,1" CornerRadius="13" BorderThickness="1"
+                      ClipToBounds="True"
+                      Background="{Binding Color, Converter={x:Static local:Converters.SoftBrush}}"
+                      BorderBrush="{Binding Color, Converter={x:Static local:Converters.EdgeBrush}}">
+                <Panel>
+                  <Border Name="Realce" Background="{DynamicResource Text}" />
+                  <Grid ColumnDefinitions="10,Auto,*,Auto" Height="24" Margin="9,0">
+                    <TextBlock Grid.Column="0" Text="{Binding Chevron}" FontSize="8" Classes="faint"
+                               FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
+                               VerticalAlignment="Center" />
+                    <Ellipse Grid.Column="1" Width="8" Height="8" Margin="3,0,0,0" VerticalAlignment="Center"
+                             Fill="{Binding Color, Converter={x:Static local:Converters.StringToBrush}}" />
+                    <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="11.5" FontWeight="SemiBold"
+                               Margin="8,0" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding Count}" FontSize="10.5" Classes="faint"
+                               VerticalAlignment="Center" />
+                  </Grid>
+                </Panel>
+              </Border>
+            </DataTemplate>
+
+            <DataTemplate DataType="vm:PairNode">
+              <Border Classes="linha" CornerRadius="5" Margin="8,0">
+              <Grid ColumnDefinitions="Auto,*" Height="24" Margin="12,0,10,0">
+                <TextBlock Grid.Column="0" Text="&#x21C4;" Classes="faint" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding Key}" Classes="dim" FontSize="11"
+                           Margin="6,0" VerticalAlignment="Center" />
+              </Grid>
+              </Border>
+            </DataTemplate>
+
+            <DataTemplate DataType="vm:RepoNode">
+              <Border Classes="linha" CornerRadius="5" Margin="8,0" ToolTip.Tip="{Binding Tooltip}">
+              <Grid ColumnDefinitions="2,Auto,*,Auto" Height="26" Margin="6,0,4,0">
+                <!-- traço da cor do grupo liga o repositório ao cabeçalho -->
+                <Border Grid.Column="0" Width="2" Margin="0,3,10,3" CornerRadius="1"
+                        Background="{Binding GroupColor, Converter={x:Static local:Converters.StringToBrush}}"
+                        Opacity="0.6" />
+                <Border Grid.Column="1" Classes="chip" IsVisible="{Binding HasRole}"
+                        BorderBrush="{DynamicResource Border}" Margin="0,0,5,0">
+                  <TextBlock Text="{Binding RoleTag}" FontSize="9" Classes="faint" />
+                </Border>
+                <TextBlock Grid.Column="2" Text="{Binding Name}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                  <TextBlock Text="{Binding AheadText}" FontSize="10" IsVisible="{Binding ShowAhead}"
+                             Foreground="{DynamicResource Green}" />
+                  <TextBlock Text="{Binding BehindText}" FontSize="10" IsVisible="{Binding ShowBehind}"
+                             Foreground="{DynamicResource Orange}" />
+                  <TextBlock Text="{Binding ConflictText}" FontSize="10" IsVisible="{Binding ShowConflict}"
+                             Foreground="{DynamicResource Red}" />
+                  <TextBlock Text="{Binding DirtyText}" FontSize="10" IsVisible="{Binding ShowDirty}"
+                             Foreground="{DynamicResource Yellow}" />
+                  <TextBlock Text="erro" FontSize="10" IsVisible="{Binding HasError}"
+                             Foreground="{DynamicResource Red}" />
+                </StackPanel>
+              </Grid>
+              </Border>
+            </DataTemplate>
+
+          </ListBox.DataTemplates>
+        </ListBox>
+
+      </Grid>
+    </Border>
+
+    <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+    <!-- ======================================================== main -->
+    <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
+
+      <!-- barra de ferramentas -->
+      <Border Grid.Row="0" Background="{DynamicResource BgPanel}" Padding="10,4"
+              BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+              IsVisible="{Binding HasSelection}">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+          <StackPanel Grid.Column="0" Margin="2,0,12,0" VerticalAlignment="Center">
+            <TextBlock Text="{Binding RepoTitle}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding RepoPath}" Classes="faint" FontSize="10.5" MaxWidth="300" />
+          </StackPanel>
+
+          <controls:ToolButton Grid.Column="1" Label="Obter" Icon="{StaticResource IconFetch}"
+                               ToolTip.Tip="Buscar novidades do remoto (fetch)"
+                               IsEnabled="{Binding !Busy}" Command="{Binding FetchCommand}" />
+          <controls:ToolButton Grid.Column="2" Label="Puxar" Icon="{StaticResource IconPull}"
+                               Badge="{Binding BehindBadge}"
+                               ToolTip.Tip="Trazer os commits do remoto (pull)"
+                               IsEnabled="{Binding !Busy}" Command="{Binding PullCommand}" />
+          <controls:ToolButton Grid.Column="3" Label="Enviar" Icon="{StaticResource IconPush}"
+                               Badge="{Binding AheadBadge}"
+                               ToolTip.Tip="Enviar os commits locais (push)"
+                               IsEnabled="{Binding !Busy}" Command="{Binding PushCommand}" />
+          <!-- fora da main o botão fica destacado: é fácil esquecer em que branch se está -->
+          <controls:ToolButton Grid.Column="4" Label="{Binding BranchCaption}"
+                               Icon="{StaticResource IconBranch}"
+                               Classes.destacado="{Binding ForaDaPrincipal}"
+                               ToolTip.Tip="Branches: trocar ou criar"
+                               IsEnabled="{Binding !Busy}" Command="{Binding OpenBranchesCommand}" />
+          <controls:ToolButton Grid.Column="5" Label="Esconder" Icon="{StaticResource IconStash}"
+                               Badge="{Binding StashBadge}"
+                               ToolTip.Tip="Guardar ou recuperar alterações (stash)"
+                               IsEnabled="{Binding !Busy}" Command="{Binding OpenStashCommand}" />
+
+          <!-- esteira: só aparece quando o repositório tem GitHub Actions -->
+          <controls:ToolButton Grid.Column="7" Label="{Binding CiRotulo}" Icon="{StaticResource IconEsteira}"
+                               ToolTip.Tip="{Binding CiTooltip}" IsVisible="{Binding TemCi}"
+                               Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}"
+                               Command="{Binding AbrirEsteiraCommand}" />
+
+          <Border Grid.Column="8" Width="1" Margin="8,8" VerticalAlignment="Stretch"
+                  Background="{DynamicResource Border}" IsVisible="{Binding TemCi}" />
+
+          <!-- abrir o repositório: no GitHub e na pasta do Windows -->
+          <controls:ToolButton Grid.Column="9" Label="Remoto" Icon="{StaticResource IconRemoto}"
+                               ToolTip.Tip="Abrir o repositório no GitHub"
+                               IsVisible="{Binding TemRemoto}"
+                               Command="{Binding AbrirRemotoCommand}" />
+          <controls:ToolButton Grid.Column="10" Label="Local" Icon="{StaticResource IconLocal}"
+                               ToolTip.Tip="Abrir a pasta no Windows"
+                               Command="{Binding AbrirPastaCommand}" />
+
+          <Border Grid.Column="11" Width="1" Margin="8,8" VerticalAlignment="Stretch"
+                  Background="{DynamicResource Border}" />
+
+          <controls:ToolButton Grid.Column="12" Label="Lado a lado" Icon="{StaticResource IconSplit}"
+                               ToolTip.Tip="Alternar entre diff lado a lado e unificado"
+                               Command="{Binding ToggleSplitCommand}" />
+          <controls:ToolButton Grid.Column="13" Label="Ajustes" Icon="{StaticResource IconConfig}"
+                               ToolTip.Tip="Configurar repositório"
+                               Command="{Binding OpenRepoConfigCommand}" />
+        </Grid>
+      </Border>
+
+      <!-- conteúdo -->
+      <Grid Grid.Row="1">
+
+        <StackPanel IsVisible="{Binding NoSelection}" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Spacing="10" MaxWidth="430">
+          <TextBlock Text="Nenhum repositório selecionado" Classes="dim" FontSize="15"
+                     FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock Classes="faint" TextWrapping="Wrap" TextAlignment="Center" TextTrimming="None"
+                     Text="Adicione seus repositórios, organize-os em grupos e marque os pares Origem × Destino para acompanhar os dois bancos na mesma tela." />
+          <Button Classes="primary" Content="+ Adicionar repositório" HorizontalAlignment="Center"
+                  Command="{Binding AddRepoCommand}" />
+        </StackPanel>
+
+        <StackPanel IsVisible="{Binding ShowError}" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Spacing="8" MaxWidth="430">
+          <TextBlock Text="Repositório indisponível" Classes="dim" FontSize="15" FontWeight="SemiBold"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="{Binding ErrorText}" Classes="faint" TextWrapping="Wrap"
+                     TextAlignment="Center" TextTrimming="None" />
+        </StackPanel>
+
+        <TabControl SelectedIndex="{Binding SelectedTab}" Padding="0">
+          <TabControl.IsVisible>
+            <MultiBinding Converter="{x:Static BoolConverters.And}">
+              <Binding Path="HasSelection" />
+              <Binding Path="!ShowError" />
+            </MultiBinding>
+          </TabControl.IsVisible>
+
+          <TabItem Header="{Binding ChangesTabHeader}">
+            <views:ChangesView DataContext="{Binding Changes}" />
+          </TabItem>
+          <TabItem Header="Histórico">
+            <views:HistoryView DataContext="{Binding History}" />
+          </TabItem>
+          <TabItem Header="{Binding PairTabHeader}" IsVisible="{Binding HasPair}">
+            <views:PairView DataContext="{Binding Pair}" />
+          </TabItem>
+        </TabControl>
+      </Grid>
+
+      <!-- barra de status -->
+      <Border Grid.Row="2" Background="{DynamicResource BgPanel}" Padding="12,4"
+              BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Text="{Binding StatusLine}" Classes="faint" FontSize="11" />
+          <TextBlock Grid.Column="1" Text="{Binding RepoCountText}" Classes="faint" FontSize="11" />
+        </Grid>
+      </Border>
+
+      <!-- aviso -->
+      <Border Grid.Row="1" Classes="card" IsVisible="{Binding HasStatusMessage}"
+              HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,16"
+              MaxWidth="720" Padding="12,9" BoxShadow="0 8 26 #66000000">
+        <Grid ColumnDefinitions="4,*,Auto">
+          <Border Grid.Column="0" CornerRadius="2" Width="3"
+                  Background="{Binding StatusAccent, Converter={x:Static local:Converters.ResourceBrush}}" />
+          <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="10,0"
+                     TextTrimming="None" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Classes="tiny" Content="&#x2715;" Command="{Binding DismissStatusCommand}" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

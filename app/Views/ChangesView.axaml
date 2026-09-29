@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:views="using:GRepos.Views"
+             xmlns:local="using:GRepos"
+             x:Class="GRepos.Views.ChangesView"
+             x:DataType="vm:ChangesViewModel">
+
+  <UserControl.Resources>
+    <local:IndexEqualsConverter x:Key="IndexEquals" />
+  </UserControl.Resources>
+
+  <Grid ColumnDefinitions="300,4,*">
+
+    <!-- arquivos + caixa de commit -->
+    <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*,Auto,*,Auto">
+
+        <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <TextBlock Grid.Column="0" Classes="sectionTitle" Text="PREPARADO PARA COMMIT" />
+            <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
+                       VerticalAlignment="Center" Text="{Binding Staged.Count}" />
+            <Button Grid.Column="3" Classes="tiny" Content="Remover tudo"
+                    Command="{Binding UnstageAllCommand}" />
+          </Grid>
+        </Border>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding Staged}" SelectedItem="{Binding SelectedStaged}">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="vm:FileItemViewModel">
+              <Grid ColumnDefinitions="18,*,Auto" Height="26" ToolTip.Tip="{Binding Tooltip}">
+                <TextBlock Grid.Column="0" Text="{Binding Code}" FontFamily="{DynamicResource MonoFont}"
+                           FontWeight="Bold" FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{Binding CodeColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center"
+                           FontSize="12" Margin="6,0" />
+                <Button Grid.Column="2" Classes="tiny" Content="&#x2212;" ToolTip.Tip="Remover do commit"
+                        Command="{Binding $parent[ListBox].DataContext.UnstageCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,1,0,1">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <TextBlock Grid.Column="0" Classes="sectionTitle" Text="ALTERAÇÕES LOCAIS" />
+            <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
+                       VerticalAlignment="Center" Text="{Binding Unstaged.Count}" />
+            <Button Grid.Column="3" Classes="tiny" Content="Preparar tudo"
+                    Command="{Binding StageAllCommand}" />
+          </Grid>
+        </Border>
+
+        <ListBox Grid.Row="3" ItemsSource="{Binding Unstaged}" SelectedItem="{Binding SelectedUnstaged}">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="vm:FileItemViewModel">
+              <Grid ColumnDefinitions="18,*,Auto,Auto" Height="26" ToolTip.Tip="{Binding Tooltip}">
+                <TextBlock Grid.Column="0" Text="{Binding Code}" FontFamily="{DynamicResource MonoFont}"
+                           FontWeight="Bold" FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{Binding CodeColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center"
+                           FontSize="12" Margin="6,0" />
+                <Button Grid.Column="2" Classes="tiny danger" Content="&#x21BA;" ToolTip.Tip="Descartar alterações"
+                        IsVisible="{Binding CanDiscard}"
+                        Command="{Binding $parent[ListBox].DataContext.DiscardCommand}"
+                        CommandParameter="{Binding}" />
+                <Button Grid.Column="3" Classes="tiny" Content="+" ToolTip.Tip="Preparar para commit"
+                        Command="{Binding $parent[ListBox].DataContext.StageCommand}"
+                        CommandParameter="{Binding}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Border Grid.Row="4" Padding="8" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
+          <StackPanel Spacing="7">
+            <TextBox Watermark="Mensagem de commit" AcceptsReturn="True" MinHeight="64"
+                     TextWrapping="Wrap" Text="{Binding CommitMessage}" />
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <CheckBox Grid.Column="0" Content="Emendar último" IsChecked="{Binding Amend}" />
+              <Button Grid.Column="2" Classes="primary" Content="{Binding CommitCaption}"
+                      IsEnabled="{Binding CanCommit}" Command="{Binding CommitCommand}" />
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+
+    <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+    <views:DiffView Grid.Column="2" DataContext="{Binding Diff}" />
+  </Grid>
+</UserControl>

@@ -1,0 +1,129 @@
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using GRepos.Models;
+using GRepos.ViewModels;
+
+namespace GRepos.Views;
+
+public partial class MainWindow : Window, IDialogService
+{
+    private readonly MainViewModel _vm;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        _vm = new MainViewModel(this);
+        DataContext = _vm;
+
+        Opened += async (_, _) =>
+        {
+            try
+            {
+                await _vm.InitAsync();
+                ApplyTheme(_vm.Settings);
+            }
+            catch (System.Exception ex)
+            {
+                // falha na carga não pode deixar a janela em branco sem explicação
+                _vm.Notify($"Falha ao carregar o workspace: {ex.Message}", true);
+            }
+        };
+    }
+
+    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    /// <summary>Tema e cor de destaque vêm do workspace, não de constantes.</summary>
+    public void ApplyTheme(Settings settings)
+    {
+        var variant = settings.Theme == "light" ? ThemeVariant.Light : ThemeVariant.Dark;
+        RequestedThemeVariant = variant;
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeVariant = variant;
+            if (Color.TryParse(settings.Accent, out var accent))
+            {
+                app.Resources["Accent"] = new SolidColorBrush(accent);
+                // o texto sobre o destaque segue o brilho da cor escolhida, senão
+                // some no claro (ou no escuro, dependendo do que o usuário pegou)
+                app.Resources["OnAccent"] = new SolidColorBrush(Contraste(accent));
+            }
+        }
+
+        // as cores de estado vêm do tema por nome: as listas precisam ser refeitas
+        // para pegar a paleta nova
+        _vm.RebuildTree();
+        _vm.ReloadCurrentTab();
+    }
+
+    private static Color Contraste(Color c)
+    {
+        var luminancia = (0.299 * c.R + 0.587 * c.G + 0.114 * c.B) / 255.0;
+        return luminancia > 0.55 ? Color.Parse("#08121F") : Colors.White;
+    }
+
+    // a ListBox mistura grupos, pares e repositórios: só repositório vira seleção
+    private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ListBox list) return;
+
+        switch (list.SelectedItem)
+        {
+            case RepoNode node:
+                _vm.SelectedNode = node;
+                break;
+            case GroupNode group:
+                list.SelectedItem = _vm.SelectedNode;
+                _vm.ToggleGroupCommand.Execute(group);
+                break;
+            case PairNode:
+                list.SelectedItem = _vm.SelectedNode;
+                break;
+        }
+    }
+
+    // ------------------------------------------------------- IDialogService
+
+    public Task<bool> ConfirmAsync(string title, string message) =>
+        new ConfirmWindow(title, message).ShowDialog<bool>(this);
+
+    public async Task<string?> PickFolderAsync(string title)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = title,
+            AllowMultiple = false,
+        });
+        return folders.Count > 0 ? folders[0].TryGetLocalPath() : null;
+    }
+
+    public Task<string?> PromptAsync(string title, string label, string initial = "") =>
+        new PromptWindow(title, label, initial).ShowDialog<string?>(this);
+
+    public async Task<(string Nome, string Cor)?> ShowGroupAsync(string titulo, string nome, string cor)
+    {
+        var r = await new GroupWindow(titulo, nome, cor).ShowDialog<GroupResult?>(this);
+        return r is null ? null : (r.Nome, r.Cor);
+    }
+
+    public Task ShowAddRepoAsync(MainViewModel main) => new AddRepoWindow(main, this).ShowDialog(this);
+
+    public Task ShowRepoConfigAsync(MainViewModel main, Repo repo) =>
+        new RepoConfigWindow(main, repo, this).ShowDialog(this);
+
+    public async Task ShowSettingsAsync(MainViewModel main)
+    {
+        await new SettingsWindow(main).ShowDialog(this);
+        ApplyTheme(main.Settings);
+    }
+
+    public Task ShowBranchesAsync(MainViewModel main, Repo repo) =>
+        new BranchesWindow(main, repo).ShowDialog(this);
+
+    public Task ShowStashAsync(MainViewModel main, Repo repo) =>
+        new StashWindow(main, repo).ShowDialog(this);
+}

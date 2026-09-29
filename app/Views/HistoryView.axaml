@@ -1,0 +1,163 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:views="using:GRepos.Views"
+             xmlns:controls="using:GRepos.Controls"
+             xmlns:local="using:GRepos"
+             x:Class="GRepos.Views.HistoryView"
+             x:DataType="vm:HistoryViewModel">
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="420" MinWidth="240" />
+      <ColumnDefinition Width="4" />
+      <ColumnDefinition Width="*" MinWidth="320" />
+    </Grid.ColumnDefinitions>
+
+    <!-- lista de commits com o grafo -->
+    <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+            <TextBlock Grid.Column="0" Classes="sectionTitle" Text="HISTÓRICO" />
+            <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
+                       VerticalAlignment="Center" Text="{Binding Count}" />
+            <CheckBox Grid.Column="3" Content="todas as branches" IsChecked="{Binding AllBranches}" />
+          </Grid>
+        </Border>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding Commits}" SelectedItem="{Binding SelectedCommit}">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="vm:CommitRowViewModel">
+              <Grid ColumnDefinitions="Auto,*,Auto" Height="26" ToolTip.Tip="{Binding Subject}">
+                <controls:GraphCell Grid.Column="0" Row="{Binding Row}" Height="26"
+                                    Width="{Binding GraphWidth}"
+                                    NodeBorderBrush="{DynamicResource BgPanel}" />
+                <!-- grade, não StackPanel: em pilha o texto ganha espaço infinito,
+                     nunca trunca e passa por cima da coluna do hash -->
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ClipToBounds="True">
+                  <ItemsControl Grid.Column="0" ItemsSource="{Binding Refs}" MaxWidth="230"
+                                ClipToBounds="True" VerticalAlignment="Center">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="vm:RefChipViewModel">
+                        <Border Classes="chip" ToolTip.Tip="{Binding Tooltip}"
+                                BorderBrush="{Binding Color, Converter={x:Static local:Converters.ResourceBrush}}">
+                          <TextBlock Text="{Binding Text}" FontSize="10" MaxWidth="150"
+                                     TextTrimming="CharacterEllipsis"
+                                     Foreground="{Binding Color, Converter={x:Static local:Converters.ResourceBrush}}" />
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <TextBlock Grid.Column="1" Text="{Binding Subject}" VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                </Grid>
+                <TextBlock Grid.Column="2" Text="{Binding ShortDate}" Classes="faint" FontSize="11"
+                           VerticalAlignment="Center" Margin="8,0,10,0" MinWidth="42"
+                           TextAlignment="Right" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+    <!-- conteúdo do commit selecionado -->
+    <Grid Grid.Column="2">
+      <TextBlock Text="Selecione um commit para ver os detalhes." Classes="faint"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 IsVisible="{Binding !HasDetail}" />
+
+      <Grid IsVisible="{Binding HasDetail}" RowDefinitions="Auto,*">
+
+        <!-- cabeçalho do commit -->
+        <Border Grid.Row="0" Background="{DynamicResource BgPanel}" Padding="12,8"
+                BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+          <StackPanel Spacing="3">
+            <TextBlock Text="{Binding DetailSubject}" FontWeight="SemiBold" FontSize="13"
+                       TextWrapping="Wrap" TextTrimming="None" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <TextBlock Text="{Binding DetailAuthor}" Classes="faint" FontSize="11.5" MaxWidth="320" />
+              <TextBlock Text="{Binding DetailDate}" Classes="faint" FontSize="11.5" />
+              <TextBlock Text="{Binding DetailHash}" Classes="mono faint" FontSize="11.5" />
+              <TextBlock Text="{Binding DetailParentsText}" Classes="mono faint" FontSize="11.5" />
+            </StackPanel>
+
+            <!-- refs completas ficam aqui; a lista mostra só a principal -->
+            <ItemsControl ItemsSource="{Binding DetailRefs}" IsVisible="{Binding HasRefs}" Margin="0,3,0,0">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:RefChipViewModel">
+                  <Border Classes="chip" Margin="0,2,5,0"
+                          BorderBrush="{Binding Color, Converter={x:Static local:Converters.ResourceBrush}}">
+                    <TextBlock Text="{Binding Text}" FontSize="10"
+                               Foreground="{Binding Color, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding DetailBody}" Classes="dim" FontSize="12" TextWrapping="Wrap"
+                       TextTrimming="None" MaxHeight="90" Margin="0,4,0,0"
+                       IsVisible="{Binding HasBody}" />
+          </StackPanel>
+        </Border>
+
+        <!-- arquivos do commit + diff, no mesmo desenho da aba Alterações -->
+        <Grid Grid.Row="1">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="260" MinWidth="170" />
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="*" MinWidth="200" />
+          </Grid.ColumnDefinitions>
+
+          <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+            <Grid RowDefinitions="Auto,*">
+              <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Classes="sectionTitle" Text="ARQUIVOS" />
+                  <TextBlock Classes="faint" FontSize="10" VerticalAlignment="Center"
+                             Text="{Binding Files.Count}" />
+                </StackPanel>
+              </Border>
+              <ListBox Grid.Row="1" ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}">
+                <ListBox.ItemTemplate>
+                  <DataTemplate DataType="vm:CommitFileViewModel">
+                    <Grid ColumnDefinitions="18,*,Auto" Height="26" ToolTip.Tip="{Binding Path}">
+                      <TextBlock Grid.Column="0" Text="{Binding Status}" FontFamily="{DynamicResource MonoFont}"
+                                 FontWeight="Bold" FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
+                                 Foreground="{Binding StatusColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Path}" FontSize="12" Margin="6,0"
+                                 VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0"
+                                  VerticalAlignment="Center">
+                        <TextBlock Text="{Binding AddedText}" FontSize="10.5" Classes="mono"
+                                   Foreground="{DynamicResource Green}" />
+                        <TextBlock Text="{Binding RemovedText}" FontSize="10.5" Classes="mono"
+                                   Foreground="{DynamicResource Red}" />
+                      </StackPanel>
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </Grid>
+          </Border>
+
+          <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+          <views:DiffView Grid.Column="2" DataContext="{Binding Diff}" />
+        </Grid>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

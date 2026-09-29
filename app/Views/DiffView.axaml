@@ -1,0 +1,103 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:local="using:GRepos"
+             x:Class="GRepos.Views.DiffView"
+             x:DataType="vm:DiffViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.code">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="8,1" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="TextTrimming" Value="None" />
+    </Style>
+    <Style Selector="TextBlock.gutter">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Padding" Value="0,1,8,1" />
+      <Setter Property="TextAlignment" Value="Right" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+      <Setter Property="Background" Value="{DynamicResource GutterBg}" />
+      <Setter Property="Width" Value="46" />
+    </Style>
+    <Style Selector="Border.add">
+      <Setter Property="Background" Value="{DynamicResource AddBg}" />
+    </Style>
+    <Style Selector="Border.del">
+      <Setter Property="Background" Value="{DynamicResource DelBg}" />
+    </Style>
+    <Style Selector="Border.empty">
+      <Setter Property="Background" Value="{DynamicResource GutterBg}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid RowDefinitions="Auto,*">
+
+    <Border Grid.Row="0" Padding="10,6" Background="{DynamicResource BgPanel}"
+            BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+      <TextBlock Classes="mono dim" FontSize="12" Text="{Binding Title}" />
+    </Border>
+
+    <TextBlock Grid.Row="1" Text="{Binding EmptyMessage}" Classes="faint"
+               HorizontalAlignment="Center" VerticalAlignment="Center"
+               TextWrapping="Wrap" Margin="24"
+               IsVisible="{Binding IsEmpty}" />
+
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto"
+                  IsVisible="{Binding HasContent}">
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <VirtualizingStackPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.DataTemplates>
+
+          <DataTemplate DataType="vm:DiffHeaderRow">
+            <Border Background="{DynamicResource BgRaised}" Padding="10,3"
+                    BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,1,0,1">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Classes="mono faint" FontSize="11.5" Text="{Binding Header}"
+                           VerticalAlignment="Center" />
+                <Button Classes="tiny" Content="{Binding ApplyLabel}"
+                        Command="{Binding ApplyCommand}"
+                        IsVisible="{Binding CanApply}"
+                        BorderThickness="1" BorderBrush="{DynamicResource Border}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:DiffTextRow">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="gutter" Text="{Binding OldNo}" />
+              <TextBlock Classes="gutter" Text="{Binding NewNo}" />
+              <Border Classes.add="{Binding IsAdd}" Classes.del="{Binding IsDel}"
+                      Width="{Binding $parent[ItemsControl].DataContext.UnifiedWidth}">
+                <TextBlock Classes="code" Text="{Binding Text}" />
+              </Border>
+            </StackPanel>
+          </DataTemplate>
+
+          <DataTemplate DataType="vm:DiffSplitRow">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Classes="gutter" Width="44" Text="{Binding LeftNo}" />
+              <Border Classes.del="{Binding LeftIsDel}" Classes.empty="{Binding LeftEmpty}"
+                      Width="{Binding $parent[ItemsControl].DataContext.LeftWidth}">
+                <TextBlock Classes="code" Text="{Binding LeftText}" />
+              </Border>
+              <TextBlock Classes="gutter" Width="44" Text="{Binding RightNo}" />
+              <Border Classes.add="{Binding RightIsAdd}" Classes.empty="{Binding RightEmpty}"
+                      Width="{Binding $parent[ItemsControl].DataContext.RightWidth}">
+                <TextBlock Classes="code" Text="{Binding RightText}" />
+              </Border>
+            </StackPanel>
+          </DataTemplate>
+
+        </ItemsControl.DataTemplates>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>

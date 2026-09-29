@@ -1,0 +1,152 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.BranchesWindow"
+        x:DataType="vm:BranchesViewModel"
+        Title="Branches" Width="760" Height="600" MinWidth="560" MinHeight="400"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <!-- as duas listas repetem as mesmas colunas de propósito: é o que mantém
+       nome, upstream e assunto alinhados entre locais e remotas -->
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="14">
+
+    <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
+               Margin="0,0,0,12" />
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+      <TextBox Grid.Column="0" Watermark="Nova branch a partir do HEAD (ex.: feat/estoque)"
+               Text="{Binding NovaBranch}" />
+      <Button Grid.Column="1" Classes="primary" Content="Criar e trocar" Margin="6,0,0,0"
+              IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}" />
+      <TextBox Grid.Column="2" Width="190" Margin="12,0,0,0" Watermark="Filtrar branches..."
+               Text="{Binding Filtro}" />
+    </Grid>
+
+    <!-- erro fica na própria janela, não no rodapé da tela de trás -->
+    <Border Grid.Row="2" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None"
+                   VerticalAlignment="Center" />
+        <Button Grid.Column="1" Content="Confiar neste repositório" Margin="10,0,0,0"
+                IsVisible="{Binding PodeConfiar}" Command="{Binding ConfiarCommand}" />
+      </Grid>
+    </Border>
+
+    <!-- cada seção cresce conforme o conteúdo; a rolagem é uma só, da janela -->
+    <ScrollViewer Grid.Row="3" Padding="0,0,4,0">
+     <StackPanel Spacing="10">
+
+      <Border Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,Auto">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="sectionTitle" Text="LOCAIS" />
+              <TextBlock Classes="faint" FontSize="10" VerticalAlignment="Center" Text="{Binding TotalLocais}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Grid.Row="1" Text="Nenhuma branch local encontrada." Classes="faint" Margin="12,10"
+                     IsVisible="{Binding SemLocais}" />
+          <!-- padding à direita reserva o espaço da barra de rolagem, que antes
+               passava por cima do botão Trocar -->
+          <ListBox Grid.Row="1" ItemsSource="{Binding Locais}" IsVisible="{Binding !SemLocais}"
+                   Padding="0,0,12,0" Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:BranchItemViewModel">
+                <Grid ColumnDefinitions="18,3*,1.7*,3*,76" Height="30" Margin="8,0"
+                      ToolTip.Tip="{Binding Tooltip}">
+                  <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center"
+                           IsVisible="{Binding IsHead}"
+                           Fill="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
+                             Margin="4,0,8,0" TextTrimming="CharacterEllipsis"
+                             FontWeight="{Binding NameWeight}"
+                             Foreground="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <Border Grid.Column="2" Classes="chip" IsVisible="{Binding HasUpstream}"
+                          BorderBrush="{DynamicResource Border}" VerticalAlignment="Center"
+                          HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding UpstreamText}" FontSize="10" Classes="faint"
+                               TextTrimming="CharacterEllipsis" />
+                  </Border>
+                  <TextBlock Grid.Column="2" Text="só local" FontSize="10" VerticalAlignment="Center"
+                             IsVisible="{Binding SoLocal}"
+                             Foreground="{DynamicResource Yellow}" />
+                  <TextBlock Grid.Column="3" Text="{Binding Subject}" Classes="faint" FontSize="11.5"
+                             VerticalAlignment="Center" Margin="10,0"
+                             TextTrimming="CharacterEllipsis" />
+                  <Button Grid.Column="4" Content="Trocar" Classes="tiny" VerticalAlignment="Center"
+                          HorizontalAlignment="Right" BorderThickness="1"
+                          BorderBrush="{DynamicResource Border}"
+                          IsVisible="{Binding CanCheckout}"
+                          Command="{Binding $parent[ListBox].DataContext.TrocarCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <Border Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,Auto">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="sectionTitle" Text="REMOTAS" />
+              <TextBlock Classes="faint" FontSize="10" VerticalAlignment="Center" Text="{Binding TotalRemotas}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Grid.Row="1" Text="Nenhuma branch remota encontrada." Classes="faint" Margin="12,10"
+                     IsVisible="{Binding SemRemotas}" />
+          <ListBox Grid.Row="1" ItemsSource="{Binding Remotas}" IsVisible="{Binding !SemRemotas}"
+                   Padding="0,0,12,0" Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:BranchItemViewModel">
+                <Grid ColumnDefinitions="18,3*,1.7*,3*,76" Height="30" Margin="8,0"
+                      ToolTip.Tip="{Binding Tooltip}">
+                  <TextBlock Grid.Column="0" Text="&#xE753;" FontSize="11" Classes="faint"
+                             FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
+                             VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Name}"
+                             VerticalAlignment="Center" Margin="4,0,8,0"
+                             TextTrimming="CharacterEllipsis"
+                             Foreground="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <TextBlock Grid.Column="3" Text="{Binding Subject}" Classes="faint" FontSize="11.5"
+                             VerticalAlignment="Center" Margin="10,0"
+                             TextTrimming="CharacterEllipsis" />
+                  <Button Grid.Column="4" Content="Trocar" Classes="tiny" VerticalAlignment="Center"
+                          HorizontalAlignment="Right" BorderThickness="1"
+                          BorderBrush="{DynamicResource Border}"
+                          Command="{Binding $parent[ListBox].DataContext.TrocarCommand}"
+                          CommandParameter="{Binding}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+     </StackPanel>
+    </ScrollViewer>
+
+    <!-- legenda: sem ela as cores viram adivinhação -->
+    <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,12,0,0">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{DynamicResource Green}" />
+          <TextBlock Text="atual" Classes="faint" FontSize="11" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{DynamicResource Yellow}" />
+          <TextBlock Text="só local (sem remoto)" Classes="faint" FontSize="11" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="7" Height="7" VerticalAlignment="Center" Fill="{DynamicResource TextDim}" />
+          <TextBlock Text="rastreando o remoto" Classes="faint" FontSize="11" />
+        </StackPanel>
+      </StackPanel>
+      <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:local="using:GRepos"
+             x:Class="GRepos.Views.PairView"
+             x:DataType="vm:PairViewModel">
+
+  <Grid RowDefinitions="Auto,*">
+
+    <Border Grid.Row="0" Padding="10,8" Background="{DynamicResource BgPanel}"
+            BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+        <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="par Origem × Destino" Classes="faint" Margin="10,0"
+                   VerticalAlignment="Center" />
+        <Button Grid.Column="3" Content="Fetch nos dois" Margin="0,0,6,0"
+                IsEnabled="{Binding !Busy}" Command="{Binding FetchBothCommand}" />
+        <Button Grid.Column="4" Content="Pull nos dois"
+                IsEnabled="{Binding !Busy}" Command="{Binding PullBothCommand}" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="*,*">
+      <ContentControl Grid.Column="0" Content="{Binding Left}" />
+      <ContentControl Grid.Column="1" Content="{Binding Right}" />
+
+      <Grid.Styles>
+        <Style Selector="ContentControl">
+          <Setter Property="ContentTemplate">
+            <DataTemplate DataType="vm:PairSideViewModel">
+              <Border BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+                <Grid RowDefinitions="Auto,Auto,Auto,*">
+
+                  <Border Grid.Row="0" Padding="10,8" Background="{DynamicResource BgPanel}"
+                          BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+                    <Grid ColumnDefinitions="Auto,Auto,*">
+                      <Border Grid.Column="0" Classes="chip" IsVisible="{Binding HasRole}"
+                              BorderBrush="{DynamicResource Purple}">
+                        <TextBlock Text="{Binding RoleText}" FontSize="10"
+                                   Foreground="{DynamicResource Purple}" />
+                      </Border>
+                      <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+                  </Border>
+
+                  <Border Grid.Row="1" Padding="10,8" BorderBrush="{DynamicResource BorderSoft}"
+                          BorderThickness="0,0,0,1">
+                    <WrapPanel>
+                      <TextBlock Text="branch " Classes="faint" FontSize="11.5" />
+                      <TextBlock Text="{Binding BranchText}" FontSize="11.5" FontWeight="SemiBold"
+                                 Margin="0,0,10,0" />
+                      <TextBlock Text="{Binding UpstreamText}" Classes="faint" FontSize="11.5"
+                                 Margin="0,0,10,0" IsVisible="{Binding HasUpstream}" />
+                      <TextBlock Text="{Binding AheadBehind}" Classes="dim" FontSize="11.5"
+                                 Margin="0,0,10,0" />
+                      <TextBlock Text="{Binding DirtyText}" FontSize="11.5"
+                                 Foreground="{Binding DirtyColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                    </WrapPanel>
+                  </Border>
+
+                  <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                          BorderThickness="0,0,0,1">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <TextBlock Classes="sectionTitle" Text="COMMITS SÓ NESTE LADO" />
+                      <TextBlock Classes="faint" FontSize="10" VerticalAlignment="Center"
+                                 Text="{Binding OnlyCount}" />
+                    </StackPanel>
+                  </Border>
+
+                  <Grid Grid.Row="3">
+                    <TextBlock Text="Nada exclusivo — os dois lados têm os mesmos commits recentes."
+                               Classes="faint" TextWrapping="Wrap" Margin="24"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IsVisible="{Binding IsEmpty}" />
+                    <ListBox ItemsSource="{Binding OnlyHere}" IsVisible="{Binding !IsEmpty}">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate DataType="vm:PairCommitViewModel">
+                          <Grid ColumnDefinitions="14,*,Auto" Height="26" ToolTip.Tip="{Binding Subject}">
+                            <TextBlock Grid.Column="0" Text="•" Foreground="{DynamicResource Orange}"
+                                       VerticalAlignment="Center" TextAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding Subject}" FontSize="12"
+                                       Margin="6,0" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding Short}" Classes="mono faint"
+                                       FontSize="10.5" Margin="0,0,10,0" VerticalAlignment="Center" />
+                          </Grid>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </Grid>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </Setter>
+        </Style>
+      </Grid.Styles>
+    </Grid>
+  </Grid>
+</UserControl>

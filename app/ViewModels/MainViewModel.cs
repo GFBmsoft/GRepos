@@ -1,0 +1,710 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading.Tasks;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using GRepos.Models;
+using GRepos.Services;
+
+namespace GRepos.ViewModels;
+
+/// <summary>Interações que dependem da janela (diálogos e seletor de pasta).</summary>
+public interface IDialogService
+{
+    Task<bool> ConfirmAsync(string title, string message);
+    Task<string?> PickFolderAsync(string title);
+    Task<string?> PromptAsync(string title, string label, string initial = "");
+
+    /// <summary>Nome e cor do grupo; null quando o usuário cancela.</summary>
+    Task<(string Nome, string Cor)?> ShowGroupAsync(string titulo, string nome, string cor);
+    Task ShowAddRepoAsync(MainViewModel main);
+    Task ShowRepoConfigAsync(MainViewModel main, Repo repo);
+    Task ShowSettingsAsync(MainViewModel main);
+    Task ShowBranchesAsync(MainViewModel main, Repo repo);
+    Task ShowStashAsync(MainViewModel main, Repo repo);
+}
+
+public sealed partial class MainViewModel : ObservableObject
+{
+    private readonly IDialogService _dialogs;
+    private readonly DispatcherTimer _timer = new();
+    private Workspace _ws = new();
+    private RepoWatcher? _watcher;
+    private bool _reloading;
+
+    public MainViewModel(IDialogService dialogs)
+    {
+        _dialogs = dialogs;
+        _timer.Tick += async (_, _) => await RefreshAllAsync();
+    }
+
+    // -------------------------------------------------------------- estado
+
+    [ObservableProperty] private ObservableCollection<SidebarNode> _tree = new();
+    [ObservableProperty] private RepoNode? _selectedNode;
+    [ObservableProperty] private string _filter = "";
+    [ObservableProperty] private bool _scanning;
+    [ObservableProperty] private string _statusMessage = "";
+    [ObservableProperty] private bool _statusIsError;
+    [ObservableProperty] private bool _hasStatusMessage;
+    [ObservableProperty] private bool _busy;
+
+    [ObservableProperty] private ChangesViewModel? _changes;
+    [ObservableProperty] private HistoryViewModel? _history;
+    [ObservableProperty] private PairViewModel? _pair;
+    [ObservableProperty] private int _selectedTab;
+
+    private readonly Dictionary<string, RepoNode> _nodes = new();
+
+    public Settings Settings => _ws.Settings;
+    public IReadOnlyList<Group> Groups => _ws.Groups;
+    public IReadOnlyList<Repo> Repos => _ws.Repos;
+
+    public Repo? CurrentRepo => SelectedNode?.Repo;
+    public RepoStatus? CurrentStatus => SelectedNode?.Status;
+
+    public bool HasSelection => SelectedNode is not null;
+    public bool NoSelection => SelectedNode is null;
+    public bool HasPair => PairRepoOf(CurrentRepo) is not null;
+    public bool ShowError => CurrentStatus?.Error is { Length: > 0 };
+    public string ErrorText => CurrentStatus?.Error ?? "";
+
+    public string RepoTitle => CurrentRepo?.Name ?? "";
+    public string RepoPath => CurrentRepo?.Path ?? "";
+    public string BranchCaption => CurrentStatus?.Branch is { Length: > 0 } b ? b : "—";
+    public string PairTabHeader => CurrentRepo?.PairKey is { Length: > 0 } k ? $"Par: {k}" : "Par";
+
+    public string ChangesTabHeader => CurrentStatus is { IsDirty: true } s
+        ? $"Alterações ({s.Staged + s.Unstaged + s.Untracked})"
+        : "Alterações";
+
+    // ------------------------------------------------- remoto, pasta e esteira
+
+    [ObservableProperty] private string _remoteWebUrl = "";
+    [ObservableProperty] private string _ciSituacao = "";
+    [ObservableProperty] private string _ciDetalhe = "";
+    [ObservableProperty] private string _ciUrl = "";
+
+    public bool TemRemoto => RemoteWebUrl.Length > 0;
+    public bool TemCi => CiSituacao.Length > 0 && CiSituacao != "nenhum";
+
+    /// <summary>Verde passou, vermelho quebrou, amarelo rodando — a cor é o recado.</summary>
+    public string CiCor => CiSituacao switch
+    {
+        "sucesso" => "Green",
+        "falha" => "Red",
+        "rodando" => "Yellow",
+        "cancelado" => "TextDim",
+        _ => "TextDim",
+    };
+
+    public string CiRotulo => CiSituacao switch
+    {
+        "sucesso" => "Esteira ok",
+        "falha" => "Esteira quebrou",
+        "rodando" => "Esteira rodando",
+        "cancelado" => "Esteira cancelada",
+        _ => "Esteira",
+    };
+
+    public string CiTooltip => CiDetalhe.Length > 0
+        ? $"{CiRotulo} — {CiDetalhe}\nClique para abrir no GitHub"
+        : "Status do GitHub Actions";
+
+    /// <summary>
+    /// Destaque quando a branch atual não é a principal: é o lembrete de que o
+    /// trabalho está numa feature, não na main.
+    /// </summary>
+    public bool ForaDaPrincipal =>
+        CurrentStatus?.Branch is { Length: > 0 } b &&
+        !b.Equals("main", StringComparison.OrdinalIgnoreCase) &&
+        !b.Equals("master", StringComparison.OrdinalIgnoreCase);
+
+    partial void OnRemoteWebUrlChanged(string value) => OnPropertyChanged(nameof(TemRemoto));
+
+    partial void OnCiSituacaoChanged(string value)
+    {
+        foreach (var p in new[] { nameof(TemCi), nameof(CiCor), nameof(CiRotulo), nameof(CiTooltip) })
+            OnPropertyChanged(p);
+    }
+
+    partial void OnCiDetalheChanged(string value) => OnPropertyChanged(nameof(CiTooltip));
+
+    /// <summary>
+    /// Garante o status antes de montar a barra: repositório ainda não varrido deixava
+    /// o botão de branch mostrando "—".
+    /// </summary>
+    private async Task PrepararRepoAsync(Repo repo)
+    {
+        if (_nodes.TryGetValue(repo.Id, out var node) && node.Status is null)
+            await RefreshRepoAsync(repo.Id);
+
+        await AtualizarRemotoAsync(repo);
+    }
+
+    /// <summary>Descobre o remoto e o status da esteira do repositório selecionado.</summary>
+    private async Task AtualizarRemotoAsync(Repo repo)
+    {
+        RemoteWebUrl = "";
+        CiSituacao = "";
+        CiDetalhe = "";
+        CiUrl = "";
+
+        try
+        {
+            var remoto = await GitService.RemoteUrlAsync(repo.Path);
+            if (SelectedNode?.Repo.Id != repo.Id) return; // trocou de repositório no meio
+            RemoteWebUrl = GitService.WebUrl(remoto);
+
+            var slug = GitHubService.Slug(remoto);
+            if (slug is null) return;
+
+            var run = await GitHubService.UltimaExecucaoAsync(
+                slug, CurrentStatus?.Branch ?? "", GitHubService.Usuario(remoto));
+            if (SelectedNode?.Repo.Id != repo.Id) return;
+
+            CiSituacao = run.Situacao;
+            CiDetalhe = run.Detalhe;
+            CiUrl = run.Url;
+        }
+        catch (Exception)
+        {
+            // remoto/esteira são informativos: falha aqui não atrapalha o resto
+        }
+    }
+
+    [RelayCommand]
+    private void AbrirRemoto()
+    {
+        try
+        {
+            ShellService.AbrirUrl(RemoteWebUrl);
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    [RelayCommand]
+    private void AbrirPasta()
+    {
+        try
+        {
+            if (CurrentRepo is not null) ShellService.AbrirPasta(CurrentRepo.Path);
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    [RelayCommand]
+    private void AbrirEsteira()
+    {
+        try
+        {
+            ShellService.AbrirUrl(CiUrl.Length > 0 ? CiUrl : RemoteWebUrl + "/actions");
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    // selos da barra: vazio esconde o contador
+    public string BehindBadge => CurrentStatus is { Behind: > 0 } s ? s.Behind.ToString() : "";
+    public string AheadBadge => CurrentStatus is { Ahead: > 0 } s ? s.Ahead.ToString() : "";
+    public string StashBadge => CurrentStatus is { Stashes: > 0 } s ? s.Stashes.ToString() : "";
+    public string RepoCountText => $"{_ws.Repos.Count} repositório(s)";
+
+    public string StatusLine
+    {
+        get
+        {
+            var s = CurrentStatus;
+            if (s is null) return "";
+            var up = string.IsNullOrEmpty(s.Upstream) ? "" : $"  ↔ {s.Upstream}";
+            return $"{(string.IsNullOrEmpty(s.Branch) ? "sem branch" : s.Branch)}{up}   " +
+                   $"↑{s.Ahead} ↓{s.Behind} · {s.Staged} preparado(s), {s.Unstaged} local(is), {s.Untracked} novo(s)";
+        }
+    }
+
+    public bool SplitDiff
+    {
+        get => _ws.Settings.SplitDiff;
+        set
+        {
+            if (_ws.Settings.SplitDiff == value) return;
+            _ws.Settings.SplitDiff = value;
+            if (Changes is not null) Changes.Diff.Split = value;
+            if (History is not null) History.Diff.Split = value;
+            OnPropertyChanged();
+            Persist();
+        }
+    }
+
+    // ---------------------------------------------------------- inicialização
+
+    public async Task InitAsync()
+    {
+        _ws = WorkspaceStore.Load();
+        RebuildTree();
+        ApplyTimer();
+        await RefreshAllAsync();
+
+        // o primeiro da árvore, não do workspace: repositório em grupo recolhido
+        // não tem nó e a seleção caía no vazio
+        SelectedNode = Tree.OfType<RepoNode>().FirstOrDefault();
+    }
+
+    private void ApplyTimer()
+    {
+        _timer.Stop();
+        if (_ws.Settings.AutoRefreshSeconds > 0)
+        {
+            _timer.Interval = TimeSpan.FromSeconds(_ws.Settings.AutoRefreshSeconds);
+            _timer.Start();
+        }
+    }
+
+    public void Persist()
+    {
+        try
+        {
+            WorkspaceStore.Save(_ws);
+        }
+        catch (Exception e)
+        {
+            Notify($"Não foi possível salvar o workspace: {e.Message}", true);
+        }
+    }
+
+    public string StatusAccent => StatusIsError ? "Red" : "Accent";
+
+    partial void OnStatusIsErrorChanged(bool value) => OnPropertyChanged(nameof(StatusAccent));
+
+    public void Notify(string message, bool isError = false)
+    {
+        StatusMessage = message;
+        StatusIsError = isError;
+        HasStatusMessage = true;
+    }
+
+    public Task<bool> ConfirmAsync(string title, string message) => _dialogs.ConfirmAsync(title, message);
+
+    [RelayCommand]
+    private void DismissStatus() => HasStatusMessage = false;
+
+    // ------------------------------------------------------------- sidebar
+
+    public void RebuildTree()
+    {
+        _nodes.Clear();
+        var nodes = new ObservableCollection<SidebarNode>();
+
+        var q = Filter.Trim();
+        var visible = string.IsNullOrEmpty(q)
+            ? _ws.Repos
+            : _ws.Repos.Where(r =>
+                r.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                r.Path.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        var groups = _ws.Groups.Select(g => (g.Id, g.Name, g.Color, g.Collapsed)).ToList();
+        groups.Add(("", "Sem grupo", "#5D6675", false));
+
+        foreach (var (id, name, color, collapsed) in groups)
+        {
+            var list = visible.Where(r => (r.GroupId ?? "") == id)
+                              .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)
+                              .ToList();
+            if (list.Count == 0 && id == "") continue;
+
+            var showCollapsed = collapsed && string.IsNullOrEmpty(q);
+            nodes.Add(new GroupNode { Id = id, Name = name, Color = color, Collapsed = showCollapsed, Count = list.Count });
+            if (showCollapsed) continue;
+
+            // repositórios pareados aparecem sob um único título — é o que evita a
+            // duplicação de abas quando o mesmo módulo existe em dois bancos
+            var pairs = list.Where(r => !string.IsNullOrEmpty(r.PairKey))
+                            .GroupBy(r => r.PairKey!)
+                            .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
+
+            foreach (var pair in pairs)
+            {
+                nodes.Add(new PairNode { Key = pair.Key });
+                foreach (var r in pair.OrderBy(RoleOrder))
+                    nodes.Add(MakeNode(r, true, color));
+            }
+
+            foreach (var r in list.Where(r => string.IsNullOrEmpty(r.PairKey)))
+                nodes.Add(MakeNode(r, false, color));
+        }
+
+        Tree = nodes;
+        OnPropertyChanged(nameof(RepoCountText));
+    }
+
+    private static int RoleOrder(Repo r) => r.Role switch { "origem" => 0, "destino" => 1, _ => 2 };
+
+    private RepoNode MakeNode(Repo r, bool paired, string groupColor)
+    {
+        var node = new RepoNode { Repo = r, IsPaired = paired, GroupColor = groupColor };
+        _nodes[r.Id] = node;
+        if (SelectedNode?.Id == r.Id) SelectedNode = node;
+        return node;
+    }
+
+    partial void OnFilterChanged(string value) => RebuildTree();
+
+    partial void OnSelectedNodeChanged(RepoNode? value)
+    {
+        foreach (var n in new[] { nameof(CurrentRepo), nameof(CurrentStatus), nameof(HasSelection),
+                                  nameof(NoSelection), nameof(HasPair), nameof(RepoTitle), nameof(RepoPath),
+                                  nameof(BranchCaption), nameof(StatusLine), nameof(ChangesTabHeader),
+                                  nameof(PairTabHeader), nameof(BehindBadge), nameof(AheadBadge),
+                                  nameof(StashBadge), nameof(ShowError), nameof(ErrorText),
+                                  nameof(ForaDaPrincipal) })
+            OnPropertyChanged(n);
+
+        Changes = null;
+        History = null;
+        Pair = null;
+
+        _watcher?.Dispose();
+        _watcher = null;
+
+        if (value is null) return;
+
+        var repo = value.Repo;
+
+        // acompanha o repositório aberto: salvar um arquivo no editor atualiza a lista
+        _watcher = new RepoWatcher(repo.Path, () => Dispatcher.UIThread.Post(() => _ = OnDiskChangedAsync(repo.Id)));
+        Changes = new ChangesViewModel(repo, this, SplitDiff);
+        History = new HistoryViewModel(repo, this, _ws.Settings.LogLimit, SplitDiff);
+
+        var other = PairRepoOf(repo);
+        if (other is not null) Pair = new PairViewModel(repo, other, this, _ws.Settings.LogLimit);
+
+        _ = PrepararRepoAsync(repo);
+
+        // abre na aba que o usuário escolheu nas preferências
+        SelectedTab = _ws.Settings.DefaultTab == "historico" ? 1 : 0;
+        _ = LoadTabAsync();
+    }
+
+    partial void OnSelectedTabChanged(int value) => _ = LoadTabAsync();
+
+    /// <summary>
+    /// Recarrega o que está na tela quando o disco muda. Ignora eventos enquanto uma
+    /// recarga está em andamento: build gerando arquivos não pode virar fila de gits.
+    /// </summary>
+    private async Task OnDiskChangedAsync(string repoId)
+    {
+        if (_reloading || SelectedNode?.Id != repoId) return;
+        _reloading = true;
+        try
+        {
+            await RefreshRepoAsync(repoId);
+            if (SelectedTab == 0 && Changes is not null) await Changes.ReloadAsync(silent: true);
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+        finally
+        {
+            _reloading = false;
+        }
+    }
+
+    /// <summary>Recarrega a aba visível — usado quando a paleta do tema muda.</summary>
+    public void ReloadCurrentTab() => _ = LoadTabAsync();
+
+    private async Task LoadTabAsync()
+    {
+        try
+        {
+            switch (SelectedTab)
+            {
+                case 0 when Changes is not null: await Changes.ReloadAsync(); break;
+                case 1 when History is not null: await History.LoadAsync(); break;
+                case 2 when Pair is not null: await Pair.LoadAsync(); break;
+            }
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    public Repo? PairRepoOf(Repo? repo) =>
+        repo?.PairKey is { Length: > 0 } key
+            ? _ws.Repos.FirstOrDefault(r => r.Id != repo.Id && r.PairKey == key)
+            : null;
+
+    public void SelectRepo(string? id)
+    {
+        if (id is null) return;
+        if (_nodes.TryGetValue(id, out var node)) SelectedNode = node;
+    }
+
+    [RelayCommand]
+    private void ToggleGroup(GroupNode node)
+    {
+        var g = _ws.Groups.FirstOrDefault(x => x.Id == node.Id);
+        if (g is null) return;
+        g.Collapsed = !g.Collapsed;
+        Persist();
+        RebuildTree();
+    }
+
+    // -------------------------------------------------------------- status
+
+    [RelayCommand]
+    public async Task RefreshAllAsync()
+    {
+        if (Scanning || _ws.Repos.Count == 0) return;
+        Scanning = true;
+        try
+        {
+            var repos = _ws.Repos.ToList();
+            var tasks = repos.Select(r => GitService.StatusAsync(r.Path)).ToList();
+            var results = await Task.WhenAll(tasks);
+
+            for (var i = 0; i < repos.Count; i++)
+                if (_nodes.TryGetValue(repos[i].Id, out var node))
+                {
+                    node.Status = results[i];
+                    node.Refreshed();
+                }
+
+            RefreshHeaderBindings();
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+        finally
+        {
+            Scanning = false;
+        }
+    }
+
+    public async Task RefreshRepoAsync(string id)
+    {
+        var repo = _ws.Repos.FirstOrDefault(r => r.Id == id);
+        if (repo is null) return;
+        ApplyStatus(id, await GitService.StatusAsync(repo.Path));
+    }
+
+    /// <summary>Aplica um status já obtido, sem chamar o git de novo.</summary>
+    public void ApplyStatus(string id, RepoStatus status)
+    {
+        if (_nodes.TryGetValue(id, out var node))
+        {
+            node.Status = status;
+            node.Refreshed();
+        }
+        RefreshHeaderBindings();
+    }
+
+    private void RefreshHeaderBindings()
+    {
+        foreach (var n in new[] { nameof(CurrentStatus), nameof(BranchCaption), nameof(StatusLine),
+                                  nameof(ChangesTabHeader), nameof(BehindBadge), nameof(AheadBadge),
+                                  nameof(StashBadge), nameof(ShowError), nameof(ErrorText) })
+            OnPropertyChanged(n);
+    }
+
+    // ----------------------------------------------------- comandos do repo
+
+    private async Task RunAsync(Func<string, Task<string>> action, string label)
+    {
+        var repo = CurrentRepo;
+        if (repo is null) return;
+        Busy = true;
+        try
+        {
+            var outp = await action(repo.Path);
+            await RefreshRepoAsync(repo.Id);
+            if (SelectedTab == 0 && Changes is not null) await Changes.ReloadAsync();
+            var tail = outp.Trim().Split('\n').LastOrDefault()?.Trim() ?? "";
+            Notify(tail.Length > 0 ? $"{label}: {tail}" : $"{label} concluído.");
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+        finally
+        {
+            Busy = false;
+        }
+    }
+
+    [RelayCommand]
+    private Task Fetch() => RunAsync(GitService.FetchAsync, "Fetch");
+
+    [RelayCommand]
+    private Task Pull() => RunAsync(p => GitService.PullAsync(p, false), "Pull");
+
+    [RelayCommand]
+    private Task Push() => RunAsync(p => GitService.PushAsync(p, string.IsNullOrEmpty(CurrentStatus?.Upstream)), "Push");
+
+    [RelayCommand]
+    private async Task OpenBranches()
+    {
+        if (CurrentRepo is null) return;
+        await _dialogs.ShowBranchesAsync(this, CurrentRepo);
+        await RefreshRepoAsync(CurrentRepo.Id);
+        await LoadTabAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenStash()
+    {
+        if (CurrentRepo is null) return;
+        await _dialogs.ShowStashAsync(this, CurrentRepo);
+        await RefreshRepoAsync(CurrentRepo.Id);
+        await LoadTabAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenRepoConfig()
+    {
+        if (CurrentRepo is null) return;
+        await _dialogs.ShowRepoConfigAsync(this, CurrentRepo);
+    }
+
+    [RelayCommand]
+    private Task OpenSettings() => _dialogs.ShowSettingsAsync(this);
+
+    [RelayCommand]
+    private Task AddRepo() => _dialogs.ShowAddRepoAsync(this);
+
+    [RelayCommand]
+    private async Task AddGroupAsync()
+    {
+        // já abre numa cor livre: com vários grupos, repetir a mesma cor não ajuda ninguém
+        var sugerida = GroupPalette.ProximaLivre(_ws.Groups.Select(g => g.Color));
+        var r = await _dialogs.ShowGroupAsync("Novo grupo", "", sugerida);
+        if (r is null) return;
+
+        CreateGroup(r.Value.Nome, r.Value.Cor);
+        RebuildTree();
+    }
+
+    /// <summary>Edita nome e cor de um grupo existente.</summary>
+    public async Task EditGroupAsync(string id)
+    {
+        var g = _ws.Groups.FirstOrDefault(x => x.Id == id);
+        if (g is null) return;
+
+        var r = await _dialogs.ShowGroupAsync("Editar grupo", g.Name, g.Color);
+        if (r is null) return;
+
+        UpdateGroup(id, r.Value.Nome, r.Value.Cor);
+    }
+
+    [RelayCommand]
+    private void ToggleSplit() => SplitDiff = !SplitDiff;
+
+    // ------------------------------------------------ mutações do workspace
+
+    public string CreateGroup(string name, string? cor = null)
+    {
+        var g = new Group
+        {
+            Id = NewId(),
+            Name = name,
+            Color = GroupPalette.Normalizar(cor) ?? GroupPalette.ProximaLivre(_ws.Groups.Select(x => x.Color)),
+        };
+        _ws.Groups.Add(g);
+        Persist();
+        return g.Id;
+    }
+
+    public void AddRepository(string path, string name, string? groupId)
+    {
+        var norm = path.Replace('\\', '/').TrimEnd('/');
+        if (_ws.Repos.Any(r => r.Path.Replace('\\', '/').TrimEnd('/')
+                .Equals(norm, StringComparison.OrdinalIgnoreCase)))
+        {
+            Notify("Este repositório já está no workspace.");
+            return;
+        }
+
+        var repo = new Repo { Id = NewId(), Name = name, Path = path, GroupId = groupId };
+        _ws.Repos.Add(repo);
+        Persist();
+        RebuildTree();
+        SelectRepo(repo.Id);
+        _ = RefreshRepoAsync(repo.Id);
+    }
+
+    public void UpdateRepository(Repo repo, string name, string? groupId, string? pairKey, string? role,
+        string? remoteTemplate = null)
+    {
+        repo.RemoteTemplate = string.IsNullOrWhiteSpace(remoteTemplate) ? null : remoteTemplate.Trim();
+        repo.Name = name;
+        repo.GroupId = groupId;
+        repo.PairKey = string.IsNullOrWhiteSpace(pairKey) ? null : pairKey.Trim();
+        repo.Role = repo.PairKey is null ? null : role ?? "origem";
+        Persist();
+        RebuildTree();
+        SelectRepo(repo.Id);
+        OnPropertyChanged(nameof(HasPair));
+        OnPropertyChanged(nameof(PairTabHeader));
+    }
+
+    public void RemoveRepository(Repo repo)
+    {
+        _ws.Repos.Remove(repo);
+        Persist();
+        if (SelectedNode?.Id == repo.Id) SelectedNode = null;
+        RebuildTree();
+    }
+
+    public void UpdateGroup(string id, string name, string color)
+    {
+        var g = _ws.Groups.FirstOrDefault(x => x.Id == id);
+        if (g is null) return;
+        g.Name = name;
+        g.Color = color;
+        Persist();
+        RebuildTree();
+    }
+
+    public void RemoveGroup(string id)
+    {
+        _ws.Groups.RemoveAll(g => g.Id == id);
+        foreach (var r in _ws.Repos.Where(r => r.GroupId == id)) r.GroupId = null;
+        Persist();
+        RebuildTree();
+    }
+
+    /// <summary>Usuário do GitHub; o token correspondente fica no gerenciador do Windows.</summary>
+    public void SetGithubUser(string usuario)
+    {
+        _ws.Settings.GithubUser = usuario.Trim();
+        Persist();
+    }
+
+    public void ApplySettings(string theme, string accent, string density, int autoRefresh, int logLimit,
+        string defaultTab)
+    {
+        _ws.Settings.DefaultTab = defaultTab;
+        _ws.Settings.Theme = theme;
+        _ws.Settings.Accent = accent;
+        _ws.Settings.Density = density;
+        _ws.Settings.AutoRefreshSeconds = autoRefresh;
+        _ws.Settings.LogLimit = logLimit;
+        Persist();
+        ApplyTimer();
+    }
+
+    public static string NewId() => Guid.NewGuid().ToString("n")[..8];
+}
