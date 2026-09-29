@@ -89,9 +89,11 @@ public sealed partial class ChangesViewModel : ObservableObject
         {
             var (status, list) = await GitService.StatusAndChangesAsync(_repo.Path);
 
-            var staged = list.Where(f => f.Index != "." && f.Kind != ChangeKind.Untracked)
+            // conflito aparece só em "alterações locais" — é onde se resolve. Antes ele
+            // entrava nas duas listas, porque tem índice e working tree marcados.
+            var staged = list.Where(f => f.Kind == ChangeKind.Tracked && f.Index != ".")
                 .Select(f => new FileItemViewModel { Change = f, Staged = true });
-            var unstaged = list.Where(f => f.Index == "." || f.Worktree != ".")
+            var unstaged = list.Where(f => f.Kind != ChangeKind.Tracked || f.Index == "." || f.Worktree != ".")
                 .Select(f => new FileItemViewModel { Change = f, Staged = false });
 
             var keepStaged = SelectedStaged?.Path;

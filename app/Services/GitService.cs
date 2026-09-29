@@ -219,7 +219,12 @@ public static class GitService
         }
 
         s.Stashes = CountStashes(repo);
-        return (s, ParsePorcelainV2(raw));
+
+        var arquivos = ParsePorcelainV2(raw);
+        // arquivos distintos: o mesmo caminho pode estar preparado e alterado de novo
+        s.PendingFiles = arquivos.Select(f => f.Path).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+
+        return (s, arquivos);
     }
 
     /// <summary>

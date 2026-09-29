@@ -68,11 +68,18 @@ public sealed class RepoStatus
     public string Head { get; set; } = "";
     public string? Error { get; set; }
 
+    /// <summary>
+    /// Arquivos distintos com alteração pendente. Os contadores acima somam situações
+    /// (um arquivo preparado e alterado de novo conta nos dois), o que não serve para
+    /// dizer "quantos arquivos mexi".
+    /// </summary>
+    public int PendingFiles { get; set; }
+
     [JsonIgnore]
     public int PendingCount => Staged + Unstaged + Untracked + Conflicted;
 
     [JsonIgnore]
-    public bool IsDirty => PendingCount > 0;
+    public bool IsDirty => PendingFiles > 0 || PendingCount > 0;
 }
 
 public enum ChangeKind { Tracked, Untracked, Conflict }

@@ -77,8 +77,10 @@ public sealed partial class MainViewModel : ObservableObject
     public string BranchCaption => CurrentStatus?.Branch is { Length: > 0 } b ? b : "—";
     public string PairTabHeader => CurrentRepo?.PairKey is { Length: > 0 } k ? $"Par: {k}" : "Par";
 
-    public string ChangesTabHeader => CurrentStatus is { IsDirty: true } s
-        ? $"Alterações ({s.Staged + s.Unstaged + s.Untracked})"
+    // conta arquivos, não situações: um arquivo preparado e alterado de novo é um só,
+    // e conflito também precisa entrar na conta
+    public string ChangesTabHeader => CurrentStatus is { PendingFiles: > 0 } s
+        ? $"Alterações ({s.PendingFiles})"
         : "Alterações";
 
     // ------------------------------------------------- remoto, pasta e esteira
