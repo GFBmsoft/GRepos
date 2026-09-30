@@ -31,7 +31,12 @@ public sealed class ReleaseAsset
 public sealed class Release
 {
     public string Tag { get; init; } = "";
+    public string Nome { get; init; } = "";
     public string Url { get; init; } = "";
+
+    /// <summary>Corpo das notas, em markdown — é o changelog da versão.</summary>
+    public string Notas { get; init; } = "";
+    public DateTime? Publicada { get; init; }
     public List<ReleaseAsset> Arquivos { get; init; } = new();
 
     /// <summary>
@@ -442,6 +447,24 @@ public static class GitHubService
         return LerRelease(json);
     }
 
+    /// <summary>Releases mais recentes, da mais nova para a mais antiga.</summary>
+    public static async Task<List<Release>> ReleasesAsync(string slug, string usuario = "", int limite = 20)
+    {
+        var json = await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/releases?per_page={limite}", usuario);
+
+        var lista = new List<Release>();
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return lista;
+
+        foreach (var r in doc.RootElement.EnumerateArray())
+        {
+            var release = LerRelease(r.GetRawText());
+            if (release is not null) lista.Add(release);
+        }
+        return lista;
+    }
+
     /// <summary>Separado da rede para poder ser testado com uma resposta de verdade.</summary>
     public static Release? LerRelease(string json)
     {
@@ -463,7 +486,10 @@ public static class GitHubService
         return new Release
         {
             Tag = Texto(raiz, "tag_name"),
+            Nome = Texto(raiz, "name"),
             Url = Texto(raiz, "html_url"),
+            Notas = Texto(raiz, "body"),
+            Publicada = Data(raiz, "published_at") ?? Data(raiz, "created_at"),
             Arquivos = arquivos,
         };
     }

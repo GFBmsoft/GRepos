@@ -1,0 +1,82 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:views="using:GRepos.Views"
+        x:Class="GRepos.Views.NovidadesWindow"
+        x:DataType="vm:NovidadesViewModel"
+        Title="Novidades" Width="820" Height="600" MinWidth="620" MinHeight="400"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+      <TextBlock Text="Novidades do GRepos" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding VersaoAtual}" Classes="faint" FontSize="11" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="200,10,*">
+
+      <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                  BorderThickness="0,0,0,1">
+            <TextBlock Classes="sectionTitle" Text="VERSÕES" />
+          </Border>
+
+          <TextBlock Grid.Row="1" Text="Carregando…" Classes="faint" Margin="12,10"
+                     IsVisible="{Binding Carregando}" />
+          <TextBlock Grid.Row="1" Text="Nenhuma release publicada ainda." Classes="faint"
+                     Margin="12,10" TextWrapping="Wrap" IsVisible="{Binding Vazio}" />
+
+          <ListBox Grid.Row="1" ItemsSource="{Binding Versoes}" SelectedItem="{Binding Selecionada}"
+                   Background="Transparent" Padding="0,0,4,0">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:VersaoViewModel">
+                <Grid ColumnDefinitions="*,Auto" Margin="6,4">
+                  <StackPanel Grid.Column="0">
+                    <TextBlock Text="{Binding Tag}" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Text="{Binding Quando}" Classes="faint" FontSize="10.5" />
+                  </StackPanel>
+                  <Border Grid.Column="1" Classes="chip" VerticalAlignment="Center"
+                          IsVisible="{Binding EmUso}" BorderBrush="{DynamicResource Accent}">
+                    <TextBlock Text="atual" FontSize="9"
+                               Foreground="{DynamicResource Accent}" />
+                  </Border>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                  BorderThickness="0,0,0,1">
+            <TextBlock Classes="sectionTitle" Text="O QUE MUDOU" />
+          </Border>
+
+          <TextBlock Grid.Row="1" Text="Escolha uma versão à esquerda." Classes="faint"
+                     Margin="12,10" IsVisible="{Binding SemSelecao}" />
+
+          <ScrollViewer Grid.Row="1" Padding="14,10">
+            <views:MarkdownView Markdown="{Binding Selecionada.Notas}" />
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+      <Button Grid.Column="1" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}" />
+      <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

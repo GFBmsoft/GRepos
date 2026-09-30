@@ -298,9 +298,12 @@
 
           <TextBlock Grid.Column="2" Text="{Binding RepoCountText}" Classes="faint" FontSize="11"
                      VerticalAlignment="Center" />
-          <TextBlock Grid.Column="3" Text="{Binding VersaoTexto}" Classes="faint" FontSize="11"
-                     Margin="14,0,0,0" VerticalAlignment="Center"
-                     ToolTip.Tip="Versão e data do executável em uso" />
+          <!-- a versão é o gatilho natural do changelog: clicar nela abre as novidades -->
+          <Button Grid.Column="3" Classes="tiny" Margin="14,0,0,0" VerticalAlignment="Center"
+                  Command="{Binding AbrirNovidadesCommand}"
+                  ToolTip.Tip="Ver o que mudou em cada versão">
+            <TextBlock Text="{Binding VersaoTexto}" Classes="faint" FontSize="11" />
+          </Button>
 
           <!-- só o ícone: a versão ao lado já diz do que se trata. Ganha a cor de
                destaque quando há versão nova, para o aviso não depender só do texto -->

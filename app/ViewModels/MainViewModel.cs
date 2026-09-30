@@ -28,6 +28,9 @@ public interface IDialogService
 
     /// <summary>Janela da esteira: execuções do GitHub Actions e seus passos.</summary>
     Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome);
+
+    /// <summary>Changelog do aplicativo, lido das releases publicadas.</summary>
+    Task ShowNovidadesAsync();
     Task ShowStashAsync(MainViewModel main, Repo repo);
 }
 
@@ -141,6 +144,10 @@ public sealed partial class MainViewModel : ObservableObject
 
         Painel.Subtitulo = Painel.Resumo;
     }
+
+    /// <summary>Changelog do próprio app, montado a partir das releases publicadas.</summary>
+    [RelayCommand]
+    private Task AbrirNovidades() => _dialogs.ShowNovidadesAsync();
 
     /// <summary>Abre a janela da esteira de um repositório qualquer, vindo do painel.</summary>
     public Task AbrirEsteiraDeAsync(string slug, string branch, string usuario, string nome) =>

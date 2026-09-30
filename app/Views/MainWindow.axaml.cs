@@ -188,6 +188,8 @@ public partial class MainWindow : Window, IDialogService
     public Task ShowBranchesAsync(MainViewModel main, Repo repo) =>
         new BranchesWindow(main, repo).ShowDialog(this);
 
+    public Task ShowNovidadesAsync() => new NovidadesWindow().ShowDialog(this);
+
     public Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome) =>
         new EsteiraWindow(slug, branch, usuario, repoNome).ShowDialog(this);
 

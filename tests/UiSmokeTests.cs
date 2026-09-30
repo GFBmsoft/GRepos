@@ -47,6 +47,7 @@ public class UiSmokeTests
         public Task ShowSettingsAsync(MainViewModel main) => Task.CompletedTask;
         public Task ShowBranchesAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
         public Task ShowEsteiraAsync(string s, string b, string u, string n) => Task.CompletedTask;
+        public Task ShowNovidadesAsync() => Task.CompletedTask;
         public Task ShowStashAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
     }
 
@@ -181,6 +182,46 @@ public class UiSmokeTests
     public void PainelView_monta_vazio()
     {
         Render(new PainelView(), new PainelViewModel("Grupo novo", "", System.Array.Empty<CartaoRepoViewModel>()));
+    }
+
+    [AvaloniaFact]
+    public void NovidadesWindow_monta_com_versoes_e_notas()
+    {
+        var vm = new NovidadesViewModel();
+        vm.Versoes.Add(new VersaoViewModel
+        {
+            Release = new GRepos.Services.Release
+            {
+                Tag = "1.0.0.9",
+                Nome = "GRepos 1.0.0.9",
+                Publicada = System.DateTime.UtcNow.AddHours(-2),
+                Notas = "## Downloads\n\n- `GRepos-1.0.0.9.exe`: precisa do " +
+                        "[.NET 8](https://dotnet.microsoft.com) instalado.\n\n" +
+                        "## Mudanças\n\n- Corrige o **modo portátil**\n- Ícone no rodapé\n\n" +
+                        "```\ndotnet test\n```\n\n> nota de rodapé",
+            },
+            EmUso = true,
+        });
+        vm.Selecionada = vm.Versoes[0];
+
+        var window = new NovidadesWindow { DataContext = vm, Width = 820, Height = 600 };
+        window.Show();
+        window.Measure(new Size(820, 600));
+        window.Arrange(new Rect(0, 0, 820, 600));
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void MarkdownView_monta_todos_os_tipos_de_bloco()
+    {
+        var view = new MarkdownView
+        {
+            Markdown = "# Título\n\nParágrafo com **negrito**, *itálico*, `código` e " +
+                       "[link](https://exemplo.dev).\n\n" +
+                       "- item um\n  - subitem\n1. numerado\n\n> citação\n\n---\n\n```\nvar x = 1;\n```",
+        };
+
+        Render(view, new object());
     }
 
     [AvaloniaFact]

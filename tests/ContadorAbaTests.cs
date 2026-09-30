@@ -31,6 +31,7 @@ public class ContadorAbaTests
         public Task ShowSettingsAsync(MainViewModel m) => Task.CompletedTask;
         public Task ShowBranchesAsync(MainViewModel m, Repo r) => Task.CompletedTask;
         public Task ShowEsteiraAsync(string s, string b, string u, string n) => Task.CompletedTask;
+        public Task ShowNovidadesAsync() => Task.CompletedTask;
         public Task ShowStashAsync(MainViewModel m, Repo r) => Task.CompletedTask;
     }
 
