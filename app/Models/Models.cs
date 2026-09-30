@@ -46,6 +46,9 @@ public sealed class Settings
     /// <summary>Árvore sem pílulas: marcador redondo e nome na cor do grupo.</summary>
     public bool ArvoreMinimalista { get; set; } = true;
 
+    /// <summary>Quantas execuções a esteira mostra antes de recolher o resto.</summary>
+    public int EsteirasVisiveis { get; set; } = 6;
+
     /// <summary>Largura da sidebar em pixels, como o usuário deixou o divisor.</summary>
     public double SidebarWidth { get; set; } = 280;
 

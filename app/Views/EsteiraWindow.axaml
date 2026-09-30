@@ -25,10 +25,34 @@
     <Grid Grid.Row="2" ColumnDefinitions="312,10,*">
 
       <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
-        <Grid RowDefinitions="Auto,*">
-          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+        <Grid RowDefinitions="Auto,*,Auto">
+          <!-- contadores por situação que também filtram: clicar num deles restringe
+               a lista, clicar de novo volta ao todo -->
+          <Border Grid.Row="0" Padding="8,6" BorderBrush="{DynamicResource BorderSoft}"
                   BorderThickness="0,0,0,1">
-            <TextBlock Classes="sectionTitle" Text="EXECUÇÕES" />
+            <WrapPanel>
+              <Button Classes="tiny" Content="{Binding RotuloTodas}" Margin="0,0,4,0"
+                      Command="{Binding FiltrarCommand}" CommandParameter=""
+                      ToolTip.Tip="Mostrar todas as execuções" />
+              <Button Classes="tiny" Margin="0,0,4,0"
+                      Command="{Binding FiltrarCommand}" CommandParameter="sucesso"
+                      ToolTip.Tip="Só as que passaram">
+                <TextBlock Text="{Binding RotuloSucesso}" FontSize="11"
+                           Foreground="{DynamicResource Green}" />
+              </Button>
+              <Button Classes="tiny" Margin="0,0,4,0"
+                      Command="{Binding FiltrarCommand}" CommandParameter="falha"
+                      ToolTip.Tip="Só as que quebraram">
+                <TextBlock Text="{Binding RotuloFalha}" FontSize="11"
+                           Foreground="{DynamicResource Red}" />
+              </Button>
+              <Button Classes="tiny"
+                      Command="{Binding FiltrarCommand}" CommandParameter="rodando"
+                      ToolTip.Tip="Só as que estão rodando">
+                <TextBlock Text="{Binding RotuloRodando}" FontSize="11"
+                           Foreground="{DynamicResource Yellow}" />
+              </Button>
+            </WrapPanel>
           </Border>
 
           <TextBlock Grid.Row="1" Text="Carregando…" Classes="faint" Margin="12,10"
@@ -60,6 +84,11 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
+
+          <!-- o resto fica recolhido: a lista inteira do GitHub não cabe nem ajuda -->
+          <Button Grid.Row="2" Classes="tiny" HorizontalAlignment="Center" Margin="0,5"
+                  Content="{Binding TextoRecolhidas}" IsVisible="{Binding TemRecolhidas}"
+                  Command="{Binding AlternarRecolhidasCommand}" />
         </Grid>
       </Border>
 

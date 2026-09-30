@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using System.Linq;
 using GRepos.Services;
@@ -263,6 +264,97 @@ public class EsteiraTests
         Assert.Equal(3, lista[0].Execucao.Id);
         Assert.Equal("passou", lista[1].Rodape.Split(' ')[0]);
         Assert.DoesNotContain(antiga, lista);
+    }
+
+    /// <summary>
+    /// A esteira mostra as últimas N e recolhe o resto. O recorte precisa conviver com a
+    /// atualização automática sem recriar as linhas, senão a rolagem e o cartão aberto
+    /// se perdem a cada ciclo.
+    /// </summary>
+    [Fact]
+    public void Mostra_as_ultimas_e_recolhe_o_resto()
+    {
+        var vm = new EsteiraViewModel("bm/repo", "main", "", "Repo", null, visiveis: 3);
+        Alimentar(vm, Execucoes(10));
+
+        Assert.Equal(3, vm.Execucoes.Count);
+        Assert.Equal(7, vm.Recolhidas);
+        Assert.True(vm.TemRecolhidas);
+        Assert.Equal("mostrar mais 7", vm.TextoRecolhidas);
+
+        // a mais recente é a que abre
+        Assert.Equal(10, vm.Selecionada!.Execucao.Id);
+        var primeira = vm.Execucoes[0];
+
+        vm.Expandido = true;
+        Assert.Equal(10, vm.Execucoes.Count);
+        Assert.False(vm.TemRecolhidas);
+        Assert.Equal("mostrar menos", vm.TextoRecolhidas);
+
+        // expandir não recria o que já estava na tela
+        Assert.Same(primeira, vm.Execucoes[0]);
+        Assert.Same(primeira, vm.Selecionada);
+    }
+
+    [Fact]
+    public void Filtro_por_situacao_conta_e_restringe()
+    {
+        var vm = new EsteiraViewModel("bm/repo", "main", "", "Repo", null, visiveis: 20);
+        Alimentar(vm, new[]
+        {
+            new CiExecucao { Id = 5, Situacao = "rodando" },
+            new CiExecucao { Id = 4, Situacao = "falha" },
+            new CiExecucao { Id = 3, Situacao = "sucesso" },
+            new CiExecucao { Id = 2, Situacao = "sucesso" },
+            new CiExecucao { Id = 1, Situacao = "cancelado" },
+        });
+
+        Assert.Equal(5, vm.TotalTodas);
+        Assert.Equal(2, vm.TotalSucesso);
+        Assert.Equal(1, vm.TotalFalha);
+        Assert.Equal(1, vm.TotalRodando);
+        Assert.Equal("✓ 2", vm.RotuloSucesso);
+
+        vm.Filtro = "falha";
+        Assert.Single(vm.Execucoes);
+        Assert.Equal(4, vm.Execucoes[0].Execucao.Id);
+
+        // o cartão aberto tinha saído pelo filtro: a seleção acompanha
+        Assert.Equal(4, vm.Selecionada!.Execucao.Id);
+
+        vm.Filtro = "";
+        Assert.Equal(5, vm.Execucoes.Count);
+    }
+
+    [Fact]
+    public void Filtrar_de_novo_na_mesma_situacao_volta_para_todas()
+    {
+        var vm = new EsteiraViewModel("bm/repo", "main", "", "Repo", null, visiveis: 20);
+        Alimentar(vm, Execucoes(4));
+
+        vm.FiltrarCommand.Execute("sucesso");
+        Assert.Equal("sucesso", vm.Filtro);
+
+        vm.FiltrarCommand.Execute("sucesso");
+        Assert.Equal("", vm.Filtro);
+    }
+
+    private static CiExecucao[] Execucoes(int quantas) =>
+        Enumerable.Range(1, quantas)
+            .Reverse()
+            .Select(i => new CiExecucao { Id = i, Numero = i, Situacao = "sucesso" })
+            .ToArray();
+
+    /// <summary>Preenche a lista interna sem rede, pelo mesmo caminho do carregamento.</summary>
+    private static void Alimentar(EsteiraViewModel vm, IReadOnlyList<CiExecucao> execucoes)
+    {
+        var campo = typeof(EsteiraViewModel).GetField("_todas",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        campo.SetValue(vm, execucoes);
+
+        typeof(EsteiraViewModel).GetMethod("AplicarFiltro",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .Invoke(vm, null);
     }
 
     [Fact]

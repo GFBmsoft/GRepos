@@ -112,7 +112,7 @@ public class ScreenshotTests
         public System.Threading.Tasks.Task ShowRepoConfigAsync(MainViewModel m, Repo r) => System.Threading.Tasks.Task.CompletedTask;
         public System.Threading.Tasks.Task ShowSettingsAsync(MainViewModel m) => System.Threading.Tasks.Task.CompletedTask;
         public System.Threading.Tasks.Task ShowBranchesAsync(MainViewModel m, Repo r) => System.Threading.Tasks.Task.CompletedTask;
-        public System.Threading.Tasks.Task ShowEsteiraAsync(string s, string b, string u, string n) => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowEsteiraAsync(string s, string b, string u, string n, int v) => System.Threading.Tasks.Task.CompletedTask;
         public System.Threading.Tasks.Task ShowNovidadesAsync() => System.Threading.Tasks.Task.CompletedTask;
         public System.Threading.Tasks.Task ShowStashAsync(MainViewModel m, Repo r) => System.Threading.Tasks.Task.CompletedTask;
     }

@@ -569,6 +569,7 @@ public sealed class SettingsWindow : DialogWindow
             SelectedIndex = s.DefaultTab == "historico" ? 1 : 0,
         };
         var refresh = new NumericUpDown { Minimum = 0, Maximum = 3600, Value = s.AutoRefreshSeconds, Increment = 10 };
+        var esteiras = new NumericUpDown { Minimum = 1, Maximum = 50, Value = s.EsteirasVisiveis, Increment = 1 };
         var avisarAtualizacao = new CheckBox
         {
             Content = "Avisar quando sair uma versão nova",
@@ -896,6 +897,7 @@ public sealed class SettingsWindow : DialogWindow
             main.SetGithubUser(usuario.Text ?? "");
             main.SetAvisarAtualizacao(avisarAtualizacao.IsChecked == true);
             main.SetArvoreMinimalista(estiloArvore.SelectedIndex == 0);
+            main.SetEsteirasVisiveis((int)(esteiras.Value ?? 6));
             main.ApplySettings(
                 theme.SelectedIndex == 1 ? "light" : "dark",
                 accent,
@@ -916,6 +918,7 @@ public sealed class SettingsWindow : DialogWindow
             Field("Abrir o repositório em", abaInicial),
             Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
             Field("Commits carregados no histórico", logLimit),
+            Field("Execuções mostradas na esteira", esteiras),
             avisarAtualizacao,
             linhaAtualizacao,
             resultadoBusca,

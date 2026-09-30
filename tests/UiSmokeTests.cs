@@ -46,7 +46,7 @@ public class UiSmokeTests
         public Task ShowRepoConfigAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
         public Task ShowSettingsAsync(MainViewModel main) => Task.CompletedTask;
         public Task ShowBranchesAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
-        public Task ShowEsteiraAsync(string s, string b, string u, string n) => Task.CompletedTask;
+        public Task ShowEsteiraAsync(string s, string b, string u, string n, int v) => Task.CompletedTask;
         public Task ShowNovidadesAsync() => Task.CompletedTask;
         public Task ShowStashAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
     }

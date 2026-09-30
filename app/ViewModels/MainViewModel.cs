@@ -27,7 +27,7 @@ public interface IDialogService
     Task ShowBranchesAsync(MainViewModel main, Repo repo);
 
     /// <summary>Janela da esteira: execuções do GitHub Actions e seus passos.</summary>
-    Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome);
+    Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome, int visiveis);
 
     /// <summary>Changelog do aplicativo, lido das releases publicadas.</summary>
     Task ShowNovidadesAsync();
@@ -176,7 +176,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>Abre a janela da esteira de um repositório qualquer, vindo do painel.</summary>
     public Task AbrirEsteiraDeAsync(string slug, string branch, string usuario, string nome) =>
-        _dialogs.ShowEsteiraAsync(slug, branch, usuario, nome);
+        _dialogs.ShowEsteiraAsync(slug, branch, usuario, nome, _ws.Settings.EsteirasVisiveis);
 
     private string NomeDoGrupo(string? grupoId) =>
         _ws.Groups.FirstOrDefault(g => g.Id == (grupoId ?? ""))?.Name ?? "Sem grupo";
@@ -396,7 +396,8 @@ public sealed partial class MainViewModel : ObservableObject
             if (_ciSlug.Length > 0)
             {
                 await _dialogs.ShowEsteiraAsync(
-                    _ciSlug, CurrentStatus?.Branch ?? "", _ciUsuario, CurrentRepo?.Name ?? "");
+                    _ciSlug, CurrentStatus?.Branch ?? "", _ciUsuario, CurrentRepo?.Name ?? "",
+                    _ws.Settings.EsteirasVisiveis);
                 return;
             }
 
@@ -1166,6 +1167,16 @@ public sealed partial class MainViewModel : ObservableObject
         _ws.Settings.ArvoreMinimalista = minimalista;
         Persist();
         RebuildTree();
+    }
+
+    /// <summary>Vale para a próxima janela de esteira aberta; as abertas seguem como estão.</summary>
+    public void SetEsteirasVisiveis(int quantas)
+    {
+        var valor = Math.Clamp(quantas, 1, 50);
+        if (_ws.Settings.EsteirasVisiveis == valor) return;
+
+        _ws.Settings.EsteirasVisiveis = valor;
+        Persist();
     }
 
     /// <summary>Liga ou desliga o aviso de versão nova; desligar some com o item da barra.</summary>

@@ -12,9 +12,9 @@ public partial class EsteiraWindow : Window
         InitializeComponent();
     }
 
-    public EsteiraWindow(string slug, string branch, string usuario, string repoNome, IDialogService? dialogs = null) : this()
+    public EsteiraWindow(string slug, string branch, string usuario, string repoNome, IDialogService? dialogs = null, int visiveis = 6) : this()
     {
-        var vm = new EsteiraViewModel(slug, branch, usuario, repoNome, dialogs);
+        var vm = new EsteiraViewModel(slug, branch, usuario, repoNome, dialogs, visiveis);
         DataContext = vm;
 
         // a consulta periódica vive enquanto a janela existe: fechada, não há

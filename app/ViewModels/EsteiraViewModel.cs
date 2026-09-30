@@ -152,8 +152,9 @@ public sealed partial class EsteiraViewModel : ObservableObject
     private long _jobsCarregadosDe;
 
     public EsteiraViewModel(string slug, string branch, string usuario, string repoNome = "",
-        IDialogService? dialogs = null)
+        IDialogService? dialogs = null, int visiveis = 6)
     {
+        Visiveis = Math.Max(1, visiveis);
         _slug = slug;
         _branch = branch;
         _usuario = usuario;
@@ -194,6 +195,88 @@ public sealed partial class EsteiraViewModel : ObservableObject
     public bool SemExecucoes => !Carregando && Erro.Length == 0 && Execucoes.Count == 0;
     public bool SemSelecao => Selecionada is null;
     public bool SemJobs => !CarregandoJobs && Selecionada is not null && Jobs.Count == 0;
+
+    // -------------------------------------------------- filtro e recolhimento
+
+    /// <summary>Quantas execuções aparecem antes de recolher o resto.</summary>
+    public int Visiveis { get; }
+
+    /// <summary>Todas as execuções trazidas, antes de filtrar e recortar.</summary>
+    private IReadOnlyList<CiExecucao> _todas = Array.Empty<CiExecucao>();
+
+    /// <summary>"" mostra tudo; "sucesso", "falha" ou "rodando" restringem.</summary>
+    [ObservableProperty] private string _filtro = "";
+
+    [ObservableProperty] private bool _expandido;
+
+    public int TotalTodas => _todas.Count;
+    public int TotalSucesso => _todas.Count(e => e.Situacao == "sucesso");
+    public int TotalFalha => _todas.Count(e => e.Situacao == "falha");
+    public int TotalRodando => _todas.Count(e => e.Situacao == "rodando");
+
+    public string RotuloTodas => $"todas {TotalTodas}";
+    public string RotuloSucesso => $"✓ {TotalSucesso}";
+    public string RotuloFalha => $"✕ {TotalFalha}";
+    public string RotuloRodando => $"● {TotalRodando}";
+
+    /// <summary>Quantas ficaram de fora do recorte; zero esconde o botão de expandir.</summary>
+    [ObservableProperty] private int _recolhidas;
+
+    public bool TemRecolhidas => Recolhidas > 0;
+
+    public string TextoRecolhidas => Expandido
+        ? "mostrar menos"
+        : $"mostrar mais {Recolhidas}";
+
+    partial void OnRecolhidasChanged(int value)
+    {
+        OnPropertyChanged(nameof(TemRecolhidas));
+        OnPropertyChanged(nameof(TextoRecolhidas));
+    }
+
+    partial void OnFiltroChanged(string value) => AplicarFiltro();
+
+    partial void OnExpandidoChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TextoRecolhidas));
+        AplicarFiltro();
+    }
+
+    [RelayCommand]
+    private void Filtrar(string? situacao) => Filtro = Filtro == situacao ? "" : situacao ?? "";
+
+    [RelayCommand]
+    private void AlternarRecolhidas() => Expandido = !Expandido;
+
+    /// <summary>
+    /// Recorta o que vai para a tela. A lista é atualizada no lugar mesmo aqui: trocar a
+    /// coleção perderia o cartão selecionado a cada ciclo automático.
+    /// </summary>
+    private void AplicarFiltro()
+    {
+        var filtradas = Filtro.Length == 0
+            ? _todas
+            : _todas.Where(e => e.Situacao == Filtro).ToList();
+
+        var mostrar = Expandido ? filtradas : filtradas.Take(Visiveis).ToList();
+        Recolhidas = filtradas.Count - mostrar.Count;
+
+        ListaSync.AplicarModelos(
+            Execucoes, mostrar,
+            item => item.Execucao.Id.ToString(),
+            modelo => modelo.Id.ToString(),
+            (item, modelo) => item.Execucao = modelo,
+            modelo => new CiExecucaoViewModel { Execucao = modelo });
+
+        foreach (var p in new[] { nameof(TotalTodas), nameof(TotalSucesso), nameof(TotalFalha),
+                                  nameof(TotalRodando), nameof(RotuloTodas), nameof(RotuloSucesso),
+                                  nameof(RotuloFalha), nameof(RotuloRodando), nameof(SemExecucoes) })
+            OnPropertyChanged(p);
+
+        // o cartão aberto pode ter saído pelo filtro
+        if (Selecionada is not null && !Execucoes.Contains(Selecionada)) Selecionada = null;
+        Selecionada ??= Execucoes.FirstOrDefault();
+    }
 
     /// <summary>Recado do rodapé, para a atualização sozinha não parecer mágica.</summary>
     public string RitmoTexto => _timer.IsEnabled
@@ -363,7 +446,7 @@ public sealed partial class EsteiraViewModel : ObservableObject
     /// </summary>
     private void AjustarRitmo()
     {
-        var rodando = Execucoes.Any(e => e.Rodando);
+        var rodando = _todas.Any(e => e.Situacao == "rodando");
         var alvo = rodando ? IntervaloRodando : IntervaloParado;
 
         if (_timer.Interval == alvo) return;
@@ -402,18 +485,14 @@ public sealed partial class EsteiraViewModel : ObservableObject
 
         try
         {
+            // busca mais do que cabe na tela: o recorte e os contadores por situação
+            // precisam enxergar além das que estão visíveis
             var lista = await GitHubService.ExecucoesAsync(
-                _slug, SomenteBranch ? _branch : "", _usuario);
+                _slug, SomenteBranch ? _branch : "", _usuario, Math.Max(30, Visiveis * 3));
             Erro = "";
 
-            ListaSync.AplicarModelos(
-                Execucoes, lista,
-                item => item.Execucao.Id.ToString(),
-                modelo => modelo.Id.ToString(),
-                (item, modelo) => item.Execucao = modelo,
-                modelo => new CiExecucaoViewModel { Execucao = modelo });
-
-            Selecionada ??= Execucoes.FirstOrDefault();
+            _todas = lista;
+            AplicarFiltro();
             AjustarRitmo();
         }
         catch (Exception e)
