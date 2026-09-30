@@ -556,6 +556,12 @@ public sealed class SettingsWindow : DialogWindow
             ItemsSource = new[] { "Compacta", "Confortável" },
             SelectedIndex = s.Density == "confortavel" ? 1 : 0,
         };
+        var estiloArvore = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemsSource = new[] { "Minimalista", "Pílulas" },
+            SelectedIndex = s.ArvoreMinimalista ? 0 : 1,
+        };
         var abaInicial = new ComboBox
         {
             HorizontalAlignment = HorizontalAlignment.Stretch,
@@ -889,6 +895,7 @@ public sealed class SettingsWindow : DialogWindow
         {
             main.SetGithubUser(usuario.Text ?? "");
             main.SetAvisarAtualizacao(avisarAtualizacao.IsChecked == true);
+            main.SetArvoreMinimalista(estiloArvore.SelectedIndex == 0);
             main.ApplySettings(
                 theme.SelectedIndex == 1 ? "light" : "dark",
                 accent,
@@ -905,6 +912,7 @@ public sealed class SettingsWindow : DialogWindow
             Field("Tema", theme),
             Field("Cor de destaque", swatches),
             Field("Densidade das listas", density),
+            Field("Estilo da árvore", estiloArvore),
             Field("Abrir o repositório em", abaInicial),
             Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
             Field("Commits carregados no histórico", logLimit),

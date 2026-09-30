@@ -96,10 +96,13 @@
 
             <!-- cabeçalho do grupo: pílula com a cor do grupo como acento suave -->
             <DataTemplate DataType="vm:GroupNode">
-              <Border Classes="pilula" Margin="8,4,8,1" CornerRadius="13" BorderThickness="1"
-                      ClipToBounds="True"
+              <Panel>
+              <!-- a pílula some no estilo minimalista; o resto da linha é o mesmo -->
+              <Border Classes="pilula" Margin="8,4,8,1" CornerRadius="13" ClipToBounds="True"
+                      BorderThickness="1"
                       Background="{Binding Color, Converter={x:Static local:Converters.SoftBrush}}"
-                      BorderBrush="{Binding Color, Converter={x:Static local:Converters.EdgeBrush}}">
+                      BorderBrush="{Binding Color, Converter={x:Static local:Converters.EdgeBrush}}"
+                      IsVisible="{Binding MostraPilula}">
                 <Panel>
                   <Border Name="Realce" Background="{DynamicResource Text}" />
                   <Grid ColumnDefinitions="10,Auto,*,Auto" Height="24" Margin="9,0">
@@ -115,6 +118,24 @@
                   </Grid>
                 </Panel>
               </Border>
+
+              <!-- minimalista: chevron, ponto cheio, nome na cor do grupo, contador -->
+              <Border Classes="linha" CornerRadius="5" Margin="8,7,8,2"
+                      IsVisible="{Binding Minimalista}">
+                <Grid ColumnDefinitions="12,Auto,*,Auto" Height="26" Margin="8,0,10,0">
+                  <TextBlock Grid.Column="0" Text="{Binding Chevron}" FontSize="8" Classes="faint"
+                             FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
+                             VerticalAlignment="Center" />
+                  <Ellipse Grid.Column="1" Width="9" Height="9" Margin="2,0,0,0" VerticalAlignment="Center"
+                           Fill="{Binding Color, Converter={x:Static local:Converters.StringToBrush}}" />
+                  <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold"
+                             Margin="9,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                             Foreground="{Binding Color, Converter={x:Static local:Converters.StringToBrush}}" />
+                  <TextBlock Grid.Column="3" Text="{Binding Count}" FontSize="11" Classes="faint"
+                             VerticalAlignment="Center" />
+                </Grid>
+              </Border>
+              </Panel>
             </DataTemplate>
 
             <DataTemplate DataType="vm:PairNode">
@@ -129,11 +150,17 @@
 
             <DataTemplate DataType="vm:RepoNode">
               <Border Classes="linha" CornerRadius="5" Margin="8,0" ToolTip.Tip="{Binding Tooltip}">
-              <Grid ColumnDefinitions="2,Auto,*,Auto" Height="26" Margin="6,0,4,0">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto" Height="26" Margin="6,0,4,0">
                 <!-- traço da cor do grupo liga o repositório ao cabeçalho -->
                 <Border Grid.Column="0" Width="2" Margin="0,3,10,3" CornerRadius="1"
+                        IsVisible="{Binding MostraTraco}"
                         Background="{Binding GroupColor, Converter={x:Static local:Converters.StringToBrush}}"
                         Opacity="0.6" />
+                <!-- minimalista: marcador vazado, recuado sob o cabeçalho, como no EV03 -->
+                <Ellipse Grid.Column="0" Width="7" Height="7" Margin="16,0,9,0"
+                         VerticalAlignment="Center" IsVisible="{Binding MostraPonto}"
+                         StrokeThickness="1.4"
+                         Stroke="{Binding GroupColor, Converter={x:Static local:Converters.StringToBrush}}" />
                 <Border Grid.Column="1" Classes="chip" IsVisible="{Binding HasRole}"
                         BorderBrush="{DynamicResource Border}" Margin="0,0,5,0">
                   <TextBlock Text="{Binding RoleTag}" FontSize="9" Classes="faint" />

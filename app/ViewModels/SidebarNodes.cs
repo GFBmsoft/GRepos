@@ -29,6 +29,15 @@ public sealed partial class GroupNode : SidebarNode
     [ObservableProperty] private bool _collapsed;
     [ObservableProperty] private int _count;
 
+    /// <summary>
+    /// Estilo minimalista: sem a pílula de fundo, com o nome na cor do grupo. A escolha
+    /// chega pronta no nó porque a cor do texto depende do dado — um estilo de XAML não
+    /// troca uma cor que vem do próprio item.
+    /// </summary>
+    public bool Minimalista { get; init; }
+
+    public bool MostraPilula => !Minimalista;
+
     /// <summary>Seta do cabeçalho: para a direita quando recolhido, para baixo quando aberto.</summary>
     public string Chevron => Collapsed ? "" : "";
 
@@ -47,6 +56,12 @@ public sealed partial class RepoNode : SidebarNode
 
     [ObservableProperty] private RepoStatus? _status;
     [ObservableProperty] private bool _isPaired;
+
+    /// <summary>Marcador redondo vazado no lugar do traço lateral, como no EV03.</summary>
+    public bool Minimalista { get; init; }
+
+    public bool MostraTraco => !Minimalista;
+    public bool MostraPonto => Minimalista;
 
     /// <summary>Cor do grupo a que pertence — pinta o traço que liga ao cabeçalho.</summary>
     [ObservableProperty] private string _groupColor = "#2F7BE8";

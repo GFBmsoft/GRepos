@@ -560,7 +560,7 @@ public sealed partial class MainViewModel : ObservableObject
             if (list.Count == 0 && id == "") continue;
 
             var showCollapsed = collapsed && string.IsNullOrEmpty(q);
-            nodes.Add(new GroupNode { Id = id, Name = name, Color = color, Collapsed = showCollapsed, Count = list.Count });
+            nodes.Add(new GroupNode { Id = id, Name = name, Color = color, Collapsed = showCollapsed, Count = list.Count, Minimalista = _ws.Settings.ArvoreMinimalista });
             if (showCollapsed) continue;
 
             // repositórios pareados aparecem sob um único título — é o que evita a
@@ -588,7 +588,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private RepoNode MakeNode(Repo r, bool paired, string groupColor)
     {
-        var node = new RepoNode { Repo = r, IsPaired = paired, GroupColor = groupColor };
+        var node = new RepoNode { Repo = r, IsPaired = paired, GroupColor = groupColor, Minimalista = _ws.Settings.ArvoreMinimalista };
         _nodes[r.Id] = node;
         if (SelectedNode?.Id == r.Id) SelectedNode = node;
         return node;
@@ -1132,6 +1132,19 @@ public sealed partial class MainViewModel : ObservableObject
         {
             Atualizando = false;
         }
+    }
+
+    /// <summary>
+    /// Troca o estilo da árvore. O estilo chega pronto em cada nó, então mudar exige
+    /// remontar a árvore — não é um estilo de XAML que se aplica sozinho.
+    /// </summary>
+    public void SetArvoreMinimalista(bool minimalista)
+    {
+        if (_ws.Settings.ArvoreMinimalista == minimalista) return;
+
+        _ws.Settings.ArvoreMinimalista = minimalista;
+        Persist();
+        RebuildTree();
     }
 
     /// <summary>Liga ou desliga o aviso de versão nova; desligar some com o item da barra.</summary>

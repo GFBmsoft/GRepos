@@ -43,6 +43,9 @@ public sealed class Settings
     /// <summary>Quebra linhas longas no diff em vez de rolar na horizontal.</summary>
     public bool WrapDiff { get; set; }
 
+    /// <summary>Árvore sem pílulas: marcador redondo e nome na cor do grupo.</summary>
+    public bool ArvoreMinimalista { get; set; } = true;
+
     /// <summary>Largura da sidebar em pixels, como o usuário deixou o divisor.</summary>
     public double SidebarWidth { get; set; } = 280;
 
