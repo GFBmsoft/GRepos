@@ -555,6 +555,7 @@ public sealed class SettingsWindow : DialogWindow
         {
             FontSize = 11.5,
             TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 12), // senão "Grupos" cola no texto
             Classes = { "faint" },
             Text = MainViewModel.VersaoEmUso.Length > 0
                 ? "Consultado uma vez por dia."
@@ -588,6 +589,40 @@ public sealed class SettingsWindow : DialogWindow
             Spacing = 10,
             Margin = new Thickness(0, 6, 0, 0),
             Children = { procurar },
+        };
+
+        // ------------------------------------------------ onde ficam as configurações
+
+        var portatil = new CheckBox
+        {
+            Content = "Guardar as configurações junto do executável (modo portátil)",
+            IsChecked = WorkspaceStore.Portatil,
+        };
+        var ondeFica = new TextBlock
+        {
+            FontSize = 11.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 12),
+            Classes = { "faint" },
+            Text = WorkspaceStore.FilePath,
+        };
+
+        portatil.IsCheckedChanged += (_, _) =>
+        {
+            var querPortatil = portatil.IsChecked == true;
+            if (querPortatil == WorkspaceStore.Portatil) return;
+
+            try
+            {
+                ondeFica.Text = WorkspaceStore.MoverPara(querPortatil);
+                ondeFica.Foreground = null;
+            }
+            catch (Exception ex)
+            {
+                portatil.IsChecked = WorkspaceStore.Portatil; // volta ao que vale de fato
+                ondeFica.Text = ex.Message;
+                ondeFica.Foreground = new SolidColorBrush(Color.Parse("#E5534B"));
+            }
         };
         var logLimit = new NumericUpDown { Minimum = 50, Maximum = 5000, Value = s.LogLimit, Increment = 50 };
 
@@ -836,6 +871,8 @@ public sealed class SettingsWindow : DialogWindow
             avisarAtualizacao,
             linhaAtualizacao,
             resultadoBusca,
+            portatil,
+            ondeFica,
         };
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
 

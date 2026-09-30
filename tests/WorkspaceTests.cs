@@ -57,4 +57,51 @@ public class WorkspaceStoreTests
 
         Directory.Delete(dir, true);
     }
+
+    /// <summary>
+    /// GREPOS_HOME manda no local do workspace. Isso é o que segura os testes longe do
+    /// arquivo real do usuário, então precisa valer inclusive sobre o modo portátil.
+    /// </summary>
+    [Fact]
+    public void GREPOS_HOME_vence_o_modo_portatil()
+    {
+        var antes = System.Environment.GetEnvironmentVariable("GREPOS_HOME");
+        var dir = Path.Combine(Path.GetTempPath(), "grepos-home-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(dir);
+
+        try
+        {
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", dir);
+
+            Assert.Equal(dir, WorkspaceStore.Directory);
+            Assert.False(WorkspaceStore.Portatil);
+            Assert.Equal(Path.Combine(dir, WorkspaceStore.NomeDoArquivo), WorkspaceStore.FilePath);
+
+            // com a variável definida, escolher o local pela tela seria ambíguo
+            Assert.Throws<System.InvalidOperationException>(() => WorkspaceStore.MoverPara(true));
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { Directory.Delete(dir, true); } catch (System.Exception) { /* temporária */ }
+        }
+    }
+
+    [Fact]
+    public void Sem_arquivo_ao_lado_do_executavel_o_workspace_fica_no_perfil()
+    {
+        var antes = System.Environment.GetEnvironmentVariable("GREPOS_HOME");
+        try
+        {
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", null);
+
+            // o executável dos testes não tem workspace.json ao lado
+            Assert.False(WorkspaceStore.Portatil);
+            Assert.Equal(WorkspaceStore.PastaPadrao, WorkspaceStore.Directory);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+        }
+    }
 }

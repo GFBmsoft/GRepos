@@ -334,4 +334,14 @@
     <Setter Property="Margin" Value="0,0,5,0" />
   </Style>
 
+  <!-- A barra de rolagem permanente (a das Preferências) vem com setinhas nas pontas,
+       que destoam do resto da interface e aparecem como um bloco claro logo abaixo do
+       título. Some com elas: fica só o indicador, e o espaço continua reservado. -->
+  <Style Selector="ScrollBar /template/ RepeatButton#PART_LineUpButton">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+  <Style Selector="ScrollBar /template/ RepeatButton#PART_LineDownButton">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
 </Styles>
