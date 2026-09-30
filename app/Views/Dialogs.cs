@@ -56,6 +56,27 @@ public abstract class DialogWindow : Window
         return border;
     }
 
+    /// <summary>
+    /// Ação secundária dentro do corpo do diálogo: pequeno e só com a borda. Os botões
+    /// do rodapé continuam grandes — são a ação principal da janela.
+    /// </summary>
+    protected static Button BtnDiscreto(string texto, bool perigo = false)
+    {
+        var b = new Button
+        {
+            Content = texto,
+            MinWidth = 0,
+            Padding = new Thickness(9, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            BorderThickness = new Thickness(1), // "tiny" tira a borda; aqui ela volta
+        };
+        b.Classes.Add("tiny");
+        if (perigo) b.Classes.Add("danger");
+        b.Bind(Button.BorderBrushProperty, new DynamicResourceExtension("Border"));
+        return b;
+    }
+
     protected static Button Btn(string text, bool primary = false)
     {
         var b = new Button { Content = text, MinWidth = 88, HorizontalContentAlignment = HorizontalAlignment.Center };
@@ -550,13 +571,7 @@ public sealed class SettingsWindow : DialogWindow
 
         // Sem isto, quem abriu o app minutos antes de sair uma release ficava 24h sem
         // saber: a consulta é uma por dia e não havia como pedir outra.
-        var procurar = Btn("Procurar agora");
-        // "tiny" tira o fundo e a borda; a borda volta para o botão não virar texto solto
-        procurar.Classes.Add("tiny");
-        procurar.MinWidth = 0;
-        procurar.HorizontalAlignment = HorizontalAlignment.Left;
-        procurar.BorderThickness = new Thickness(1);
-        procurar.Bind(Button.BorderBrushProperty, new DynamicResourceExtension("Border"));
+        var procurar = BtnDiscreto("Procurar agora");
         var resultadoBusca = new TextBlock
         {
             FontSize = 11.5,
@@ -671,11 +686,8 @@ public sealed class SettingsWindow : DialogWindow
                 Margin = new Thickness(2, 0, 8, 0),
             };
             var nome = new TextBlock { Text = g.Name, VerticalAlignment = VerticalAlignment.Center };
-            var editar = Btn("Editar");
-            var del = Btn("Excluir");
-            del.Classes.Add("danger");
-            editar.MinWidth = 70;
-            del.MinWidth = 70;
+            var editar = BtnDiscreto("Editar");
+            var del = BtnDiscreto("Excluir", perigo: true);
             editar.Margin = new Thickness(6, 0, 0, 0);
             del.Margin = new Thickness(6, 0, 0, 0);
             Grid.SetColumn(nome, 1);
@@ -724,11 +736,9 @@ public sealed class SettingsWindow : DialogWindow
                    "Só o nome de usuário fica no arquivo de configuração.",
         };
 
-        var salvarToken = Btn("Salvar token");
-        var testar = Btn("Testar");
-        var remover = Btn("Remover");
-        remover.Classes.Add("danger");
-        foreach (var b in new[] { salvarToken, testar, remover }) b.MinWidth = 96;
+        var salvarToken = BtnDiscreto("Salvar token");
+        var testar = BtnDiscreto("Testar");
+        var remover = BtnDiscreto("Remover", perigo: true);
 
         // o resultado precisa saltar aos olhos: antes ele virava mais uma linha
         // cinza no meio do texto de ajuda e passava despercebido
@@ -799,8 +809,7 @@ public sealed class SettingsWindow : DialogWindow
             Classes = { "faint" },
             Text = "Verificando…",
         };
-        var configurarHelper = Btn("Usar o Gerenciador de Credenciais do Windows");
-        configurarHelper.MinWidth = 260;
+        var configurarHelper = BtnDiscreto("Usar o Gerenciador de Credenciais do Windows");
 
         async Task AtualizarHelperAsync()
         {
