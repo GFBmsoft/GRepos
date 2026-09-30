@@ -20,6 +20,13 @@ dotnet test                # xunit (parser, grafo, workspace e telas headless)
 `GREPOS_HOME` aponta o workspace para outra pasta — use sempre isso ao testar, para não
 escrever no `%APPDATA%\GRepos\workspace.json` real do usuário.
 
+**Nos testes, `GREPOS_HOME` não basta.** O xunit roda classes em paralelo e variável de
+ambiente é global ao processo: uma classe zerando a variável enquanto outra grava manda a
+gravação para o `%APPDATA%` real — foi assim que o workspace do usuário já foi apagado uma
+vez. Quem trava isso é `tests/IsolamentoDoWorkspace.cs`, um `ModuleInitializer` que
+redireciona `WorkspaceStore.PastaPadraoDeTeste` e `PastaDoAppDeTeste` antes de qualquer
+teste rodar. Não zere esses desvios num `finally`: guarde e restaure o valor anterior.
+
 Arquivo único, quando a ideia é levar só o .exe (o `dist` normal são ~20 arquivos):
 
 ```bash

@@ -104,6 +104,11 @@ public class WorkspaceStoreTests
         Directory.CreateDirectory(perfil);
         Directory.CreateDirectory(pastaApp);
 
+        // guarda os desvios globais em vez de zerá-los depois: zerar devolveria os
+        // testes ao %APPDATA% real, que é justamente o que não pode acontecer
+        var perfilAntes = WorkspaceStore.PastaPadraoDeTeste;
+        var appAntes = WorkspaceStore.PastaDoAppDeTeste;
+
         WorkspaceStore.PastaPadraoDeTeste = perfil;
         WorkspaceStore.PastaDoAppDeTeste = pastaApp;
 
@@ -133,11 +138,40 @@ public class WorkspaceStoreTests
         }
         finally
         {
-            WorkspaceStore.PastaPadraoDeTeste = null;
-            WorkspaceStore.PastaDoAppDeTeste = null;
+            WorkspaceStore.PastaPadraoDeTeste = perfilAntes;
+            WorkspaceStore.PastaDoAppDeTeste = appAntes;
             System.Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
             try { Directory.Delete(perfil, true); } catch (System.Exception) { /* temporária */ }
             try { Directory.Delete(pastaApp, true); } catch (System.Exception) { /* temporária */ }
+        }
+    }
+
+    /// <summary>
+    /// A trava que faltava. Um teste apagou o workspace real do usuário porque o xunit
+    /// roda classes em paralelo e GREPOS_HOME é global: uma classe zerou a variável
+    /// enquanto outra gravava. Agora o caminho real não é alcançável de dentro dos
+    /// testes, e este teste existe para que ninguém desfaça isso sem perceber.
+    /// </summary>
+    [Fact]
+    public void Nenhum_teste_consegue_escrever_no_workspace_real()
+    {
+        var real = Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "GRepos");
+
+        Assert.NotNull(WorkspaceStore.PastaPadraoDeTeste);
+        Assert.NotEqual(real, WorkspaceStore.PastaPadrao);
+        Assert.NotEqual(real, WorkspaceStore.PastaDoApp);
+
+        // com ou sem GREPOS_HOME, o destino continua fora do perfil do usuário
+        var antes = System.Environment.GetEnvironmentVariable("GREPOS_HOME");
+        try
+        {
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", null);
+            Assert.DoesNotContain(real, WorkspaceStore.FilePath);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
         }
     }
 
