@@ -65,15 +65,20 @@
                   </StackPanel>
                 </Border>
 
-                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Height="32" Margin="13,0,8,0">
-                  <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5"
-                              VerticalAlignment="Center">
-                    <TextBlock Text="{Binding CiSimbolo}" FontSize="11" IsVisible="{Binding TemCi}"
-                               Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}" />
-                    <TextBlock Text="{Binding CiTexto}" FontSize="10.5" Classes="faint"
-                               IsVisible="{Binding !ConsultandoCi}" />
-                    <TextBlock Text="consultando…" FontSize="10.5" Classes="faint"
-                               IsVisible="{Binding ConsultandoCi}" />
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" MinHeight="38" Margin="13,4,8,4">
+                  <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                      <TextBlock Text="{Binding CiSimbolo}" FontSize="11" IsVisible="{Binding TemCi}"
+                                 Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                      <TextBlock Text="{Binding CiTexto}" FontSize="10.5" Classes="faint"
+                                 IsVisible="{Binding !ConsultandoCi}" />
+                      <TextBlock Text="consultando…" FontSize="10.5" Classes="faint"
+                                 IsVisible="{Binding ConsultandoCi}" />
+                    </StackPanel>
+                    <!-- o que rodou: sem isto o cartão dizia a cor, mas não o assunto -->
+                    <TextBlock Text="{Binding CiDetalheTexto}" FontSize="10" Classes="faint"
+                               TextTrimming="CharacterEllipsis" MaxWidth="150"
+                               HorizontalAlignment="Left" IsVisible="{Binding TemCi}" />
                   </StackPanel>
 
                   <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
@@ -81,8 +86,8 @@
                     <Button Classes="tiny" Content="Abrir" Command="{Binding AbrirCommand}"
                             ToolTip.Tip="Selecionar este repositório" />
                     <Button Classes="tiny" Content="Esteira" IsVisible="{Binding TemCi}"
-                            Command="{Binding AbrirNoGitHubCommand}"
-                            ToolTip.Tip="Abrir a execução no GitHub" />
+                            Command="{Binding AbrirEsteiraCommand}"
+                            ToolTip.Tip="Ver as execuções e o passo a passo" />
                     <Button Classes="tiny" Content="Pasta" Command="{Binding AbrirPastaCommand}"
                             ToolTip.Tip="Abrir a pasta no Windows" />
                   </StackPanel>

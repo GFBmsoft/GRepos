@@ -142,14 +142,42 @@ public sealed partial class MainViewModel : ObservableObject
         Painel.Subtitulo = Painel.Resumo;
     }
 
+    /// <summary>Abre a janela da esteira de um repositório qualquer, vindo do painel.</summary>
+    public Task AbrirEsteiraDeAsync(string slug, string branch, string usuario, string nome) =>
+        _dialogs.ShowEsteiraAsync(slug, branch, usuario, nome);
+
     private string CorDoGrupo(string? grupoId) =>
         _ws.Groups.FirstOrDefault(g => g.Id == (grupoId ?? ""))?.Color ?? "#5D6675";
 
-    /// <summary>Leva o foco a um repositório a partir do painel.</summary>
+    /// <summary>
+    /// Leva o foco a um repositório a partir do painel. O grupo dele pode estar recolhido
+    /// — inclusive porque clicar no grupo é o que abre o painel e recolhe ao mesmo tempo —
+    /// e aí o nó nem existe na árvore. Nesse caso o grupo é aberto antes.
+    /// </summary>
     public void SelecionarRepositorio(string id)
     {
         var no = Tree.OfType<RepoNode>().FirstOrDefault(n => n.Id == id);
-        if (no is not null) SelectedNode = no;
+        if (no is null)
+        {
+            var repo = _ws.Repos.FirstOrDefault(r => r.Id == id);
+            if (repo is null) return;
+
+            var grupo = _ws.Groups.FirstOrDefault(g => g.Id == (repo.GroupId ?? ""));
+            if (grupo is { Collapsed: true })
+            {
+                grupo.Collapsed = false;
+                Persist();
+            }
+
+            // o filtro também esconde nós; limpá-lo garante que o repositório apareça
+            if (Filter.Length > 0) Filter = "";
+            RebuildTree();
+
+            no = Tree.OfType<RepoNode>().FirstOrDefault(n => n.Id == id);
+            if (no is null) return;
+        }
+
+        SelectedNode = no;
     }
     public bool HasPair => PairRepoOf(CurrentRepo) is not null;
     public bool ShowError => CurrentStatus?.Error is { Length: > 0 };

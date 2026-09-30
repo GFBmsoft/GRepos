@@ -32,6 +32,11 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
     [ObservableProperty] private string _ciSituacao = "";
     [ObservableProperty] private string _ciDetalhe = "";
     [ObservableProperty] private string _ciUrl = "";
+    [ObservableProperty] private string _ciWorkflow = "";
+
+    /// <summary>"owner/repo" e conta, guardados para abrir a esteira deste repositório.</summary>
+    public string Slug { get; set; } = "";
+    public string Usuario { get; set; } = "";
 
     public string Nome => Repo.Name;
     public string Caminho => Repo.Path;
@@ -78,26 +83,55 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
     public string CiCor => CiVisual.Cor(CiSituacao);
     public string CiSimbolo => CiVisual.Simbolo(CiSituacao);
 
-    public string Tooltip => TemErro ? $"{Caminho}\n{Erro}" : Caminho;
+    /// <summary>O que rodou, abaixo da situação: "build · Painel de repositórios".</summary>
+    public string CiDetalheTexto
+    {
+        get
+        {
+            if (!TemCi) return "";
+            var partes = new[] { CiWorkflow, CiDetalhe }.Where(p => p.Length > 0);
+            return string.Join(" · ", partes);
+        }
+    }
+
+    public string Tooltip
+    {
+        get
+        {
+            if (TemErro) return $"{Caminho}\n{Erro}";
+            var detalhe = CiDetalheTexto;
+            return detalhe.Length > 0 ? $"{Caminho}\n{CiTexto} — {detalhe}" : Caminho;
+        }
+    }
 
     partial void OnStatusChanged(RepoStatus? value) => OnPropertyChanged(string.Empty);
 
     partial void OnCiSituacaoChanged(string value)
     {
         foreach (var p in new[] { nameof(ConsultandoCi), nameof(SemCi), nameof(TemCi),
-                                  nameof(CiTexto), nameof(CiCor), nameof(CiSimbolo) })
+                                  nameof(CiTexto), nameof(CiCor), nameof(CiSimbolo),
+                                  nameof(CiDetalheTexto), nameof(Tooltip) })
             OnPropertyChanged(p);
     }
 
     [RelayCommand]
     private void Abrir() => _main?.SelecionarRepositorio(Repo.Id);
 
+    /// <summary>
+    /// Abre a esteira deste repositório dentro do app, com o passo a passo — e não a
+    /// página do GitHub: o cartão mostra a situação, o detalhe fica na janela.
+    /// </summary>
     [RelayCommand]
-    private void AbrirNoGitHub()
+    private async Task AbrirEsteiraAsync()
     {
         try
         {
-            if (CiUrl.Length > 0) ShellService.AbrirUrl(CiUrl);
+            if (_main is null) return;
+
+            if (Slug.Length > 0)
+                await _main.AbrirEsteiraDeAsync(Slug, Status?.Branch ?? "", Usuario, Nome);
+            else if (CiUrl.Length > 0)
+                ShellService.AbrirUrl(CiUrl);
         }
         catch (Exception e)
         {
@@ -187,12 +221,16 @@ public sealed partial class PainelViewModel : ObservableObject
                 return;
             }
 
-            var run = await GitHubService.UltimaExecucaoAsync(
-                slug, cartao.Status?.Branch ?? "", GitHubService.Usuario(remoto));
+            cartao.Slug = slug;
+            cartao.Usuario = GitHubService.Usuario(remoto);
 
-            cartao.CiSituacao = run.Situacao;
+            var run = await GitHubService.UltimaExecucaoAsync(
+                slug, cartao.Status?.Branch ?? "", cartao.Usuario);
+
             cartao.CiDetalhe = run.Detalhe;
+            cartao.CiWorkflow = run.Workflow;
             cartao.CiUrl = run.Url;
+            cartao.CiSituacao = run.Situacao; // por último: é ele que reavisa a tela
         }
         catch (Exception)
         {
