@@ -173,8 +173,10 @@ public static class GitHubService
     }
 
     /// <summary>
-    /// Helper de credenciais configurado no git global. Vazio significa que o git não
-    /// guarda nada: cada push abre a janela de login de novo.
+    /// Helper de credenciais que o git realmente vai usar. A leitura é sem escopo de
+    /// propósito: o Git for Windows instala o "manager" no gitconfig do sistema, e
+    /// perguntar só pelo --global dizia "nenhum" numa máquina que tinha helper.
+    /// Vazio aqui significa mesmo que nada será guardado entre um push e outro.
     /// </summary>
     public static async Task<string> HelperAsync()
     {
@@ -182,7 +184,7 @@ public static class GitHubService
         {
             var saida = await GitService.RunWithEnvAsync(
                 System.IO.Path.GetTempPath(),
-                new[] { "config", "--global", "--get-all", "credential.helper" },
+                new[] { "config", "--get-all", "credential.helper" },
                 null,
                 ("GCM_INTERACTIVE", "never"), ("GIT_TERMINAL_PROMPT", "0"));
 
