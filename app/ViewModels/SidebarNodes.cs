@@ -8,6 +8,18 @@ public abstract partial class SidebarNode : ObservableObject
 {
 }
 
+/// <summary>Entrada do painel geral, no topo da árvore.</summary>
+public sealed partial class PainelNode : SidebarNode
+{
+    public string Titulo { get; init; } = "Painel";
+    public string Subtitulo { get; init; } = "";
+}
+
+/// <summary>Linha divisória: separa o painel dos grupos, sem virar item clicável.</summary>
+public sealed partial class SeparadorNode : SidebarNode
+{
+}
+
 public sealed partial class GroupNode : SidebarNode
 {
     public string Id { get; init; } = "";

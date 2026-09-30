@@ -42,7 +42,7 @@ public sealed partial class MainViewModel : ObservableObject
     public MainViewModel(IDialogService dialogs)
     {
         _dialogs = dialogs;
-        _timer.Tick += async (_, _) => await RefreshAllAsync();
+        _timer.Tick += async (_, _) => await RefreshAllSilenciosoAsync();
     }
 
     // -------------------------------------------------------------- estado
@@ -72,6 +72,85 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool HasSelection => SelectedNode is not null;
     public bool NoSelection => SelectedNode is null;
+
+    // ---------------------------------------------------------------- painel
+
+    /// <summary>
+    /// Painel de um grupo (ou de todos). Enquanto ele existe, as abas do repositório
+    /// saem da tela: clicar num grupo estava deixando à mostra as alterações de um
+    /// repositório que não era mais o selecionado.
+    /// </summary>
+    [ObservableProperty] private PainelViewModel? _painel;
+
+    public bool PainelAtivo => Painel is not null;
+
+    /// <summary>Convite de "nada selecionado": some quando o painel ocupa a tela.</summary>
+    public bool SemNadaSelecionado => SelectedNode is null && Painel is null;
+
+    partial void OnPainelChanged(PainelViewModel? value)
+    {
+        OnPropertyChanged(nameof(PainelAtivo));
+        OnPropertyChanged(nameof(SemNadaSelecionado));
+    }
+
+    /// <summary>
+    /// Monta o painel de um grupo — ou do workspace inteiro, com grupoId nulo.
+    /// Some com a seleção de repositório: são duas visões do mesmo espaço.
+    /// </summary>
+    public void MostrarPainel(string? grupoId)
+    {
+        SelectedNode = null;
+
+        var repos = grupoId is null
+            ? _ws.Repos.ToList()
+            : _ws.Repos.Where(r => (r.GroupId ?? "") == grupoId).ToList();
+
+        var grupo = grupoId is null ? null : _ws.Groups.FirstOrDefault(g => g.Id == grupoId);
+        var titulo = grupo?.Name ?? (grupoId is null ? "Todos os repositórios" : "Sem grupo");
+
+        var cartoes = repos
+            .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(r => new CartaoRepoViewModel(
+                r,
+                _nodes.TryGetValue(r.Id, out var no) ? no.Status : null,
+                CorDoGrupo(r.GroupId),
+                this));
+
+        Painel = new PainelViewModel(titulo, "", cartoes, this);
+        Painel.Subtitulo = Painel.Resumo;
+        _ = CarregarPainelAsync();
+    }
+
+    private async Task CarregarPainelAsync()
+    {
+        var painel = Painel;
+        if (painel is null) return;
+
+        await painel.CarregarEsteirasAsync();
+        if (ReferenceEquals(painel, Painel)) painel.Subtitulo = painel.Resumo;
+    }
+
+    /// <summary>Repassa ao painel o status recém-varrido, sem refazer os cartões.</summary>
+    public void AtualizarCartoesDoPainel()
+    {
+        if (Painel is null) return;
+
+        foreach (var cartao in Painel.Cartoes)
+            if (_nodes.TryGetValue(cartao.Repo.Id, out var no))
+                cartao.Status = no.Status;
+
+        Painel.Subtitulo = Painel.Resumo;
+    }
+
+    private string CorDoGrupo(string? grupoId) =>
+        _ws.Groups.FirstOrDefault(g => g.Id == (grupoId ?? ""))?.Color ?? "#5D6675";
+
+    /// <summary>Leva o foco a um repositório a partir do painel.</summary>
+    public void SelecionarRepositorio(string id)
+    {
+        var no = Tree.OfType<RepoNode>().FirstOrDefault(n => n.Id == id);
+        if (no is not null) SelectedNode = no;
+    }
     public bool HasPair => PairRepoOf(CurrentRepo) is not null;
     public bool ShowError => CurrentStatus?.Error is { Length: > 0 };
     public string ErrorText => CurrentStatus?.Error ?? "";
@@ -409,6 +488,17 @@ public sealed partial class MainViewModel : ObservableObject
                 r.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 r.Path.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
 
+        // painel geral no topo, separado dos grupos por uma linha
+        if (_ws.Repos.Count > 0)
+        {
+            nodes.Add(new PainelNode
+            {
+                Titulo = "Painel",
+                Subtitulo = $"{_ws.Repos.Count} repositório(s)",
+            });
+            nodes.Add(new SeparadorNode());
+        }
+
         var groups = _ws.Groups.Select(g => (g.Id, g.Name, g.Color, g.Collapsed)).ToList();
         groups.Add(("", "Sem grupo", "#5D6675", false));
 
@@ -463,8 +553,11 @@ public sealed partial class MainViewModel : ObservableObject
                                   nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine), nameof(ChangesTabHeader),
                                   nameof(PairTabHeader), nameof(BehindBadge), nameof(AheadBadge),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText),
-                                  nameof(ForaDaPrincipal) })
+                                  nameof(ForaDaPrincipal), nameof(SemNadaSelecionado) })
             OnPropertyChanged(n);
+
+        // repositório e painel são visões concorrentes: escolher um fecha o outro
+        if (value is not null) Painel = null;
 
         Changes = null;
         History = null;
@@ -562,11 +655,29 @@ public sealed partial class MainViewModel : ObservableObject
 
     // -------------------------------------------------------------- status
 
+    /// <summary>
+    /// Guarda de reentrada separada do <see cref="Scanning"/>: o segundo é estado de
+    /// tela e só vale para a varredura que o usuário pediu.
+    /// </summary>
+    private bool _varrendo;
+
     [RelayCommand]
-    public async Task RefreshAllAsync()
+    public Task RefreshAllAsync() => VarrerAsync(automatica: false);
+
+    /// <summary>
+    /// Varredura do cronômetro. Não mexe no <see cref="Scanning"/> nem mostra erro: ela
+    /// acontece a cada minuto sozinha, e piscar o botão de atualizar ou abrir um aviso
+    /// por causa de uma oscilação de rede faz o app parecer estar sendo operado por
+    /// outra pessoa.
+    /// </summary>
+    public Task RefreshAllSilenciosoAsync() => VarrerAsync(automatica: true);
+
+    private async Task VarrerAsync(bool automatica)
     {
-        if (Scanning || _ws.Repos.Count == 0) return;
-        Scanning = true;
+        if (_varrendo || _ws.Repos.Count == 0) return;
+
+        _varrendo = true;
+        if (!automatica) Scanning = true;
         try
         {
             var repos = _ws.Repos.ToList();
@@ -584,11 +695,12 @@ public sealed partial class MainViewModel : ObservableObject
         }
         catch (Exception e)
         {
-            Notify(e.Message, true);
+            if (!automatica) Notify(e.Message, true);
         }
         finally
         {
-            Scanning = false;
+            _varrendo = false;
+            if (!automatica) Scanning = false;
         }
     }
 

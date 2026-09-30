@@ -73,6 +73,27 @@
 
           <ListBox.DataTemplates>
 
+            <!-- painel geral, no topo -->
+            <DataTemplate DataType="vm:PainelNode">
+              <Border Classes="linha" CornerRadius="5" Margin="8,4,8,2"
+                      ToolTip.Tip="Ver todos os repositórios em cartões">
+                <Grid ColumnDefinitions="Auto,*" Height="28" Margin="10,0">
+                  <TextBlock Grid.Column="0" Text="&#xE80F;" FontSize="12" Classes="faint"
+                             FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Titulo}" FontSize="11.5" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="10" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+
+            <!-- divisória: não é item clicável, só separa o painel dos grupos -->
+            <DataTemplate DataType="vm:SeparadorNode">
+              <Border Height="1" Margin="12,5" Background="{DynamicResource Border}" />
+            </DataTemplate>
+
             <!-- cabeçalho do grupo: pílula com a cor do grupo como acento suave -->
             <DataTemplate DataType="vm:GroupNode">
               <Border Classes="pilula" Margin="8,4,8,1" CornerRadius="13" BorderThickness="1"
@@ -214,7 +235,10 @@
       <!-- conteúdo -->
       <Grid Grid.Row="1">
 
-        <StackPanel IsVisible="{Binding NoSelection}" HorizontalAlignment="Center"
+        <views:PainelView DataContext="{Binding Painel}"
+                          IsVisible="{Binding $parent[Window].DataContext.PainelAtivo}" />
+
+        <StackPanel IsVisible="{Binding SemNadaSelecionado}" HorizontalAlignment="Center"
                     VerticalAlignment="Center" Spacing="10" MaxWidth="430">
           <TextBlock Text="Nenhum repositório selecionado" Classes="dim" FontSize="15"
                      FontWeight="SemiBold" HorizontalAlignment="Center" />

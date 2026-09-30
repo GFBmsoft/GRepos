@@ -182,6 +182,35 @@ public class ScreenshotTests
         }
     }
 
+    /// <summary>Painel do grupo, com um cartão de cada situação.</summary>
+    [AvaloniaFact]
+    public void Painel_do_grupo_com_cartoes()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+
+        var cartoes = new[]
+        {
+            new CartaoRepoViewModel(new Repo { Id = "r1", Name = "Financeiro (DBISAM)" },
+                new RepoStatus { Branch = "main" }, "#DB4C9B", main) { CiSituacao = "sucesso" },
+            new CartaoRepoViewModel(new Repo { Id = "r2", Name = "Notas" },
+                new RepoStatus { Branch = "fix/CorrecaoTbEdit", Ahead = 2, Behind = 1, Unstaged = 3, PendingFiles = 3 },
+                "#1F9D55", main) { CiSituacao = "falha" },
+            new CartaoRepoViewModel(new Repo { Id = "r3", Name = "Backup" },
+                new RepoStatus { Branch = "main", Conflicted = 2 }, "#F0883E", main) { CiSituacao = "nenhum" },
+            new CartaoRepoViewModel(new Repo { Id = "r4", Name = "BmIntegra" },
+                new RepoStatus { Branch = "main", Ahead = 5 }, "#4F8CFF", main) { CiSituacao = "rodando" },
+            new CartaoRepoViewModel(new Repo { Id = "r5", Name = "Compras" },
+                new RepoStatus { Branch = "main" }, "#56D4BC", main),
+            new CartaoRepoViewModel(new Repo { Id = "r6", Name = "Servidor antigo" },
+                new RepoStatus { Error = "pasta não encontrada" }, "#5D6675", main) { CiSituacao = "nenhum" },
+        };
+
+        var vm = new PainelViewModel("Módulos BMSoft", "", cartoes, main);
+        vm.Subtitulo = vm.Resumo;
+
+        Shot(new PainelView(), vm, "painel", 1000, 560);
+    }
+
     [AvaloniaFact]
     public void Historico_com_commit_selecionado()
     {

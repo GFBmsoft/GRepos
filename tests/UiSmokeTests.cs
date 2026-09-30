@@ -145,6 +145,45 @@ public class UiSmokeTests
     }
 
     [AvaloniaFact]
+    public void PainelView_monta_com_cartoes_em_situacoes_diferentes()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+
+        // um de cada situação: é o que constrói todos os ramos do template
+        var limpo = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "Financeiro" },
+            new RepoStatus { Branch = "main" }, "#DB4C9B", main) { CiSituacao = "sucesso" };
+
+        var sujo = new CartaoRepoViewModel(
+            new Repo { Id = "r2", Name = "Notas" },
+            new RepoStatus { Branch = "fix/x", Ahead = 2, Behind = 1, Unstaged = 3, PendingFiles = 3 },
+            "#1F9D55", main) { CiSituacao = "falha" };
+
+        var semCi = new CartaoRepoViewModel(
+            new Repo { Id = "r3", Name = "Backup" },
+            new RepoStatus { Branch = "main", Conflicted = 2 }, "#5D6675", main) { CiSituacao = "nenhum" };
+
+        // ainda consultando a API: o cartão não pode aparecer como "sem esteira"
+        var consultando = new CartaoRepoViewModel(
+            new Repo { Id = "r4", Name = "DAV" }, new RepoStatus { Branch = "main" }, "#4F8CFF", main);
+
+        var comErro = new CartaoRepoViewModel(
+            new Repo { Id = "r5", Name = "Sumiu" },
+            new RepoStatus { Error = "pasta não encontrada" }, "#5D6675", main) { CiSituacao = "nenhum" };
+
+        var vm = new PainelViewModel("Módulos", "5 repositório(s)",
+            new[] { limpo, sujo, semCi, consultando, comErro }, main);
+
+        Render(new PainelView(), vm);
+    }
+
+    [AvaloniaFact]
+    public void PainelView_monta_vazio()
+    {
+        Render(new PainelView(), new PainelViewModel("Grupo novo", "", System.Array.Empty<CartaoRepoViewModel>()));
+    }
+
+    [AvaloniaFact]
     public void EsteiraWindow_monta_com_execucoes_e_passos()
     {
         var vm = new EsteiraViewModel("bmsoft/financeiro", "main", "GFBmsoft", "Financeiro");

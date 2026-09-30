@@ -111,4 +111,47 @@ public class FlickerDiagnosticoTests
         }
         finally { Limpar(dir); }
     }
+
+    /// <summary>
+    /// A varredura do cronômetro acontece sozinha a cada minuto. Se ela mexer no
+    /// Scanning, o botão "Atualizar todos" acinzenta e volta por conta própria — e de
+    /// fora parece que alguém clicou nele.
+    /// </summary>
+    [Fact]
+    public async Task Varredura_automatica_nao_pisca_o_botao_de_atualizar()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-auto-" + Path.GetRandomFileName());
+        var repo = Path.Combine(home, "repo");
+        Directory.CreateDirectory(repo);
+
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+
+        try
+        {
+            await GitService.RunAsync(repo, new[] { "init", "-q", "-b", "main" });
+
+            var main = new MainViewModel(new FakeDialogs());
+            main.AddRepository(repo, "Demo", null);
+
+            var trocas = 0;
+            main.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(MainViewModel.Scanning)) trocas++;
+            };
+
+            await main.RefreshAllSilenciosoAsync();
+            _saida.WriteLine($"trocas de Scanning na automática ... {trocas}");
+            Assert.True(trocas == 0, $"a varredura automática mexeu no botão {trocas} vezes");
+
+            // a que o usuário pediu continua sinalizando: ele quer ver que está rodando
+            await main.RefreshAllAsync();
+            Assert.Equal(2, trocas);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            Limpar(home);
+        }
+    }
 }

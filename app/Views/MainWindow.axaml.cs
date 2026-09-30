@@ -132,10 +132,18 @@ public partial class MainWindow : Window, IDialogService
             case RepoNode node:
                 _vm.SelectedNode = node;
                 break;
+            // clicar no grupo abre o painel dele e recolhe/expande de uma vez: era
+            // estranho continuar vendo as alterações de um repositório não selecionado
             case GroupNode group:
-                list.SelectedItem = _vm.SelectedNode;
+                list.SelectedItem = null;
+                _vm.MostrarPainel(group.Id.Length == 0 ? "" : group.Id);
                 _vm.ToggleGroupCommand.Execute(group);
                 break;
+            case PainelNode:
+                list.SelectedItem = null;
+                _vm.MostrarPainel(null);
+                break;
+            case SeparadorNode:
             case PairNode:
                 list.SelectedItem = _vm.SelectedNode;
                 break;

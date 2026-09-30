@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:local="using:GRepos"
+             x:Class="GRepos.Views.PainelView"
+             x:DataType="vm:PainelViewModel">
+
+  <Grid RowDefinitions="Auto,*" Margin="16,14,16,10">
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <StackPanel Grid.Column="0">
+        <TextBlock Text="{Binding Titulo}" FontSize="16" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="11.5" />
+      </StackPanel>
+      <Button Grid.Column="1" Content="Atualizar" MinWidth="96" VerticalAlignment="Center"
+              Command="{Binding AtualizarCommand}" />
+    </Grid>
+
+    <TextBlock Grid.Row="1" Classes="faint" TextWrapping="Wrap" MaxWidth="420"
+               HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+               IsVisible="{Binding Vazio}"
+               Text="Nenhum repositório neste grupo. Use o ⚙ de um repositório para movê-lo para cá." />
+
+    <!-- os cartões reencaixam sozinhos conforme a janela muda de tamanho -->
+    <ScrollViewer Grid.Row="1" IsVisible="{Binding !Vazio}">
+      <ItemsControl ItemsSource="{Binding Cartoes}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="vm:CartaoRepoViewModel">
+            <Border Classes="card" Width="286" Margin="0,0,10,10" Padding="0"
+                    ClipToBounds="True" ToolTip.Tip="{Binding Tooltip}">
+              <Grid RowDefinitions="Auto,Auto,Auto">
+
+                <!-- faixa com a cor do grupo, como na sidebar -->
+                <Grid Grid.Row="0" ColumnDefinitions="3,*" Height="40">
+                  <Border Grid.Column="0"
+                          Background="{Binding CorDoGrupo, Converter={x:Static local:Converters.StringToBrush}}" />
+                  <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" FontSize="12.5"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Branch}" Classes="faint" FontSize="10.5"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Padding="13,8" BorderBrush="{DynamicResource BorderSoft}"
+                        BorderThickness="0,1,0,1">
+                  <StackPanel Orientation="Horizontal" Spacing="9" MinHeight="18">
+                    <TextBlock Text="{Binding AheadTexto}" FontSize="11" IsVisible="{Binding MostraAhead}"
+                               Foreground="{DynamicResource Green}" />
+                    <TextBlock Text="{Binding BehindTexto}" FontSize="11" IsVisible="{Binding MostraBehind}"
+                               Foreground="{DynamicResource Orange}" />
+                    <TextBlock Text="{Binding ConflitoTexto}" FontSize="11" IsVisible="{Binding MostraConflito}"
+                               Foreground="{DynamicResource Red}" />
+                    <TextBlock Text="{Binding SujoTexto}" FontSize="11" IsVisible="{Binding MostraSujo}"
+                               Foreground="{DynamicResource Yellow}" />
+                    <TextBlock Text="em dia" FontSize="11" Classes="faint" IsVisible="{Binding EmDia}" />
+                    <TextBlock Text="indisponível" FontSize="11" IsVisible="{Binding TemErro}"
+                               Foreground="{DynamicResource Red}" />
+                  </StackPanel>
+                </Border>
+
+                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Height="32" Margin="13,0,8,0">
+                  <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5"
+                              VerticalAlignment="Center">
+                    <TextBlock Text="{Binding CiSimbolo}" FontSize="11" IsVisible="{Binding TemCi}"
+                               Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                    <TextBlock Text="{Binding CiTexto}" FontSize="10.5" Classes="faint"
+                               IsVisible="{Binding !ConsultandoCi}" />
+                    <TextBlock Text="consultando…" FontSize="10.5" Classes="faint"
+                               IsVisible="{Binding ConsultandoCi}" />
+                  </StackPanel>
+
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
+                              VerticalAlignment="Center">
+                    <Button Classes="tiny" Content="Abrir" Command="{Binding AbrirCommand}"
+                            ToolTip.Tip="Selecionar este repositório" />
+                    <Button Classes="tiny" Content="Esteira" IsVisible="{Binding TemCi}"
+                            Command="{Binding AbrirNoGitHubCommand}"
+                            ToolTip.Tip="Abrir a execução no GitHub" />
+                    <Button Classes="tiny" Content="Pasta" Command="{Binding AbrirPastaCommand}"
+                            ToolTip.Tip="Abrir a pasta no Windows" />
+                  </StackPanel>
+                </Grid>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </Grid>
+</UserControl>
