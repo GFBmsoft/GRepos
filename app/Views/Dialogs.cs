@@ -551,6 +551,12 @@ public sealed class SettingsWindow : DialogWindow
         // Sem isto, quem abriu o app minutos antes de sair uma release ficava 24h sem
         // saber: a consulta é uma por dia e não havia como pedir outra.
         var procurar = Btn("Procurar agora");
+        // "tiny" tira o fundo e a borda; a borda volta para o botão não virar texto solto
+        procurar.Classes.Add("tiny");
+        procurar.MinWidth = 0;
+        procurar.HorizontalAlignment = HorizontalAlignment.Left;
+        procurar.BorderThickness = new Thickness(1);
+        procurar.Bind(Button.BorderBrushProperty, new DynamicResourceExtension("Border"));
         var resultadoBusca = new TextBlock
         {
             FontSize = 11.5,

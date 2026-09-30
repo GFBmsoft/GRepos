@@ -334,14 +334,40 @@
     <Setter Property="Margin" Value="0,0,5,0" />
   </Style>
 
-  <!-- A barra de rolagem permanente (a das Preferências) vem com setinhas nas pontas,
-       que destoam do resto da interface e aparecem como um bloco claro logo abaixo do
-       título. Some com elas: fica só o indicador, e o espaço continua reservado. -->
+  <!-- Barra de rolagem fina e sem setas. A barra permanente do tema Fluent traz
+       setinhas nas pontas e um fundo próprio que, ao rolar, piscam como sujeira no
+       canto. Aqui sobra o indicador: largura fixa, fundo transparente e cantos
+       arredondados. A largura fixa é o que mantém o espaço reservado no layout. -->
   <Style Selector="ScrollBar /template/ RepeatButton#PART_LineUpButton">
     <Setter Property="IsVisible" Value="False" />
   </Style>
   <Style Selector="ScrollBar /template/ RepeatButton#PART_LineDownButton">
     <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="ScrollBar:vertical">
+    <Setter Property="Width" Value="9" />
+    <Setter Property="MinWidth" Value="9" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="ScrollBar:horizontal">
+    <Setter Property="Height" Value="9" />
+    <Setter Property="MinHeight" Value="9" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ Border">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="ScrollBar /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource Border}" />
+    <Setter Property="CornerRadius" Value="3" />
+  </Style>
+
+  <Style Selector="ScrollBar:pointerover /template/ Thumb">
+    <Setter Property="Background" Value="{DynamicResource TextFaint}" />
   </Style>
 
 </Styles>
