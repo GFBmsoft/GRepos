@@ -117,6 +117,63 @@ public class MarkdownTests
     }
 
     [Fact]
+    public void Tabela_vira_linhas_e_celulas()
+    {
+        var blocos = MarkdownParser.Blocos(
+            "| Arquivo | Tamanho | Exige |\n" +
+            "| --- | ---: | :---: |\n" +
+            "| `GRepos.exe` | ~25 MB | [.NET 8](https://dot.net) |\n" +
+            "| standalone | ~89 MB | nada |");
+
+        var tabela = Assert.Single(blocos);
+        Assert.Equal(BlocoMdTipo.Tabela, tabela.Tipo);
+        Assert.Equal(3, tabela.Linhas.Count);
+
+        Assert.True(tabela.Linhas[0].Cabecalho);
+        Assert.False(tabela.Linhas[1].Cabecalho);
+        Assert.Equal(3, tabela.Linhas[0].Celulas.Count);
+        Assert.Equal("Tamanho", tabela.Linhas[0].Celulas[1].Single().Texto);
+
+        // a formatação dentro da célula continua valendo
+        Assert.True(tabela.Linhas[1].Celulas[0].Single().Codigo);
+        Assert.Equal("https://dot.net", tabela.Linhas[1].Celulas[2].Single().Link);
+    }
+
+    [Fact]
+    public void Linha_com_barra_sem_separador_nao_e_tabela()
+    {
+        // "a | b" solto no texto é parágrafo, não cabeçalho de tabela
+        var blocos = MarkdownParser.Blocos("use a | b para escolher\n\noutra linha");
+        Assert.All(blocos, b => Assert.Equal(BlocoMdTipo.Paragrafo, b.Tipo));
+    }
+
+    [Fact]
+    public void Imagem_vira_apenas_o_texto_alternativo()
+    {
+        var trechos = MarkdownParser.Trechos("![build](https://x.dev/badge.svg) e texto");
+
+        // o "!" solto no meio da frase era pior que não mostrar a imagem
+        Assert.DoesNotContain(trechos, t => t.Texto.Contains('!'));
+        Assert.Contains(trechos, t => t.Texto == "build" && t.Italico);
+        Assert.Contains(trechos, t => t.Texto.Contains("e texto"));
+    }
+
+    [Fact]
+    public void Selo_de_build_e_um_link_com_imagem_dentro()
+    {
+        // é a primeira linha do README deste projeto
+        var trechos = MarkdownParser.Trechos(
+            "[![build](https://github.com/x/y/badge.svg)](https://github.com/x/y/actions)");
+
+        var link = Assert.Single(trechos, t => t.Link.Length > 0);
+        Assert.Equal("build", link.Texto);
+        Assert.Equal("https://github.com/x/y/actions", link.Link);
+
+        // nada de marcação vazando para a tela
+        Assert.All(trechos, t => Assert.DoesNotContain("](", t.Texto));
+    }
+
+    [Fact]
     public void Entrada_vazia_ou_nula_devolve_lista_vazia()
     {
         Assert.Empty(MarkdownParser.Blocos(""));

@@ -4,7 +4,15 @@ using System.Text;
 
 namespace GRepos.Services;
 
-public enum BlocoMdTipo { Paragrafo, Titulo, Item, Codigo, Citacao, Regua }
+public enum BlocoMdTipo { Paragrafo, Titulo, Item, Codigo, Citacao, Regua, Tabela }
+
+/// <summary>Uma linha da tabela; as células já vêm com a formatação inline resolvida.</summary>
+public sealed class LinhaTabelaMd
+{
+    public bool Cabecalho { get; init; }
+    public IReadOnlyList<IReadOnlyList<TrechoMd>> Celulas { get; init; } =
+        Array.Empty<IReadOnlyList<TrechoMd>>();
+}
 
 /// <summary>Um pedaço de texto com formatação inline.</summary>
 public sealed class TrechoMd
@@ -32,6 +40,9 @@ public sealed class BlocoMd
     public string Texto { get; init; } = "";
 
     public IReadOnlyList<TrechoMd> Trechos { get; init; } = Array.Empty<TrechoMd>();
+
+    /// <summary>Preenchido só quando <see cref="Tipo"/> é <see cref="BlocoMdTipo.Tabela"/>.</summary>
+    public IReadOnlyList<LinhaTabelaMd> Linhas { get; init; } = Array.Empty<LinhaTabelaMd>();
 }
 
 /// <summary>
@@ -116,6 +127,28 @@ public static class MarkdownParser
                 }
             }
 
+            // tabela: uma linha com barras seguida da linha de tracinhos
+            if (semEspaco.Contains('|') && i + 1 < linhas.Length && EhSeparadorDeTabela(linhas[i + 1]))
+            {
+                FecharParagrafo();
+
+                var linhasTabela = new List<LinhaTabelaMd>
+                {
+                    new() { Cabecalho = true, Celulas = Celulas(semEspaco) },
+                };
+
+                i += 2; // pula o separador
+                while (i < linhas.Length && linhas[i].Contains('|') && linhas[i].Trim().Length > 0)
+                {
+                    linhasTabela.Add(new LinhaTabelaMd { Celulas = Celulas(linhas[i]) });
+                    i++;
+                }
+                i--; // o for incrementa de novo
+
+                blocos.Add(new BlocoMd { Tipo = BlocoMdTipo.Tabela, Linhas = linhasTabela });
+                continue;
+            }
+
             if (semEspaco.StartsWith("> ", StringComparison.Ordinal) || semEspaco == ">")
             {
                 FecharParagrafo();
@@ -148,6 +181,30 @@ public static class MarkdownParser
 
         FecharParagrafo();
         return blocos;
+    }
+
+    /// <summary>A linha "|---|:--:|---|" que confirma que a anterior era o cabeçalho.</summary>
+    private static bool EhSeparadorDeTabela(string linha)
+    {
+        var limpa = linha.Trim();
+        if (!limpa.Contains('-') || !limpa.Contains('|')) return false;
+
+        foreach (var c in limpa)
+            if (c is not ('|' or '-' or ':' or ' ')) return false;
+
+        return true;
+    }
+
+    /// <summary>Células de uma linha de tabela, sem as barras das pontas.</summary>
+    private static List<IReadOnlyList<TrechoMd>> Celulas(string linha)
+    {
+        var bruta = linha.Trim().Trim('|');
+        var saida = new List<IReadOnlyList<TrechoMd>>();
+
+        foreach (var celula in bruta.Split('|'))
+            saida.Add(Trechos(celula.Trim()));
+
+        return saida;
     }
 
     private static bool EhTudo(string texto, char c)
@@ -193,6 +250,26 @@ public static class MarkdownParser
     private static bool Delimita(string linha, int inicio, int fim) =>
         fim > inicio && !char.IsWhiteSpace(linha[inicio]) && !char.IsWhiteSpace(linha[fim - 1]);
 
+    /// <summary>Colchete que fecha o de <paramref name="abre"/>, contando aninhamento.</summary>
+    private static int FechaColchete(string linha, int abre)
+    {
+        var nivel = 0;
+        for (var i = abre; i < linha.Length; i++)
+        {
+            if (linha[i] == '[') nivel++;
+            else if (linha[i] == ']' && --nivel == 0) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>Texto puro de um rótulo de link, descartando a marcação interna.</summary>
+    private static string SoTexto(string rotulo)
+    {
+        var sb = new StringBuilder();
+        foreach (var t in Trechos(rotulo)) sb.Append(t.Texto);
+        return sb.ToString();
+    }
+
     public static List<TrechoMd> Trechos(string linha)
     {
         var saida = new List<TrechoMd>();
@@ -223,19 +300,41 @@ public static class MarkdownParser
                 }
             }
 
-            // [texto](url)
+            // ![alt](url): imagem não é desenhada, mas o "!" solto no meio do texto é
+            // pior que nada — fica só o alt, discreto, como legenda
+            if (linha[i] == '!' && i + 1 < linha.Length && linha[i + 1] == '[')
+            {
+                var fechaAlt = linha.IndexOf(']', i + 2);
+                if (fechaAlt > i && fechaAlt + 1 < linha.Length && linha[fechaAlt + 1] == '(')
+                {
+                    var fimUrl = linha.IndexOf(')', fechaAlt + 2);
+                    if (fimUrl > fechaAlt)
+                    {
+                        Descarregar();
+                        var alt = linha[(i + 2)..fechaAlt];
+                        if (alt.Length > 0) saida.Add(new TrechoMd { Texto = alt, Italico = true });
+                        i = fimUrl + 1;
+                        continue;
+                    }
+                }
+            }
+
+            // [texto](url), inclusive [![alt](img)](url) — o selo de build é assim, e
+            // sem contar os colchetes aninhados o rótulo saía cru na tela
             if (linha[i] == '[')
             {
-                var fechaTexto = linha.IndexOf(']', i + 1);
+                var fechaTexto = FechaColchete(linha, i);
                 if (fechaTexto > i && fechaTexto + 1 < linha.Length && linha[fechaTexto + 1] == '(')
                 {
                     var fechaUrl = linha.IndexOf(')', fechaTexto + 2);
                     if (fechaUrl > fechaTexto)
                     {
                         Descarregar();
+
+                        var rotulo = linha[(i + 1)..fechaTexto];
                         saida.Add(new TrechoMd
                         {
-                            Texto = linha[(i + 1)..fechaTexto],
+                            Texto = SoTexto(rotulo),
                             Link = linha[(fechaTexto + 2)..fechaUrl].Trim(),
                         });
                         i = fechaUrl + 1;

@@ -273,6 +273,13 @@
           <TabItem Header="{Binding PairTabHeader}" IsVisible="{Binding HasPair}">
             <views:PairView DataContext="{Binding Pair}" />
           </TabItem>
+          <!-- só aparece quando o repositório tem README: aba vazia é ruído -->
+          <TabItem Header="Leia-me" IsVisible="{Binding TemLeiame}">
+            <ScrollViewer Padding="22,16">
+              <views:MarkdownView Markdown="{Binding LeiameTexto}" MaxWidth="820"
+                                  HorizontalAlignment="Left" />
+            </ScrollViewer>
+          </TabItem>
         </TabControl>
       </Grid>
 

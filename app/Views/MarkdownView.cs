@@ -50,8 +50,57 @@ public class MarkdownView : UserControl
         BlocoMdTipo.Citacao => Citacao(bloco),
         BlocoMdTipo.Titulo => Titulo(bloco),
         BlocoMdTipo.Item => Item(bloco),
+        BlocoMdTipo.Tabela => Tabela(bloco),
         _ => Paragrafo(bloco),
     };
+
+    /// <summary>Tabela simples: cabeçalho em negrito com régua embaixo, colunas iguais.</summary>
+    private Control Tabela(BlocoMd bloco)
+    {
+        var colunas = 0;
+        foreach (var linha in bloco.Linhas)
+            if (linha.Celulas.Count > colunas) colunas = linha.Celulas.Count;
+
+        if (colunas == 0) return new Border();
+
+        var grade = new Grid { Margin = new Thickness(0, 4, 0, 10) };
+        for (var c = 0; c < colunas; c++)
+            grade.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
+        for (var l = 0; l < bloco.Linhas.Count; l++)
+            grade.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+
+        for (var l = 0; l < bloco.Linhas.Count; l++)
+        {
+            var linha = bloco.Linhas[l];
+            for (var c = 0; c < linha.Celulas.Count; c++)
+            {
+                var celula = Texto(new BlocoMd { Trechos = linha.Celulas[c] }, 12);
+                celula.Margin = new Thickness(0, 4, 18, 4);
+                if (linha.Cabecalho) celula.FontWeight = FontWeight.SemiBold;
+
+                Grid.SetRow(celula, l);
+                Grid.SetColumn(celula, c);
+                grade.Children.Add(celula);
+            }
+
+            if (!linha.Cabecalho) continue;
+
+            var regua = new Border { Height = 1, VerticalAlignment = VerticalAlignment.Bottom };
+            regua.Bind(Border.BackgroundProperty, new DynamicResourceExtension("Border"));
+            Grid.SetRow(regua, l);
+            Grid.SetColumn(regua, 0);
+            Grid.SetColumnSpan(regua, colunas);
+            grade.Children.Add(regua);
+        }
+
+        // tabela larga rola na horizontal em vez de espremer o resto da página
+        return new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Content = grade,
+        };
+    }
 
     private static Control Regua()
     {

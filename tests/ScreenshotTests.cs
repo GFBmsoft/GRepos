@@ -212,6 +212,23 @@ public class ScreenshotTests
         Shot(new PainelView(), vm, "painel", 1000, 560);
     }
 
+    /// <summary>README de verdade — o deste projeto — renderizado na aba Leia-me.</summary>
+    [AvaloniaFact]
+    public void Leiame_renderizado()
+    {
+        var raiz = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", ".."));
+        var texto = Leiame.Ler(raiz);
+        if (texto.Length == 0) return; // rodando fora da árvore do projeto
+
+        var view = new ScrollViewer
+        {
+            Padding = new Avalonia.Thickness(22, 16),
+            Content = new MarkdownView { Markdown = texto, MaxWidth = 820 },
+        };
+
+        Shot(view, new object(), "leiame", 900, 700);
+    }
+
     [AvaloniaFact]
     public void Historico_com_commit_selecionado()
     {

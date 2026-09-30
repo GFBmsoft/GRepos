@@ -210,6 +210,13 @@ public sealed partial class MainViewModel : ObservableObject
     }
     public string PairTabHeader => CurrentRepo?.PairKey is { Length: > 0 } k ? $"Par: {k}" : "Par";
 
+    /// <summary>README do repositório selecionado, renderizado na aba "Leia-me".</summary>
+    [ObservableProperty] private string _leiameTexto = "";
+
+    public bool TemLeiame => LeiameTexto.Length > 0;
+
+    partial void OnLeiameTextoChanged(string value) => OnPropertyChanged(nameof(TemLeiame));
+
     // conta arquivos, não situações: um arquivo preparado e alterado de novo é um só,
     // e conflito também precisa entrar na conta
     public string ChangesTabHeader => CurrentStatus is { PendingFiles: > 0 } s
@@ -607,6 +614,20 @@ public sealed partial class MainViewModel : ObservableObject
 
         // acompanha o repositório aberto: salvar um arquivo no editor atualiza a lista
         _watcher = new RepoWatcher(repo.Path, () => Dispatcher.UIThread.Post(() => _ = OnDiskChangedAsync(repo.Id)));
+        // leitura de arquivo é barata, mas não na thread da UI a cada troca de repositório.
+        // A volta é pelo Dispatcher: FromCurrentSynchronizationContext não existe fora da
+        // thread de UI, e quebrava todo teste que só exercita o ViewModel.
+        LeiameTexto = "";
+        var alvo = repo;
+        _ = Task.Run(() =>
+        {
+            var texto = Leiame.Ler(alvo.Path);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (SelectedNode?.Repo.Id == alvo.Id) LeiameTexto = texto;
+            });
+        });
+
         Changes = new ChangesViewModel(repo, this, SplitDiff);
         History = new HistoryViewModel(repo, this, _ws.Settings.LogLimit, SplitDiff);
         Changes.Diff.Wrap = WrapDiff;
