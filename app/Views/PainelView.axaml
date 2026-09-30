@@ -23,6 +23,76 @@
 
     <!-- os cartões reencaixam sozinhos conforme a janela muda de tamanho -->
     <ScrollViewer Grid.Row="1" IsVisible="{Binding !Vazio}">
+     <StackPanel>
+
+      <!-- perfil: só no painel geral, com os números da conta e os do disco separados -->
+      <Border Classes="card" Margin="0,0,10,14" Padding="16,13" IsVisible="{Binding TemPerfil}">
+        <StackPanel DataContext="{Binding Perfil}" Spacing="10">
+
+          <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Grid.Column="0">
+              <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="13.5"
+                         Foreground="{DynamicResource Accent}" Classes="mono" />
+              <TextBlock Text="{Binding Nome}" Classes="dim" FontSize="11.5" />
+              <TextBlock Text="{Binding Bio}" Classes="faint" FontSize="11" TextWrapping="Wrap"
+                         MaxWidth="520" HorizontalAlignment="Left" IsVisible="{Binding TemBio}" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+              <TextBlock Text="{Binding Empresa}" Classes="faint" FontSize="11"
+                         HorizontalAlignment="Right" IsVisible="{Binding TemEmpresa}" />
+              <TextBlock Text="{Binding Local}" Classes="faint" FontSize="11"
+                         HorizontalAlignment="Right" IsVisible="{Binding TemLocal}" />
+            </StackPanel>
+          </Grid>
+
+          <TextBlock Text="{Binding Erro}" FontSize="11" TextWrapping="Wrap"
+                     Foreground="{DynamicResource Red}" IsVisible="{Binding TemErro}" />
+
+          <Border Height="1" Background="{DynamicResource BorderSoft}" />
+
+          <WrapPanel>
+            <StackPanel Margin="0,0,34,4">
+              <TextBlock Text="Repositórios" Classes="faint" FontSize="10" />
+              <TextBlock Text="{Binding Repositorios}" FontSize="15" FontWeight="SemiBold" />
+            </StackPanel>
+            <StackPanel Margin="0,0,34,4">
+              <TextBlock Text="Estrelas" Classes="faint" FontSize="10" />
+              <TextBlock Text="{Binding Estrelas}" FontSize="15" FontWeight="SemiBold"
+                         Foreground="{DynamicResource Yellow}" />
+            </StackPanel>
+            <StackPanel Margin="0,0,34,4">
+              <TextBlock Text="Seguidores" Classes="faint" FontSize="10" />
+              <TextBlock Text="{Binding Seguidores}" FontSize="15" FontWeight="SemiBold" />
+            </StackPanel>
+            <StackPanel Margin="0,0,34,4">
+              <TextBlock Text="Nesta máquina" Classes="faint" FontSize="10" />
+              <TextBlock Text="{Binding ReposLocais}" FontSize="15" FontWeight="SemiBold" />
+            </StackPanel>
+            <StackPanel Margin="0,0,34,4">
+              <TextBlock Text="Linhas de código" Classes="faint" FontSize="10" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding LinhasTexto}" FontSize="15" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Green}" />
+                <Button Classes="tiny" Content="contar" VerticalAlignment="Center"
+                        IsVisible="{Binding !LinhasContadas}"
+                        IsEnabled="{Binding !ContandoLinhas}"
+                        Command="{Binding ContarLinhasCommand}"
+                        ToolTip.Tip="Percorre o histórico de cada repositório local; pode demorar" />
+              </StackPanel>
+              <TextBlock Text="{Binding LinhasDetalhe}" Classes="faint" FontSize="10" />
+              <TextBlock Text="{Binding ProgressoLinhas}" Classes="faint" FontSize="10"
+                         IsVisible="{Binding ContandoLinhas}" />
+            </StackPanel>
+            <StackPanel Margin="0,0,0,4">
+              <TextBlock Text="Linguagens" Classes="faint" FontSize="10" />
+              <TextBlock Text="{Binding Linguagens}" FontSize="12.5" MaxWidth="260"
+                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                         Margin="0,3,0,0" />
+            </StackPanel>
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+
       <ItemsControl ItemsSource="{Binding Cartoes}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
@@ -103,6 +173,7 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
+     </StackPanel>
     </ScrollViewer>
   </Grid>
 </UserControl>

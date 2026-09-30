@@ -216,6 +216,13 @@ public sealed partial class PainelViewModel : ObservableObject
     [ObservableProperty] private string _subtitulo = "";
     [ObservableProperty] private ObservableCollection<CartaoRepoViewModel> _cartoes = new();
 
+    /// <summary>Cartão de perfil; só o painel geral tem um, os de grupo não.</summary>
+    [ObservableProperty] private PerfilViewModel? _perfil;
+
+    public bool TemPerfil => Perfil is not null;
+
+    partial void OnPerfilChanged(PerfilViewModel? value) => OnPropertyChanged(nameof(TemPerfil));
+
     public bool Vazio => Cartoes.Count == 0;
 
     public string Resumo

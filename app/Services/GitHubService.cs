@@ -47,6 +47,25 @@ public sealed class Release
         a.Nome.EndsWith("-standalone.exe", StringComparison.OrdinalIgnoreCase));
 }
 
+/// <summary>Conta do GitHub, no estilo do cartão de perfil.</summary>
+public sealed class Perfil
+{
+    public string Login { get; init; } = "";
+    public string Nome { get; init; } = "";
+    public string Bio { get; init; } = "";
+    public string Local { get; init; } = "";
+    public string Empresa { get; init; } = "";
+    public int RepositoriosPublicos { get; init; }
+    public int Seguidores { get; init; }
+    public int Seguindo { get; init; }
+
+    /// <summary>Somadas dos repositórios próprios; -1 enquanto não foi consultado.</summary>
+    public int Estrelas { get; init; } = -1;
+
+    /// <summary>Linguagens mais frequentes nos repositórios, da mais para a menos usada.</summary>
+    public IReadOnlyList<string> Linguagens { get; init; } = Array.Empty<string>();
+}
+
 /// <summary>Pull request, como aparece no cartão do painel.</summary>
 public sealed class PullRequest
 {
@@ -463,6 +482,99 @@ public static class GitHubService
         var json = await BaixarAsync($"https://api.github.com/repos/{slug}/releases/latest", usuario);
         return LerRelease(json);
     }
+
+    // --------------------------------------------------------------- perfil
+
+    /// <summary>
+    /// Conta do GitHub com o que dá para saber em duas chamadas: os dados do usuário e
+    /// a lista de repositórios, de onde saem estrelas somadas e linguagens.
+    ///
+    /// Total de commits fica de fora de propósito: só sai pela API de busca, que tem
+    /// limite próprio e bem mais apertado, e erraria com frequência.
+    /// </summary>
+    public static async Task<Perfil> PerfilAsync(string login)
+    {
+        if (string.IsNullOrWhiteSpace(login))
+            throw new InvalidOperationException(
+                "Informe o usuário do GitHub em Preferências → Autenticação.");
+
+        login = login.Trim();
+        var perfil = LerPerfil(await BaixarAsync($"https://api.github.com/users/{login}", login));
+
+        try
+        {
+            var repos = await BaixarAsync(
+                $"https://api.github.com/users/{login}/repos?per_page=100&type=owner", login);
+            var (estrelas, linguagens) = LerEstatisticasDeRepos(repos);
+
+            return new Perfil
+            {
+                Login = perfil.Login,
+                Nome = perfil.Nome,
+                Bio = perfil.Bio,
+                Local = perfil.Local,
+                Empresa = perfil.Empresa,
+                RepositoriosPublicos = perfil.RepositoriosPublicos,
+                Seguidores = perfil.Seguidores,
+                Seguindo = perfil.Seguindo,
+                Estrelas = estrelas,
+                Linguagens = linguagens,
+            };
+        }
+        catch (Exception)
+        {
+            return perfil; // sem a lista de repositórios o resto ainda vale
+        }
+    }
+
+    public static Perfil LerPerfil(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var r = doc.RootElement;
+
+        return new Perfil
+        {
+            Login = Texto(r, "login"),
+            Nome = Texto(r, "name"),
+            Bio = Texto(r, "bio"),
+            Local = Texto(r, "location"),
+            Empresa = Texto(r, "company"),
+            RepositoriosPublicos = Inteiro(r, "public_repos"),
+            Seguidores = Inteiro(r, "followers"),
+            Seguindo = Inteiro(r, "following"),
+        };
+    }
+
+    /// <summary>Estrelas somadas e linguagens por frequência, a partir da lista de repos.</summary>
+    public static (int Estrelas, List<string> Linguagens) LerEstatisticasDeRepos(string json)
+    {
+        var estrelas = 0;
+        var contagem = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return (0, new List<string>());
+
+        foreach (var repo in doc.RootElement.EnumerateArray())
+        {
+            // fork infla a conta com estrelas que não são suas
+            if (repo.TryGetProperty("fork", out var f) && f.ValueKind == JsonValueKind.True) continue;
+
+            estrelas += Inteiro(repo, "stargazers_count");
+
+            var lang = Texto(repo, "language");
+            if (lang.Length > 0) contagem[lang] = contagem.GetValueOrDefault(lang) + 1;
+        }
+
+        var linguagens = contagem.OrderByDescending(p => p.Value)
+                                 .ThenBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+                                 .Select(p => p.Key)
+                                 .ToList();
+
+        return (estrelas, linguagens);
+    }
+
+    private static int Inteiro(JsonElement e, string campo) =>
+        e.TryGetProperty(campo, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
 
     // -------------------------------------------------------- pull requests
 

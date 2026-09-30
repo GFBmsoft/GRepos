@@ -121,6 +121,14 @@ public sealed partial class MainViewModel : ObservableObject
 
         Painel = new PainelViewModel(titulo, "", cartoes, this);
         Painel.Subtitulo = Painel.Resumo;
+
+        // o cartão de perfil é da conta inteira, não de um grupo
+        if (grupoId is null && _ws.Settings.GithubUser.Length > 0)
+        {
+            Painel.Perfil = new PerfilViewModel(_ws.Settings.GithubUser, _ws.Repos.ToList());
+            _ = Painel.Perfil.CarregarAsync();
+        }
+
         _ = CarregarPainelAsync();
     }
 

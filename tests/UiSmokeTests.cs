@@ -175,6 +175,17 @@ public class UiSmokeTests
         var vm = new PainelViewModel("Módulos", "5 repositório(s)",
             new[] { limpo, sujo, semCi, consultando, comErro }, main);
 
+        // o cartão de perfil é outro template: precisa ser construído aqui também
+        vm.Perfil = new PerfilViewModel("GFBmsoft", new[] { limpo.Repo, sujo.Repo })
+        {
+            Perfil = new GRepos.Services.Perfil
+            {
+                Login = "GFBmsoft", Nome = "Gabriel", Bio = "bio", Empresa = "BMSoft",
+                Local = "SC", RepositoriosPublicos = 3, Seguidores = 4, Estrelas = 13,
+                Linguagens = new[] { "C#" },
+            },
+        };
+
         Render(new PainelView(), vm);
     }
 

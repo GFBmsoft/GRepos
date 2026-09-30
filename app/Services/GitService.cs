@@ -485,6 +485,37 @@ public static class GitService
     public static Task<string> CheckoutAsync(string repo, string name) => Run(repo, "checkout", name);
 
     /// <summary>
+    /// Linhas adicionadas e removidas em todo o histórico. Merges ficam de fora: as
+    /// mudanças deles já foram contadas nos commits de origem, e incluí-los dobraria
+    /// o número. Arquivo binário vem como "-" e não entra na conta.
+    ///
+    /// É a operação mais cara do app num repositório grande — percorre o histórico
+    /// inteiro —, então roda sob demanda, nunca ao abrir uma tela.
+    /// </summary>
+    public static async Task<(long Adicionadas, long Removidas)> ContarLinhasAsync(string repo)
+    {
+        var saida = await Run(repo, "log", "--numstat", "--pretty=tformat:", "--no-merges");
+        return SomarNumstat(saida);
+    }
+
+    /// <summary>Separado para poder ser testado sem montar um histórico de verdade.</summary>
+    internal static (long Adicionadas, long Removidas) SomarNumstat(string saida)
+    {
+        long mais = 0, menos = 0;
+
+        foreach (var linha in saida.Split('\n'))
+        {
+            var partes = linha.Split('\t');
+            if (partes.Length < 3) continue;
+
+            if (long.TryParse(partes[0], out var a)) mais += a;
+            if (long.TryParse(partes[1], out var r)) menos += r;
+        }
+
+        return (mais, menos);
+    }
+
+    /// <summary>
     /// Marca o repositório como confiável (safe.directory). O git bloqueia pastas de
     /// outro dono do Windows — comum em cópias de backup e discos que vieram de outra máquina.
     /// </summary>

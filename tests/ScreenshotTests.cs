@@ -206,8 +206,26 @@ public class ScreenshotTests
                 new RepoStatus { Error = "pasta não encontrada" }, "#5D6675", main) { CiSituacao = "nenhum" },
         };
 
-        var vm = new PainelViewModel("Módulos BMSoft", "", cartoes, main);
+        var vm = new PainelViewModel("Todos os repositórios", "", cartoes, main);
         vm.Subtitulo = vm.Resumo;
+        vm.Perfil = new PerfilViewModel("GFBmsoft", cartoes.Select(c => c.Repo).ToList())
+        {
+            Perfil = new GRepos.Services.Perfil
+            {
+                Login = "GFBmsoft",
+                Nome = "Gabriel Ferreira",
+                Bio = "Delphi, Golang, C — Bmsoft Sistemas",
+                Empresa = "Bmsoft Sistemas",
+                Local = "Rio do Sul, SC",
+                RepositoriosPublicos = 3,
+                Seguidores = 4,
+                Estrelas = 13,
+                Linguagens = new[] { "C#", "Pascal", "Lua" },
+            },
+            LinhasAdicionadas = 46_835,
+            LinhasRemovidas = 9_770,
+            LinhasContadas = true,
+        };
 
         Shot(new PainelView(), vm, "painel", 1000, 560);
     }
