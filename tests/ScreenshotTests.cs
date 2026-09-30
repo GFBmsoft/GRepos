@@ -195,7 +195,7 @@ public class ScreenshotTests
                 new RepoStatus { Branch = "main" }, "#DB4C9B", main) { CiSituacao = "sucesso" },
             new CartaoRepoViewModel(new Repo { Id = "r2", Name = "Notas" },
                 new RepoStatus { Branch = "fix/CorrecaoTbEdit", Ahead = 2, Behind = 1, Unstaged = 3, PendingFiles = 3 },
-                "#1F9D55", main) { CiSituacao = "falha" },
+                "#1F9D55", main) { CiSituacao = "falha", PrConsultado = true, PrsAbertos = 2 },
             new CartaoRepoViewModel(new Repo { Id = "r3", Name = "Backup" },
                 new RepoStatus { Branch = "main", Conflicted = 2 }, "#F0883E", main) { CiSituacao = "nenhum" },
             new CartaoRepoViewModel(new Repo { Id = "r4", Name = "BmIntegra" },

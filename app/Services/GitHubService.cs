@@ -47,6 +47,23 @@ public sealed class Release
         a.Nome.EndsWith("-standalone.exe", StringComparison.OrdinalIgnoreCase));
 }
 
+/// <summary>Pull request, como aparece no cartão do painel.</summary>
+public sealed class PullRequest
+{
+    public int Numero { get; init; }
+    public string Titulo { get; init; } = "";
+    public string Autor { get; init; } = "";
+    public string Url { get; init; } = "";
+    public bool Rascunho { get; init; }
+
+    /// <summary>"aberto", "mesclado" ou "fechado".</summary>
+    public string Estado { get; init; } = "aberto";
+
+    public DateTime? Atualizado { get; init; }
+
+    public bool Aberto => Estado == "aberto";
+}
+
 /// <summary>Uma execução do GitHub Actions, como aparece no cartão da esteira.</summary>
 public sealed class CiExecucao
 {
@@ -445,6 +462,56 @@ public static class GitHubService
     {
         var json = await BaixarAsync($"https://api.github.com/repos/{slug}/releases/latest", usuario);
         return LerRelease(json);
+    }
+
+    // -------------------------------------------------------- pull requests
+
+    /// <summary>Guardado como o status da esteira: o painel consulta vários repositórios.</summary>
+    private static readonly ConcurrentDictionary<string, (DateTime Quando, List<PullRequest> Prs)> CachePrs = new();
+
+    /// <summary>
+    /// Pull requests mais recentemente mexidos, abertos ou não. Vem de "state=all" porque
+    /// o cartão mostra a contagem de abertos **e** o último movimento, seja ele qual for.
+    /// </summary>
+    public static async Task<List<PullRequest>> PullRequestsAsync(string slug, string usuario = "", int limite = 10)
+    {
+        if (CachePrs.TryGetValue(slug, out var guardado) && DateTime.UtcNow - guardado.Quando < Validade)
+            return guardado.Prs;
+
+        var url = $"https://api.github.com/repos/{slug}/pulls" +
+                  $"?state=all&sort=updated&direction=desc&per_page={limite}";
+
+        var lista = LerPullRequests(await BaixarAsync(url, usuario));
+        CachePrs[slug] = (DateTime.UtcNow, lista);
+        return lista;
+    }
+
+    /// <summary>Separado da rede para poder ser testado com uma resposta de verdade.</summary>
+    public static List<PullRequest> LerPullRequests(string json)
+    {
+        var lista = new List<PullRequest>();
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return lista;
+
+        foreach (var p in doc.RootElement.EnumerateArray())
+        {
+            // "merged_at" preenchido é o que separa mesclado de simplesmente fechado
+            var mesclado = p.TryGetProperty("merged_at", out var m) && m.ValueKind == JsonValueKind.String;
+            var estado = Texto(p, "state") == "open" ? "aberto" : mesclado ? "mesclado" : "fechado";
+
+            lista.Add(new PullRequest
+            {
+                Numero = p.TryGetProperty("number", out var n) && n.ValueKind == JsonValueKind.Number
+                    ? n.GetInt32() : 0,
+                Titulo = Texto(p, "title"),
+                Autor = p.TryGetProperty("user", out var u) ? Texto(u, "login") : "",
+                Url = Texto(p, "html_url"),
+                Rascunho = p.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True,
+                Estado = estado,
+                Atualizado = Data(p, "updated_at"),
+            });
+        }
+        return lista;
     }
 
     /// <summary>Releases mais recentes, da mais nova para a mais antiga.</summary>

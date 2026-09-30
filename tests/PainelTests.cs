@@ -109,6 +109,63 @@ public class PainelTests
         Assert.Contains("build · Painel de repositórios", cartao.Tooltip);
     }
 
+    private const string PrsJson = """
+    [
+      { "number": 12, "title": "Painel de repositórios", "state": "open", "draft": false,
+        "html_url": "https://github.com/x/y/pull/12", "updated_at": "2026-09-30T18:00:00Z",
+        "merged_at": null, "user": { "login": "GFBmsoft" } },
+      { "number": 11, "title": "Esteira detalhada", "state": "closed",
+        "html_url": "https://github.com/x/y/pull/11", "updated_at": "2026-09-29T10:00:00Z",
+        "merged_at": "2026-09-29T10:05:00Z", "user": { "login": "GFBmsoft" } },
+      { "number": 10, "title": "Tentativa abandonada", "state": "closed",
+        "html_url": "https://github.com/x/y/pull/10", "updated_at": "2026-09-28T10:00:00Z",
+        "merged_at": null, "user": { "login": "outro" } }
+    ]
+    """;
+
+    [Fact]
+    public void Mesclado_e_fechado_sao_estados_diferentes()
+    {
+        var prs = GitHubService.LerPullRequests(PrsJson);
+
+        Assert.Equal(3, prs.Count);
+        Assert.Equal("aberto", prs[0].Estado);
+        Assert.True(prs[0].Aberto);
+
+        // merged_at preenchido é o que separa "mesclado" de simplesmente "fechado"
+        Assert.Equal("mesclado", prs[1].Estado);
+        Assert.Equal("fechado", prs[2].Estado);
+        Assert.Single(prs, p => p.Aberto);
+    }
+
+    [Fact]
+    public void Resposta_sem_prs_nao_quebra()
+    {
+        Assert.Empty(GitHubService.LerPullRequests("[]"));
+        Assert.Empty(GitHubService.LerPullRequests("""{"message":"Not Found"}"""));
+    }
+
+    [Fact]
+    public void Cartao_conta_so_os_prs_abertos()
+    {
+        var cartao = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "GRepos" }, new RepoStatus { Branch = "main" }, "#fff");
+
+        Assert.False(cartao.TemPrs);
+        Assert.Equal("", cartao.PrTexto);
+
+        cartao.PrConsultado = true;
+        cartao.PrsAbertos = 1;
+        Assert.True(cartao.TemPrs);
+        Assert.Equal("1 PR aberto", cartao.PrTexto);
+
+        cartao.PrsAbertos = 3;
+        Assert.Equal("3 PRs abertos", cartao.PrTexto);
+
+        cartao.PrsAbertos = 0;
+        Assert.False(cartao.TemPrs);
+    }
+
     [Fact]
     public void Resumo_conta_o_que_precisa_de_atencao()
     {

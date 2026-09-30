@@ -94,13 +94,55 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
         }
     }
 
+    // ------------------------------------------------------- pull requests
+
+    [ObservableProperty] private int _prsAbertos;
+    [ObservableProperty] private string _prUltimo = "";
+    [ObservableProperty] private bool _prConsultado;
+
+    public bool TemPrs => PrConsultado && PrsAbertos > 0;
+
+    public string PrTexto => PrsAbertos switch
+    {
+        0 => "",
+        1 => "1 PR aberto",
+        _ => $"{PrsAbertos} PRs abertos",
+    };
+
+    partial void OnPrsAbertosChanged(int value)
+    {
+        OnPropertyChanged(nameof(TemPrs));
+        OnPropertyChanged(nameof(PrTexto));
+        OnPropertyChanged(nameof(Tooltip));
+    }
+
+    partial void OnPrConsultadoChanged(bool value) => OnPropertyChanged(nameof(TemPrs));
+
+    [RelayCommand]
+    private void AbrirPrs()
+    {
+        try
+        {
+            if (Slug.Length > 0) ShellService.AbrirUrl($"https://github.com/{Slug}/pulls");
+        }
+        catch (Exception e)
+        {
+            _main?.Notify(e.Message, true);
+        }
+    }
+
     public string Tooltip
     {
         get
         {
             if (TemErro) return $"{Caminho}\n{Erro}";
+
+            var linhas = new List<string> { Caminho };
             var detalhe = CiDetalheTexto;
-            return detalhe.Length > 0 ? $"{Caminho}\n{CiTexto} — {detalhe}" : Caminho;
+            if (detalhe.Length > 0) linhas.Add($"{CiTexto} — {detalhe}");
+            if (PrUltimo.Length > 0) linhas.Add("último PR: " + PrUltimo);
+
+            return string.Join("\n", linhas);
         }
     }
 
@@ -187,12 +229,14 @@ public sealed partial class PainelViewModel : ObservableObject
             var enviar = Cartoes.Count(c => c.MostraAhead);
             var receber = Cartoes.Count(c => c.MostraBehind);
             var quebrados = Cartoes.Count(c => c.CiSituacao == "falha");
+            var comPr = Cartoes.Count(c => c.PrsAbertos > 0);
 
             partes.Add($"{Cartoes.Count} repositório(s)");
             if (sujos > 0) partes.Add($"{sujos} com alterações");
             if (enviar > 0) partes.Add($"{enviar} a enviar");
             if (receber > 0) partes.Add($"{receber} a receber");
             if (quebrados > 0) partes.Add($"{quebrados} com esteira quebrada");
+            if (comPr > 0) partes.Add($"{comPr} com PR aberto");
             if (partes.Count == 1) partes.Add("tudo em dia");
 
             return string.Join(" · ", partes);
@@ -231,10 +275,40 @@ public sealed partial class PainelViewModel : ObservableObject
             cartao.CiWorkflow = run.Workflow;
             cartao.CiUrl = run.Url;
             cartao.CiSituacao = run.Situacao; // por último: é ele que reavisa a tela
+
+            await CarregarPrsAsync(cartao);
         }
         catch (Exception)
         {
             cartao.CiSituacao = "nenhum";
+            cartao.PrConsultado = true;
+        }
+    }
+
+    /// <summary>
+    /// PRs do repositório. Falha aqui é silenciosa e separada da esteira: repositório
+    /// sem PR nenhum é o caso normal, não um problema a relatar.
+    /// </summary>
+    private static async Task CarregarPrsAsync(CartaoRepoViewModel cartao)
+    {
+        try
+        {
+            var prs = await GitHubService.PullRequestsAsync(cartao.Slug, cartao.Usuario);
+
+            cartao.PrsAbertos = prs.Count(p => p.Aberto);
+
+            var ultimo = prs.FirstOrDefault();
+            cartao.PrUltimo = ultimo is null
+                ? ""
+                : $"#{ultimo.Numero} {ultimo.Titulo} ({ultimo.Estado})";
+        }
+        catch (Exception)
+        {
+            // sem permissão ou fora da cota: o cartão só não mostra PR
+        }
+        finally
+        {
+            cartao.PrConsultado = true;
         }
     }
 

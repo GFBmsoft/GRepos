@@ -62,6 +62,12 @@
                     <TextBlock Text="em dia" FontSize="11" Classes="faint" IsVisible="{Binding EmDia}" />
                     <TextBlock Text="indisponível" FontSize="11" IsVisible="{Binding TemErro}"
                                Foreground="{DynamicResource Red}" />
+                    <Button Classes="tiny" Padding="0" IsVisible="{Binding TemPrs}"
+                            Command="{Binding AbrirPrsCommand}"
+                            ToolTip.Tip="Abrir os pull requests no GitHub">
+                      <TextBlock Text="{Binding PrTexto}" FontSize="11"
+                                 Foreground="{DynamicResource Purple}" />
+                    </Button>
                   </StackPanel>
                 </Border>
 
