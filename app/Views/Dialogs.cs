@@ -336,7 +336,7 @@ public sealed class AddRepoWindow : DialogWindow
 
 public sealed class RepoConfigWindow : DialogWindow
 {
-    public RepoConfigWindow(MainViewModel main, Repo repo, IDialogService dialogs) : base("Configurar repositório")
+    public RepoConfigWindow(MainViewModel main, Repo repo, IDialogService dialogs) : base("Configurar Repositório")
     {
         var name = new TextBox { Text = repo.Name, Watermark = "como aparece na lista" };
         var pathBox = new TextBox { Text = repo.Path, IsReadOnly = true };
@@ -480,14 +480,9 @@ public sealed class RepoConfigWindow : DialogWindow
             Close();
         };
 
-        var footer = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        footer.Children.Add(remove);
-        footer.Children.Add(cancel);
-        footer.Children.Add(save);
-
         Opened += (_, _) => MostrarRemotoAtual();
 
-        Compose("Configurar repositório",
+        Compose("Configurar Repositório",
             new Control[]
             {
                 Field("Nome de exibição", name),
@@ -502,7 +497,8 @@ public sealed class RepoConfigWindow : DialogWindow
                 Field("Papel neste par", role),
                 explicacaoPapel,
             },
-            new Control[] { footer });
+            new Control[] { remove, cancel, save },
+            rodapeCentralizado: true);
     }
 }
 

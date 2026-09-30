@@ -159,6 +159,29 @@ public class ScreenshotTests
         }
     }
 
+    /// <summary>Configurar Repositório: título, campos e o rodapé com os três botões.</summary>
+    [AvaloniaFact]
+    public void Configurar_repositorio_com_rodape_centralizado()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-cfg-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(home);
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+
+        try
+        {
+            var dialogs = new FakeDialogs();
+            var main = new MainViewModel(dialogs);
+            var repo = new Repo { Id = "r1", Name = "Financeiro", Path = home, PairKey = "Financeiro", Role = "origem" };
+
+            ShotJanela(new RepoConfigWindow(main, repo, dialogs), "configurar-repositorio", 460, 700);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", null);
+            try { Directory.Delete(home, true); } catch (Exception) { /* pasta temporária */ }
+        }
+    }
+
     [AvaloniaFact]
     public void Historico_com_commit_selecionado()
     {
