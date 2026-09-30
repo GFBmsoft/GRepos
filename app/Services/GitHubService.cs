@@ -483,6 +483,99 @@ public static class GitHubService
         return LerRelease(json);
     }
 
+    // ------------------------------------------------ disparar e reexecutar
+
+    /// <summary>Um workflow do repositório, para escolher qual disparar.</summary>
+    public sealed class Workflow
+    {
+        public long Id { get; init; }
+        public string Nome { get; init; } = "";
+        public string Arquivo { get; init; } = "";
+
+        /// <summary>Workflow desativado não aceita disparo.</summary>
+        public bool Ativo { get; init; } = true;
+    }
+
+    public static async Task<List<Workflow>> WorkflowsAsync(string slug, string usuario = "")
+    {
+        var json = await BaixarAsync($"https://api.github.com/repos/{slug}/actions/workflows", usuario);
+        return LerWorkflows(json);
+    }
+
+    public static List<Workflow> LerWorkflows(string json)
+    {
+        var lista = new List<Workflow>();
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("workflows", out var ws)) return lista;
+
+        foreach (var w in ws.EnumerateArray())
+            lista.Add(new Workflow
+            {
+                Id = w.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number
+                    ? id.GetInt64() : 0,
+                Nome = Texto(w, "name"),
+                Arquivo = System.IO.Path.GetFileName(Texto(w, "path")),
+                Ativo = Texto(w, "state") == "active",
+            });
+
+        return lista;
+    }
+
+    /// <summary>
+    /// POST autenticado. Diferente de todo o resto desta classe, estas chamadas
+    /// **escrevem** no repositório: exigem token com permissão de Actions, e sem ela o
+    /// GitHub responde 403 — a mensagem diz isso em vez de repetir o código.
+    /// </summary>
+    private static async Task EnviarAsync(string url, string? corpo, string usuario)
+    {
+        var token = await TokenAsync(usuario);
+        if (string.IsNullOrEmpty(token))
+            throw new InvalidOperationException(
+                "Nenhum token encontrado. Configure em Preferências → Autenticação.");
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (corpo is not null)
+            req.Content = new StringContent(corpo, System.Text.Encoding.UTF8, "application/json");
+
+        using var resp = await Http.SendAsync(req);
+        if (resp.IsSuccessStatusCode) return;
+
+        var detalhe = (int)resp.StatusCode switch
+        {
+            401 => "o token não foi aceito.",
+            403 => "o token não tem permissão de escrita em Actions. " +
+                   "Um PAT clássico precisa do escopo \"workflow\"; um fine-grained, " +
+                   "de \"Actions: Read and write\" neste repositório.",
+            404 => "workflow ou execução não encontrada — ou o token não enxerga este repositório.",
+            422 => "o GitHub recusou: o workflow precisa declarar \"workflow_dispatch\" " +
+                   "e existir na branch escolhida.",
+            _ => $"o GitHub respondeu {(int)resp.StatusCode}.",
+        };
+
+        throw new InvalidOperationException("Não foi possível executar: " + detalhe);
+    }
+
+    /// <summary>Dispara um workflow numa branch ou tag (precisa de "workflow_dispatch").</summary>
+    public static Task DispararWorkflowAsync(string slug, long workflowId, string referencia, string usuario = "")
+    {
+        if (string.IsNullOrWhiteSpace(referencia))
+            throw new InvalidOperationException("Informe a branch ou tag para executar.");
+
+        var corpo = JsonSerializer.Serialize(new { @ref = referencia.Trim() });
+        return EnviarAsync(
+            $"https://api.github.com/repos/{slug}/actions/workflows/{workflowId}/dispatches",
+            corpo, usuario);
+    }
+
+    /// <param name="somenteFalhas">Reexecuta só os jobs que falharam, não a execução toda.</param>
+    public static Task ReexecutarAsync(string slug, long runId, string usuario = "", bool somenteFalhas = false)
+    {
+        var acao = somenteFalhas ? "rerun-failed-jobs" : "rerun";
+        return EnviarAsync(
+            $"https://api.github.com/repos/{slug}/actions/runs/{runId}/{acao}", null, usuario);
+    }
+
     // --------------------------------------------------------------- perfil
 
     /// <summary>

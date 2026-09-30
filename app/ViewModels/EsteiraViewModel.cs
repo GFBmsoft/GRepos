@@ -145,16 +145,20 @@ public sealed partial class EsteiraViewModel : ObservableObject
     private readonly string _slug;
     private readonly string _branch;
     private readonly string _usuario;
+    private readonly IDialogService? _dialogs;
     private readonly DispatcherTimer _timer;
 
     private bool _ocupado;
     private long _jobsCarregadosDe;
 
-    public EsteiraViewModel(string slug, string branch, string usuario, string repoNome = "")
+    public EsteiraViewModel(string slug, string branch, string usuario, string repoNome = "",
+        IDialogService? dialogs = null)
     {
         _slug = slug;
         _branch = branch;
         _usuario = usuario;
+        _dialogs = dialogs;
+        Referencia = branch;
         Title = repoNome.Length > 0 ? $"Esteira — {repoNome}" : "Esteira";
         Subtitulo = slug;
 
@@ -210,16 +214,137 @@ public sealed partial class EsteiraViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(SemSelecao));
         OnPropertyChanged(nameof(SemJobs));
+        AvisarBotoes();
 
         // só recarrega ao trocar de cartão; a atualização periódica cuida do resto
         if (value is not null && value.Execucao.Id != _jobsCarregadosDe)
             _ = CarregarJobsAsync(value);
     }
 
+    // ------------------------------------------------ disparar e reexecutar
+
+    [ObservableProperty] private ObservableCollection<GitHubService.Workflow> _workflows = new();
+    [ObservableProperty] private GitHubService.Workflow? _workflowEscolhido;
+    [ObservableProperty] private string _referencia = "";
+    [ObservableProperty] private bool _executando;
+
+    public bool PodeDisparar => Workflows.Count > 0 && !Executando;
+
+    /// <summary>Reexecutar só faz sentido numa execução que terminou.</summary>
+    public bool PodeReexecutar => Selecionada is { Rodando: false } && !Executando;
+
+    /// <summary>E "só as que falharam" só numa execução que de fato falhou.</summary>
+    public bool PodeReexecutarFalhas =>
+        PodeReexecutar && Selecionada?.Execucao.Situacao == "falha";
+
+    partial void OnExecutandoChanged(bool value) => AvisarBotoes();
+
+    private void AvisarBotoes()
+    {
+        foreach (var p in new[] { nameof(PodeDisparar), nameof(PodeReexecutar), nameof(PodeReexecutarFalhas) })
+            OnPropertyChanged(p);
+    }
+
+    private async Task CarregarWorkflowsAsync()
+    {
+        try
+        {
+            var lista = await GitHubService.WorkflowsAsync(_slug, _usuario);
+            Workflows = new ObservableCollection<GitHubService.Workflow>(lista.Where(w => w.Ativo));
+            WorkflowEscolhido ??= Workflows.FirstOrDefault();
+            AvisarBotoes();
+        }
+        catch (Exception)
+        {
+            // sem permissão de leitura de workflows a tela segue: só não dispara nada
+        }
+    }
+
+    /// <summary>
+    /// Dispara o workflow escolhido. Confirma antes: é uma ação que **escreve** no
+    /// repositório e gasta minutos de execução — nada disso deve sair de um clique só.
+    /// </summary>
+    [RelayCommand]
+    private async Task DispararAsync()
+    {
+        if (Executando || WorkflowEscolhido is null) return;
+
+        var alvo = Referencia.Trim();
+        if (alvo.Length == 0)
+        {
+            Erro = "Informe a branch ou tag para executar.";
+            return;
+        }
+
+        if (_dialogs is not null && !await _dialogs.ConfirmAsync(
+                "Executar workflow",
+                $"Executar \"{WorkflowEscolhido.Nome}\" em {alvo}, no repositório {_slug}?\n\n" +
+                "Isso inicia uma execução de verdade no GitHub Actions."))
+            return;
+
+        Executando = true;
+        Erro = "";
+        try
+        {
+            await GitHubService.DispararWorkflowAsync(_slug, WorkflowEscolhido.Id, alvo, _usuario);
+
+            // o GitHub leva alguns segundos para a execução aparecer na listagem
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            await CarregarAsync(silencioso: true);
+            AjustarRitmo();
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            Executando = false;
+        }
+    }
+
+    [RelayCommand]
+    private Task ReexecutarAsync() => ReexecutarInternoAsync(somenteFalhas: false);
+
+    [RelayCommand]
+    private Task ReexecutarFalhasAsync() => ReexecutarInternoAsync(somenteFalhas: true);
+
+    private async Task ReexecutarInternoAsync(bool somenteFalhas)
+    {
+        var cartao = Selecionada;
+        if (Executando || cartao is null) return;
+
+        var oque = somenteFalhas ? "os jobs que falharam" : "a execução inteira";
+        if (_dialogs is not null && !await _dialogs.ConfirmAsync(
+                "Reexecutar",
+                $"Reexecutar {oque} de \"{cartao.Workflow} {cartao.Numero}\"?"))
+            return;
+
+        Executando = true;
+        Erro = "";
+        try
+        {
+            await GitHubService.ReexecutarAsync(_slug, cartao.Execucao.Id, _usuario, somenteFalhas);
+
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            await CarregarAsync(silencioso: true);
+            AjustarRitmo();
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            Executando = false;
+        }
+    }
+
     /// <summary>Começa a acompanhar. A janela chama ao abrir.</summary>
     public async Task IniciarAsync()
     {
         await CarregarAsync();
+        _ = CarregarWorkflowsAsync();
         AjustarRitmo();
         _timer.Start();
         OnPropertyChanged(nameof(RitmoTexto));

@@ -53,8 +53,10 @@ public sealed class CommitRowViewModel
             if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes} min";
             if (diff.TotalHours < 24 && local.Date == agora.Date) return $"{(int)diff.TotalHours} h";
             if (local.Date == agora.Date.AddDays(-1)) return "ontem";
-            if (local.Year == agora.Year) return local.ToString("dd/MM", CultureInfo.GetCultureInfo("pt-BR"));
-            return local.ToString("dd/MM/yy", CultureInfo.GetCultureInfo("pt-BR"));
+            // o formato já fixa dia/mês; pedir a cultura pt-BR pelo nome só acrescenta
+            // um jeito de falhar (ela não existe em modo globalização-invariante)
+            if (local.Year == agora.Year) return local.ToString("dd/MM", CultureInfo.InvariantCulture);
+            return local.ToString("dd/MM/yy", CultureInfo.InvariantCulture);
         }
     }
 

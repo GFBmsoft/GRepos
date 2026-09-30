@@ -118,8 +118,10 @@ public class PerfilTests
         vm.LinhasRemovidas = 9_770;
         vm.LinhasContadas = true;
 
+        // o separador de milhar vem da cultura da máquina: cravar "46.835" fazia o
+        // teste passar aqui (pt-BR) e quebrar no runner do GitHub, que formata "46,835"
         Assert.Equal((46_835 - 9_770).ToString("N0"), vm.LinhasTexto);
-        Assert.Contains("46.835++", vm.LinhasDetalhe);
-        Assert.Contains("9.770--", vm.LinhasDetalhe);
+        Assert.Contains(46_835.ToString("N0") + "++", vm.LinhasDetalhe);
+        Assert.Contains(9_770.ToString("N0") + "--", vm.LinhasDetalhe);
     }
 }
