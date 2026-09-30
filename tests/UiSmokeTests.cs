@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Input;
 using Avalonia.Headless.XUnit;
 using GRepos.Models;
 using GRepos.ViewModels;
@@ -173,6 +174,28 @@ public class UiSmokeTests
         window.Show();
         window.Measure(new Size(900, 640));
         window.Arrange(new Rect(0, 0, 900, 640));
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void CtrlF_leva_o_foco_ao_filtro_e_Esc_limpa()
+    {
+        var window = new MainWindow();
+        window.Show();
+        window.Measure(new Size(1400, 900));
+        window.Arrange(new Rect(0, 0, 1400, 900));
+
+        var caixa = window.FindControl<TextBox>("CaixaFiltro");
+        Assert.NotNull(caixa);
+        Assert.False(caixa!.IsFocused);
+
+        window.KeyPressQwerty(PhysicalKey.F, RawInputModifiers.Control);
+        Assert.True(caixa.IsFocused);
+
+        caixa.Text = "finan";
+        window.KeyPressQwerty(PhysicalKey.Escape, RawInputModifiers.None);
+        Assert.True(string.IsNullOrEmpty(caixa.Text));
+
         window.Close();
     }
 

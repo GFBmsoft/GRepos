@@ -27,6 +27,12 @@ executáveis na [página de releases](https://github.com/GFBmsoft/GRepos/release
 
 Push na `main` gera os mesmos dois como artefato da execução, que expira em 30 dias.
 
+**Atualização automática**: rodando o executável de arquivo único, o app consulta a última
+release uma vez por dia e, se houver versão maior, acende um aviso na barra de status. Um
+clique baixa o `-standalone.exe`, confirma antes de aplicar, troca o executável e reabre —
+o anterior é guardado como cópia e volta sozinho se a troca falhar. Dá para desligar o
+aviso em *Preferências → Customização*.
+
 ## Comandos
 
 ```bash

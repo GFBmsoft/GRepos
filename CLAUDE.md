@@ -77,6 +77,11 @@ velha. A barra de status mostra a data do executável em uso, justamente para co
   pode roubar seleção nem posição de rolagem do usuário.
 - Antes de otimizar, **meça**: o relato de lentidão em um repositório de 3,6 mil arquivos
   era falta de atualização automática, não custo do git (que respondia em ~60 ms).
+- **Atualização do app**: o Windows não deixa **sobrescrever** um .exe em execução, mas
+  deixa **renomear**. Por isso a troca é `atual → .old`, `novo → atual`, reabre — e o
+  `.old` some na abertura seguinte. Nada de `.bat` esperando o app fechar. Só vale para o
+  build de arquivo único: no `dist` (com as DLLs ao lado) trocar só o .exe desencontra a
+  pasta, e aí o certo é abrir a página da release.
 - O usuário das preferências só serve ao git se chegar em `GitService.CredentialUser`
   (feito no `InitAsync` e no `SetGithubUser`). Sem isso o git procura credencial sem
   conta, não acha o token e abre a janela de login a cada envio.

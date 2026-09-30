@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -41,6 +43,32 @@ public partial class MainWindow : Window, IDialogService
         AvaloniaXamlLoader.Load(this);
         var divisor = this.FindControl<GridSplitter>("Divisor");
         if (divisor is not null) divisor.DragCompleted += (_, _) => GuardarLarguraSidebar();
+
+        // Tunnel: o atalho precisa chegar antes do controle com o foco. Pelo caminho
+        // normal (bubble) um TextBox no meio da tela poderia engolir a tecla.
+        AddHandler(KeyDownEvent, AtalhoDeFiltro, RoutingStrategies.Tunnel);
+    }
+
+    /// <summary>Ctrl+F leva o foco ao filtro; Esc, estando nele, limpa e devolve a lista.</summary>
+    private void AtalhoDeFiltro(object? sender, KeyEventArgs e)
+    {
+        var caixa = this.FindControl<TextBox>("CaixaFiltro");
+        if (caixa is null) return;
+
+        if (e.Key == Key.F && e.KeyModifiers.HasFlag(KeyModifiers.Control))
+        {
+            caixa.Focus();
+            caixa.SelectAll(); // digitar já troca o filtro, sem precisar apagar antes
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape && caixa.IsFocused)
+        {
+            caixa.Text = "";
+            this.FindControl<ListBox>("TreeList")?.Focus();
+            e.Handled = true;
+        }
     }
 
     /// <summary>Devolve a sidebar à largura que o usuário deixou na última sessão.</summary>

@@ -150,7 +150,7 @@ public class ScreenshotTests
             main.CreateGroup("Manuais - BMSoft", "#DB4C9B");
             main.CreateGroup("Módulos", "#1F9D55");
 
-            ShotJanela(new SettingsWindow(main), "preferencias", 480, 720);
+            ShotJanela(new SettingsWindow(main), "preferencias", 520, 700);
         }
         finally
         {

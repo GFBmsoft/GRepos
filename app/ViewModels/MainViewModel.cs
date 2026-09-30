@@ -283,10 +283,7 @@ public sealed partial class MainViewModel : ObservableObject
                 // A data é a do arquivo — serve para conferir que o build recém-publicado
                 // é o que está aberto. Num .exe baixado da Release ela é a do download,
                 // por isso a versão carimbada pelo workflow vem na frente quando existe.
-                var versao = Rotulos.VersaoPublicada(
-                    typeof(MainViewModel).Assembly
-                        .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
-                        ?.InformationalVersion);
+                var versao = VersaoEmUso;
 
                 return versao.Length > 0
                     ? $"versão {versao} · build {quando:dd/MM HH:mm}"
@@ -346,6 +343,11 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _ws = WorkspaceStore.Load();
         GitService.CredentialUser = _ws.Settings.GithubUser;
+
+        // sobra da atualização anterior: o .exe antigo já não está em uso agora
+        Atualizador.LimparAntigo();
+        _ = VerificarAtualizacaoAsync();
+
         RebuildTree();
         ApplyTimer();
         await RefreshAllAsync();
@@ -796,6 +798,135 @@ public sealed partial class MainViewModel : ObservableObject
         GitService.CredentialUser = _ws.Settings.GithubUser;
         GitHubService.EsquecerTokens();
         Persist();
+    }
+
+    // ------------------------------------------------------------ atualização
+
+    private Release? _release;
+
+    [ObservableProperty] private string _atualizacaoTag = "";
+    [ObservableProperty] private string _atualizacaoAviso = "";
+    [ObservableProperty] private bool _atualizando;
+
+    public bool TemAtualizacao => AtualizacaoTag.Length > 0;
+
+    partial void OnAtualizacaoTagChanged(string value)
+    {
+        OnPropertyChanged(nameof(TemAtualizacao));
+        if (value.Length > 0 && AtualizacaoAviso.Length == 0)
+            AtualizacaoAviso = $"Atualização {value} disponível";
+    }
+
+    /// <summary>Versão em execução, quando carimbada pelo workflow; vazia em build local.</summary>
+    public static string VersaoEmUso => Rotulos.VersaoPublicada(
+        typeof(MainViewModel).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+
+    /// <summary>
+    /// Procura release nova. Build local não é avisado (não tem versão para comparar), e a
+    /// API só é consultada uma vez por dia — o resultado anterior fica no workspace.
+    /// </summary>
+    public async Task VerificarAtualizacaoAsync(bool forcar = false)
+    {
+        if (!_ws.Settings.AvisarAtualizacao) return;
+
+        var atual = VersaoEmUso;
+        if (atual.Length == 0) return;
+
+        try
+        {
+            var recente =
+                DateTime.TryParse(_ws.Settings.UltimaChecagem, null,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal |
+                    System.Globalization.DateTimeStyles.AssumeUniversal, out var quando) &&
+                DateTime.UtcNow - quando < Atualizador.IntervaloDeChecagem;
+
+            var tag = _ws.Settings.UltimaTagVista;
+
+            if (forcar || !recente)
+            {
+                _release = await GitHubService.UltimaReleaseAsync(Atualizador.Slug, _ws.Settings.GithubUser);
+                tag = _release?.Tag ?? "";
+
+                _ws.Settings.UltimaChecagem = DateTime.UtcNow.ToString("o");
+                _ws.Settings.UltimaTagVista = tag;
+                Persist();
+            }
+
+            if (tag.Length > 0 && Atualizador.TemNovidade(atual, tag)) AtualizacaoTag = tag;
+        }
+        catch (Exception)
+        {
+            // atualização é conveniência: sem rede ou fora da cota, o app segue igual
+        }
+    }
+
+    /// <summary>
+    /// Baixa a release e troca o executável. Só o de arquivo único pode ser trocado por
+    /// aqui; no build de pasta resta abrir a página, onde o usuário escolhe o que baixar.
+    /// </summary>
+    [RelayCommand]
+    private async Task AtualizarAgoraAsync()
+    {
+        if (Atualizando) return;
+
+        try
+        {
+            _release ??= await GitHubService.UltimaReleaseAsync(Atualizador.Slug, _ws.Settings.GithubUser);
+
+            var exe = Atualizador.CaminhoDoExe();
+            var arquivo = _release?.Standalone;
+
+            if (arquivo is null || !Atualizador.PodeTrocarSozinho(exe))
+            {
+                ShellService.AbrirUrl(_release?.Url is { Length: > 0 } u
+                    ? u
+                    : $"https://github.com/{Atualizador.Slug}/releases/latest");
+                return;
+            }
+
+            var mb = arquivo.Tamanho / 1024d / 1024d;
+            var ok = await _dialogs.ConfirmAsync(
+                "Atualizar o GRepos",
+                $"Baixar a versão {AtualizacaoTag} ({mb:N0} MB) e reiniciar o aplicativo?\n\n" +
+                "O executável atual é guardado como cópia e volta sozinho se algo falhar.");
+            if (!ok) return;
+
+            Atualizando = true;
+            var progresso = new Progress<double>(p => AtualizacaoAviso = $"Baixando… {p:P0}");
+            var pasta = System.IO.Path.GetDirectoryName(exe!)!;
+            var baixado = await Atualizador.BaixarAsync(arquivo, pasta, progresso);
+
+            AtualizacaoAviso = "Instalando…";
+            Atualizador.Trocar(exe!, baixado);
+            Atualizador.Reabrir(exe!);
+
+            // o novo processo já está subindo; este sai para liberar o arquivo
+            if (Avalonia.Application.Current?.ApplicationLifetime
+                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime vida)
+                vida.Shutdown();
+        }
+        catch (Exception e)
+        {
+            Notify("Não foi possível atualizar: " + e.Message, true);
+            AtualizacaoAviso = $"Atualização {AtualizacaoTag} disponível";
+        }
+        finally
+        {
+            Atualizando = false;
+        }
+    }
+
+    /// <summary>Liga ou desliga o aviso de versão nova; desligar some com o item da barra.</summary>
+    public void SetAvisarAtualizacao(bool avisar)
+    {
+        if (_ws.Settings.AvisarAtualizacao == avisar) return;
+
+        _ws.Settings.AvisarAtualizacao = avisar;
+        Persist();
+
+        if (!avisar) AtualizacaoTag = "";
+        else _ = VerificarAtualizacaoAsync(forcar: true);
     }
 
     /// <summary>Largura da sidebar escolhida no divisor; volta assim na próxima abertura.</summary>

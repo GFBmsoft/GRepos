@@ -63,8 +63,8 @@ public abstract class DialogWindow : Window
         return b;
     }
 
-    /// <summary>Espaço reservado à barra de rolagem, que é desenhada sobre o conteúdo.</summary>
-    protected const double LarguraBarraRolagem = 14;
+    /// <summary>Respiro entre o conteúdo e a barra de rolagem, para não ficarem colados.</summary>
+    protected const double FolgaDaBarra = 8;
 
     /// <summary>Título de seção, para separar assuntos dentro do mesmo diálogo.</summary>
     protected static TextBlock Secao(string texto, bool primeira = false) => new()
@@ -75,39 +75,23 @@ public abstract class DialogWindow : Window
     };
 
     /// <param name="rodapeCentralizado">Botões no meio, em vez de encostados à direita.</param>
-    /// <param name="alturaMaximaCorpo">Acima de zero, o corpo rola em vez de esticar a janela.</param>
+    /// <param name="corpoRolante">
+    /// Corpo em área de rolagem própria, com título e rodapé fixos. Combina com janela
+    /// redimensionável: esticar a janela mostra mais campos em vez de rolar mais.
+    /// </param>
     protected void Compose(string heading, IEnumerable<Control> body, IEnumerable<Control> footer,
-        bool rodapeCentralizado = false, double alturaMaximaCorpo = 0)
+        bool rodapeCentralizado = false, bool corpoRolante = false)
     {
-        var panel = new StackPanel { Spacing = 0 };
-        panel.Children.Add(new TextBlock
+        var titulo = new TextBlock
         {
             Text = heading,
             FontSize = 14.5,
             FontWeight = FontWeight.SemiBold,
             Margin = new Thickness(0, 0, 0, 12),
-        });
+        };
 
         var corpo = new StackPanel { Spacing = 0 };
         foreach (var c in body) corpo.Children.Add(c);
-
-        if (alturaMaximaCorpo > 0)
-        {
-            // a barra de rolagem fica por cima do conteúdo: sem esta folga à direita
-            // ela corta o fim dos campos e dos botões de cada linha
-            corpo.Margin = new Thickness(0, 0, LarguraBarraRolagem, 0);
-            panel.Children.Add(new ScrollViewer
-            {
-                MaxHeight = alturaMaximaCorpo,
-                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-                Content = corpo,
-            });
-        }
-        else
-        {
-            panel.Children.Add(corpo);
-        }
 
         var foot = new StackPanel
         {
@@ -117,6 +101,36 @@ public abstract class DialogWindow : Window
             Margin = new Thickness(0, 14, 0, 0),
         };
         foreach (var c in footer) foot.Children.Add(c);
+
+        if (corpoRolante)
+        {
+            // AllowAutoHide desligado é o que resolve o corte: com ele ligado a barra
+            // é um overlay que aparece por cima do conteúdo ao passar o mouse. Desligada,
+            // ela ocupa lugar no layout e o conteúdo é medido já sem esse espaço.
+            var rolagem = new ScrollViewer
+            {
+                AllowAutoHide = false,
+                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                Padding = new Thickness(0, 0, FolgaDaBarra, 0),
+                Content = corpo,
+            };
+
+            var grade = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto") };
+            Grid.SetRow(titulo, 0);
+            Grid.SetRow(rolagem, 1);
+            Grid.SetRow(foot, 2);
+            grade.Children.Add(titulo);
+            grade.Children.Add(rolagem);
+            grade.Children.Add(foot);
+
+            Content = new Border { Padding = new Thickness(16), Child = grade };
+            return;
+        }
+
+        var panel = new StackPanel { Spacing = 0 };
+        panel.Children.Add(titulo);
+        panel.Children.Add(corpo);
         panel.Children.Add(foot);
 
         Content = new Border { Padding = new Thickness(16), Child = panel };
@@ -499,8 +513,17 @@ public sealed class SettingsWindow : DialogWindow
     private static readonly string[] Accents =
         { "#4F8CFF", "#3FB950", "#F0883E", "#D2A8FF", "#E3B341", "#56D4BC" };
 
-    public SettingsWindow(MainViewModel main) : base("Preferências", 480)
+    public SettingsWindow(MainViewModel main) : base("Preferências", 520)
     {
+        // esta é a única tela longa: em vez de caber num tamanho fixo, ela abre num
+        // tamanho confortável e o usuário estica se quiser ver mais campos de uma vez
+        SizeToContent = SizeToContent.Manual;
+        CanResize = true;
+        Height = 700;
+        MinWidth = 460;
+        MinHeight = 420;
+        MaxHeight = double.PositiveInfinity;
+
         var s = main.Settings;
 
         var theme = new ComboBox
@@ -522,6 +545,11 @@ public sealed class SettingsWindow : DialogWindow
             SelectedIndex = s.DefaultTab == "historico" ? 1 : 0,
         };
         var refresh = new NumericUpDown { Minimum = 0, Maximum = 3600, Value = s.AutoRefreshSeconds, Increment = 10 };
+        var avisarAtualizacao = new CheckBox
+        {
+            Content = "Avisar quando sair uma versão nova",
+            IsChecked = s.AvisarAtualizacao,
+        };
         var logLimit = new NumericUpDown { Minimum = 50, Maximum = 5000, Value = s.LogLimit, Increment = 50 };
 
         var accent = s.Accent;
@@ -746,6 +774,7 @@ public sealed class SettingsWindow : DialogWindow
         save.Click += (_, _) =>
         {
             main.SetGithubUser(usuario.Text ?? "");
+            main.SetAvisarAtualizacao(avisarAtualizacao.IsChecked == true);
             main.ApplySettings(
                 theme.SelectedIndex == 1 ? "light" : "dark",
                 accent,
@@ -765,6 +794,7 @@ public sealed class SettingsWindow : DialogWindow
             Field("Abrir o repositório em", abaInicial),
             Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
             Field("Commits carregados no histórico", logLimit),
+            avisarAtualizacao,
         };
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
 
@@ -778,7 +808,7 @@ public sealed class SettingsWindow : DialogWindow
         body.Add(new StackPanel { Margin = new Thickness(0, 8, 0, 0), Children = { configurarHelper } });
 
         Compose("Preferências", body, new[] { close, save },
-            rodapeCentralizado: true, alturaMaximaCorpo: 520);
+            rodapeCentralizado: true, corpoRolante: true);
     }
 }
 

@@ -51,6 +51,15 @@ public sealed class Settings
 
     /// <summary>Usuário do GitHub. O token fica no gerenciador de credenciais, nunca aqui.</summary>
     public string GithubUser { get; set; } = "";
+
+    /// <summary>Avisar quando sair uma release nova do próprio GRepos.</summary>
+    public bool AvisarAtualizacao { get; set; } = true;
+
+    /// <summary>Quando a release foi consultada pela última vez (ISO, UTC).</summary>
+    public string UltimaChecagem { get; set; } = "";
+
+    /// <summary>Tag vista na última consulta, para não bater na API a cada abertura.</summary>
+    public string UltimaTagVista { get; set; } = "";
 }
 
 public sealed class Workspace

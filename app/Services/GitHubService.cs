@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -16,6 +17,29 @@ public sealed class CiRun
     public string Workflow { get; init; } = "";
     public string Url { get; init; } = "";
     public string Detalhe { get; init; } = "";
+}
+
+/// <summary>Arquivo anexado a uma release.</summary>
+public sealed class ReleaseAsset
+{
+    public string Nome { get; init; } = "";
+    public long Tamanho { get; init; }
+    public string Url { get; init; } = "";
+}
+
+/// <summary>Release publicada no GitHub — a fonte da atualização do próprio app.</summary>
+public sealed class Release
+{
+    public string Tag { get; init; } = "";
+    public string Url { get; init; } = "";
+    public List<ReleaseAsset> Arquivos { get; init; } = new();
+
+    /// <summary>
+    /// O executável que não precisa de nada instalado. É o único que serve para trocar
+    /// sozinho: o outro depende do .NET 8 estar na máquina de destino.
+    /// </summary>
+    public ReleaseAsset? Standalone => Arquivos.FirstOrDefault(a =>
+        a.Nome.EndsWith("-standalone.exe", StringComparison.OrdinalIgnoreCase));
 }
 
 /// <summary>Uma execução do GitHub Actions, como aparece no cartão da esteira.</summary>
@@ -372,6 +396,44 @@ public static class GitHubService
             });
         }
         return lista;
+    }
+
+    // ------------------------------------------------------------- atualização
+
+    /// <summary>
+    /// Última release publicada. Repositório público não exige token; se houver um
+    /// guardado ele é usado só para não esbarrar no limite por hora da API.
+    /// </summary>
+    public static async Task<Release?> UltimaReleaseAsync(string slug, string usuario = "")
+    {
+        var json = await BaixarAsync($"https://api.github.com/repos/{slug}/releases/latest", usuario);
+        return LerRelease(json);
+    }
+
+    /// <summary>Separado da rede para poder ser testado com uma resposta de verdade.</summary>
+    public static Release? LerRelease(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var raiz = doc.RootElement;
+        if (raiz.ValueKind != JsonValueKind.Object || !raiz.TryGetProperty("tag_name", out _)) return null;
+
+        var arquivos = new List<ReleaseAsset>();
+        if (raiz.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+            foreach (var a in assets.EnumerateArray())
+                arquivos.Add(new ReleaseAsset
+                {
+                    Nome = Texto(a, "name"),
+                    Tamanho = a.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number
+                        ? s.GetInt64() : 0,
+                    Url = Texto(a, "browser_download_url"),
+                });
+
+        return new Release
+        {
+            Tag = Texto(raiz, "tag_name"),
+            Url = Texto(raiz, "html_url"),
+            Arquivos = arquivos,
+        };
     }
 
     private static DateTime? Data(JsonElement e, string campo) =>
