@@ -225,6 +225,33 @@ public sealed partial class PainelViewModel : ObservableObject
 
     public bool Vazio => Cartoes.Count == 0;
 
+    /// <summary>Espaço entre cartões; entra na conta da largura.</summary>
+    private const double Vao = 10;
+
+    /// <summary>Abaixo disso o cartão fica ilegível, e é melhor ter menos colunas.</summary>
+    private const double LarguraMinima = 250;
+
+    /// <summary>Largura útil do painel, informada pela View a cada redimensionamento.</summary>
+    [ObservableProperty] private double _larguraDisponivel;
+
+    /// <summary>
+    /// Largura de cada cartão: as colunas que couberem, divididas por igual. Com largura
+    /// fixa sobrava um vão à direita e a fileira não alinhava com o cartão de perfil,
+    /// que ocupa a linha inteira.
+    /// </summary>
+    public double LarguraDoCartao
+    {
+        get
+        {
+            if (LarguraDisponivel <= 0) return LarguraMinima;
+
+            var colunas = Math.Max(1, (int)((LarguraDisponivel + Vao) / (LarguraMinima + Vao)));
+            return (LarguraDisponivel - (colunas - 1) * Vao) / colunas;
+        }
+    }
+
+    partial void OnLarguraDisponivelChanged(double value) => OnPropertyChanged(nameof(LarguraDoCartao));
+
     public string Resumo
     {
         get

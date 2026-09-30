@@ -481,9 +481,10 @@ public sealed partial class MainViewModel : ObservableObject
         ApplyTimer();
         await RefreshAllAsync();
 
-        // o primeiro da árvore, não do workspace: repositório em grupo recolhido
-        // não tem nó e a seleção caía no vazio
-        SelectedNode = Tree.OfType<RepoNode>().FirstOrDefault();
+        // abre no painel: a visão de todos os repositórios diz mais, logo de cara, do
+        // que um repositório escolhido por ordem alfabética
+        if (_ws.Repos.Count > 0) MostrarPainel(null);
+        else SelectedNode = Tree.OfType<RepoNode>().FirstOrDefault();
     }
 
     private void ApplyTimer()

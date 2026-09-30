@@ -25,70 +25,59 @@
     <ScrollViewer Grid.Row="1" IsVisible="{Binding !Vazio}">
      <StackPanel>
 
-      <!-- perfil: só no painel geral, com os números da conta e os do disco separados -->
-      <Border Classes="card" Margin="0,0,10,14" Padding="16,13" IsVisible="{Binding TemPerfil}">
-        <StackPanel DataContext="{Binding Perfil}" Spacing="10">
+      <!-- perfil: só no painel geral. Enxuto de propósito — uma linha de identificação
+           e uma de números, sem molduras internas -->
+      <Border Classes="card" Margin="0,0,0,12" Padding="16,12" IsVisible="{Binding TemPerfil}">
+        <StackPanel DataContext="{Binding Perfil}" Spacing="9">
 
-          <Grid ColumnDefinitions="*,Auto">
-            <StackPanel Grid.Column="0">
-              <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="13.5"
-                         Foreground="{DynamicResource Accent}" Classes="mono" />
-              <TextBlock Text="{Binding Nome}" Classes="dim" FontSize="11.5" />
-              <TextBlock Text="{Binding Bio}" Classes="faint" FontSize="11" TextWrapping="Wrap"
-                         MaxWidth="520" HorizontalAlignment="Left" IsVisible="{Binding TemBio}" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
-              <TextBlock Text="{Binding Empresa}" Classes="faint" FontSize="11"
-                         HorizontalAlignment="Right" IsVisible="{Binding TemEmpresa}" />
-              <TextBlock Text="{Binding Local}" Classes="faint" FontSize="11"
-                         HorizontalAlignment="Right" IsVisible="{Binding TemLocal}" />
-            </StackPanel>
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <TextBlock Grid.Column="0" Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="13"
+                       Foreground="{DynamicResource Accent}" Classes="mono"
+                       VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Binding Nome}" Classes="faint" FontSize="11.5"
+                       Margin="10,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Column="2" Text="{Binding Local}" Classes="faint" FontSize="11"
+                       VerticalAlignment="Center" IsVisible="{Binding TemLocal}" />
           </Grid>
 
           <TextBlock Text="{Binding Erro}" FontSize="11" TextWrapping="Wrap"
                      Foreground="{DynamicResource Red}" IsVisible="{Binding TemErro}" />
 
-          <Border Height="1" Background="{DynamicResource BorderSoft}" />
-
+          <!-- números em linha, no tamanho do texto: destaque só na cor -->
           <WrapPanel>
-            <StackPanel Margin="0,0,34,4">
-              <TextBlock Text="Repositórios" Classes="faint" FontSize="10" />
-              <TextBlock Text="{Binding Repositorios}" FontSize="15" FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+              <TextBlock Text="{Binding Repositorios}" FontSize="12.5" FontWeight="SemiBold" />
+              <TextBlock Text="repos" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Margin="0,0,34,4">
-              <TextBlock Text="Estrelas" Classes="faint" FontSize="10" />
-              <TextBlock Text="{Binding Estrelas}" FontSize="15" FontWeight="SemiBold"
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+              <TextBlock Text="{Binding Estrelas}" FontSize="12.5" FontWeight="SemiBold"
                          Foreground="{DynamicResource Yellow}" />
+              <TextBlock Text="estrelas" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Margin="0,0,34,4">
-              <TextBlock Text="Seguidores" Classes="faint" FontSize="10" />
-              <TextBlock Text="{Binding Seguidores}" FontSize="15" FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+              <TextBlock Text="{Binding Seguidores}" FontSize="12.5" FontWeight="SemiBold" />
+              <TextBlock Text="seguidores" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Margin="0,0,34,4">
-              <TextBlock Text="Nesta máquina" Classes="faint" FontSize="10" />
-              <TextBlock Text="{Binding ReposLocais}" FontSize="15" FontWeight="SemiBold" />
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+              <TextBlock Text="{Binding ReposLocais}" FontSize="12.5" FontWeight="SemiBold" />
+              <TextBlock Text="aqui" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Margin="0,0,34,4">
-              <TextBlock Text="Linhas de código" Classes="faint" FontSize="10" />
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBlock Text="{Binding LinhasTexto}" FontSize="15" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Green}" />
-                <Button Classes="tiny" Content="contar" VerticalAlignment="Center"
-                        IsVisible="{Binding !LinhasContadas}"
-                        IsEnabled="{Binding !ContandoLinhas}"
-                        Command="{Binding ContarLinhasCommand}"
-                        ToolTip.Tip="Percorre o histórico de cada repositório local; pode demorar" />
-              </StackPanel>
-              <TextBlock Text="{Binding LinhasDetalhe}" Classes="faint" FontSize="10" />
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+              <TextBlock Text="{Binding LinhasTexto}" FontSize="12.5" FontWeight="SemiBold"
+                         Foreground="{DynamicResource Green}" />
+              <TextBlock Text="linhas" Classes="faint" FontSize="11" VerticalAlignment="Center" />
+              <Button Classes="tiny" Content="contar" VerticalAlignment="Center" Padding="5,0"
+                      IsVisible="{Binding !LinhasContadas}" IsEnabled="{Binding !ContandoLinhas}"
+                      Command="{Binding ContarLinhasCommand}"
+                      ToolTip.Tip="Percorre o histórico de cada repositório local; pode demorar" />
+              <TextBlock Text="{Binding LinhasDetalhe}" Classes="faint" FontSize="10"
+                         VerticalAlignment="Center" IsVisible="{Binding LinhasContadas}" />
               <TextBlock Text="{Binding ProgressoLinhas}" Classes="faint" FontSize="10"
-                         IsVisible="{Binding ContandoLinhas}" />
+                         VerticalAlignment="Center" IsVisible="{Binding ContandoLinhas}" />
             </StackPanel>
-            <StackPanel Margin="0,0,0,4">
-              <TextBlock Text="Linguagens" Classes="faint" FontSize="10" />
-              <TextBlock Text="{Binding Linguagens}" FontSize="12.5" MaxWidth="260"
-                         TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                         Margin="0,3,0,0" />
-            </StackPanel>
+            <TextBlock Text="{Binding Linguagens}" Classes="faint" FontSize="11"
+                       VerticalAlignment="Center" Margin="0,0,0,3"
+                       MaxWidth="260" TextTrimming="CharacterEllipsis" />
           </WrapPanel>
         </StackPanel>
       </Border>
@@ -102,74 +91,49 @@
 
         <ItemsControl.ItemTemplate>
           <DataTemplate DataType="vm:CartaoRepoViewModel">
-            <Border Classes="card" Width="286" Margin="0,0,10,10" Padding="0"
-                    ClipToBounds="True" ToolTip.Tip="{Binding Tooltip}">
-              <Grid RowDefinitions="Auto,Auto,Auto">
+            <!-- o cartão inteiro é o botão: clicar abre o repositório -->
+            <Button Classes="cartao" Padding="0" Margin="0,0,10,10"
+                    Width="{Binding $parent[ItemsControl].DataContext.LarguraDoCartao}"
+                    Command="{Binding AbrirCommand}" ToolTip.Tip="{Binding Tooltip}"
+                    HorizontalContentAlignment="Stretch">
+              <Grid ColumnDefinitions="3,*" MinHeight="58">
+                <Border Grid.Column="0" CornerRadius="3,0,0,3"
+                        Background="{Binding CorDoGrupo, Converter={x:Static local:Converters.StringToBrush}}" />
 
-                <!-- faixa com a cor do grupo, como na sidebar -->
-                <Grid Grid.Row="0" ColumnDefinitions="3,*" Height="40">
-                  <Border Grid.Column="0"
-                          Background="{Binding CorDoGrupo, Converter={x:Static local:Converters.StringToBrush}}" />
-                  <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" FontSize="12.5"
-                               TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding Branch}" Classes="faint" FontSize="10.5"
-                               TextTrimming="CharacterEllipsis" />
-                  </StackPanel>
-                </Grid>
-
-                <Border Grid.Row="1" Padding="13,8" BorderBrush="{DynamicResource BorderSoft}"
-                        BorderThickness="0,1,0,1">
-                  <StackPanel Orientation="Horizontal" Spacing="9" MinHeight="18">
-                    <TextBlock Text="{Binding AheadTexto}" FontSize="11" IsVisible="{Binding MostraAhead}"
-                               Foreground="{DynamicResource Green}" />
-                    <TextBlock Text="{Binding BehindTexto}" FontSize="11" IsVisible="{Binding MostraBehind}"
-                               Foreground="{DynamicResource Orange}" />
-                    <TextBlock Text="{Binding ConflitoTexto}" FontSize="11" IsVisible="{Binding MostraConflito}"
-                               Foreground="{DynamicResource Red}" />
-                    <TextBlock Text="{Binding SujoTexto}" FontSize="11" IsVisible="{Binding MostraSujo}"
-                               Foreground="{DynamicResource Yellow}" />
-                    <TextBlock Text="em dia" FontSize="11" Classes="faint" IsVisible="{Binding EmDia}" />
-                    <TextBlock Text="indisponível" FontSize="11" IsVisible="{Binding TemErro}"
-                               Foreground="{DynamicResource Red}" />
-                    <Button Classes="tiny" Padding="0" IsVisible="{Binding TemPrs}"
-                            Command="{Binding AbrirPrsCommand}"
-                            ToolTip.Tip="Abrir os pull requests no GitHub">
-                      <TextBlock Text="{Binding PrTexto}" FontSize="11"
-                                 Foreground="{DynamicResource Purple}" />
-                    </Button>
-                  </StackPanel>
-                </Border>
-
-                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" MinHeight="38" Margin="13,4,8,4">
-                  <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <TextBlock Text="{Binding CiSimbolo}" FontSize="11" IsVisible="{Binding TemCi}"
-                                 Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}" />
-                      <TextBlock Text="{Binding CiTexto}" FontSize="10.5" Classes="faint"
-                                 IsVisible="{Binding !ConsultandoCi}" />
-                      <TextBlock Text="consultando…" FontSize="10.5" Classes="faint"
-                                 IsVisible="{Binding ConsultandoCi}" />
+                <StackPanel Grid.Column="1" Margin="11,9,11,9" Spacing="3">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding Nome}" FontWeight="SemiBold"
+                               FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7"
+                                VerticalAlignment="Center">
+                      <TextBlock Text="{Binding AheadTexto}" FontSize="11" IsVisible="{Binding MostraAhead}"
+                                 Foreground="{DynamicResource Green}" />
+                      <TextBlock Text="{Binding BehindTexto}" FontSize="11" IsVisible="{Binding MostraBehind}"
+                                 Foreground="{DynamicResource Orange}" />
+                      <TextBlock Text="{Binding ConflitoTexto}" FontSize="11" IsVisible="{Binding MostraConflito}"
+                                 Foreground="{DynamicResource Red}" />
+                      <TextBlock Text="{Binding SujoTexto}" FontSize="11" IsVisible="{Binding MostraSujo}"
+                                 Foreground="{DynamicResource Yellow}" />
                     </StackPanel>
-                    <!-- o que rodou: sem isto o cartão dizia a cor, mas não o assunto -->
-                    <TextBlock Text="{Binding CiDetalheTexto}" FontSize="10" Classes="faint"
-                               TextTrimming="CharacterEllipsis" MaxWidth="150"
-                               HorizontalAlignment="Left" IsVisible="{Binding TemCi}" />
-                  </StackPanel>
+                  </Grid>
 
-                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
-                              VerticalAlignment="Center">
-                    <Button Classes="tiny" Content="Abrir" Command="{Binding AbrirCommand}"
-                            ToolTip.Tip="Selecionar este repositório" />
-                    <Button Classes="tiny" Content="Esteira" IsVisible="{Binding TemCi}"
-                            Command="{Binding AbrirEsteiraCommand}"
-                            ToolTip.Tip="Ver as execuções e o passo a passo" />
-                    <Button Classes="tiny" Content="Pasta" Command="{Binding AbrirPastaCommand}"
-                            ToolTip.Tip="Abrir a pasta no Windows" />
+                  <!-- segunda linha: branch, esteira e PRs, tudo como texto corrido -->
+                  <StackPanel Orientation="Horizontal" Spacing="7">
+                    <TextBlock Text="{Binding Branch}" Classes="faint" FontSize="10.5"
+                               MaxWidth="120" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="·" Classes="faint" FontSize="10.5" IsVisible="{Binding !ConsultandoCi}" />
+                    <TextBlock Text="{Binding CiSimbolo}" FontSize="10.5" IsVisible="{Binding TemCi}"
+                               Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                    <TextBlock Text="{Binding CiTexto}" Classes="faint" FontSize="10.5"
+                               IsVisible="{Binding !ConsultandoCi}" />
+                    <TextBlock Text="{Binding PrTexto}" FontSize="10.5" IsVisible="{Binding TemPrs}"
+                               Foreground="{DynamicResource Purple}" />
+                    <TextBlock Text="indisponível" FontSize="10.5" IsVisible="{Binding TemErro}"
+                               Foreground="{DynamicResource Red}" />
                   </StackPanel>
-                </Grid>
+                </StackPanel>
               </Grid>
-            </Border>
+            </Button>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

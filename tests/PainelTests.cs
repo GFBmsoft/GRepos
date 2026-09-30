@@ -188,6 +188,27 @@ public class PainelTests
     }
 
     [Fact]
+    public void Cartoes_dividem_a_largura_do_painel_por_igual()
+    {
+        var painel = new PainelViewModel("Todos", "", Array.Empty<CartaoRepoViewModel>());
+
+        // sem medida ainda, vale o mínimo em vez de zero
+        Assert.True(painel.LarguraDoCartao > 0);
+
+        // 3 colunas: a soma dos cartões mais os vãos fecha a largura, sem sobra à
+        // direita — era o desalinho com o cartão de perfil, que ocupa a linha inteira
+        painel.LarguraDisponivel = 980;
+        Assert.Equal(980, painel.LarguraDoCartao * 3 + 10 * 2, 3);
+
+        // painel estreito não espreme: cai para menos colunas
+        painel.LarguraDisponivel = 420;
+        Assert.Equal(420, painel.LarguraDoCartao, 3);
+
+        painel.LarguraDisponivel = 700;
+        Assert.Equal(700, painel.LarguraDoCartao * 2 + 10, 3);
+    }
+
+    [Fact]
     public void Painel_sem_repositorios_diz_que_esta_vazio()
     {
         var painel = new PainelViewModel("Grupo novo", "", Array.Empty<CartaoRepoViewModel>());

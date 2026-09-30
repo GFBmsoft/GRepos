@@ -326,6 +326,29 @@
     <Setter Property="CornerRadius" Value="7" />
   </Style>
 
+  <!-- cartão do painel: é um Button para o clique valer no cartão inteiro, mas não
+       deve parecer botão — daí herdar a moldura do card e só acender ao passar o mouse -->
+  <Style Selector="Button.cartao">
+    <Setter Property="Background" Value="{DynamicResource BgPanel}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Cursor" Value="Hand" />
+    <!-- o estilo base de Button fixa Height 28; aqui o cartão cresce com o conteúdo -->
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+  </Style>
+
+  <Style Selector="Button.cartao /template/ ContentPresenter">
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+
+  <Style Selector="Button.cartao:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BgHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TextFaint}" />
+  </Style>
+
   <Style Selector="Border.chip">
     <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
     <Setter Property="BorderThickness" Value="1" />
