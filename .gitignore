@@ -4,3 +4,5 @@ dist/
 *.user
 .vs/
 EVs/
+dist-unico/
+dist-standalone/

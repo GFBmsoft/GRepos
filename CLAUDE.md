@@ -20,6 +20,23 @@ dotnet test                # xunit (parser, grafo, workspace e telas headless)
 `GREPOS_HOME` aponta o workspace para outra pasta — use sempre isso ao testar, para não
 escrever no `%APPDATA%\GRepos\workspace.json` real do usuário.
 
+Arquivo único, quando a ideia é levar só o .exe (o `dist` normal são ~20 arquivos):
+
+```bash
+# precisa do .NET 8 Desktop Runtime instalado (~25 MB)
+dotnet publish app -c Release -r win-x64 --self-contained false \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist-unico
+
+# não precisa de nada instalado (~89 MB)
+dotnet publish app -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist-standalone
+```
+
+`IncludeNativeLibrariesForSelfExtract` vale para os **dois**: o Avalonia carrega Skia e
+HarfBuzz nativos e, sem ele, essas DLLs ficam soltas ao lado do .exe — que era o que o
+arquivo único deveria evitar. O workflow `.github/workflows/build.yml` gera os dois a cada
+push na main (artefato de 30 dias) e, num push de tag `1.0.0.N`, publica a Release.
+
 ## Arquitetura
 
 - **Services** — `GitService` executa o `git` CLI (`git -C <repo> ...`) e faz o parsing;
