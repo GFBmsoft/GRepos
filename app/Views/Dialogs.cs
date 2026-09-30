@@ -153,7 +153,8 @@ public sealed class ConfirmWindow : DialogWindow
             {
                 new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 4) },
             },
-            new[] { no, yes });
+            new[] { no, yes },
+            rodapeCentralizado: true);
     }
 }
 
@@ -546,6 +547,48 @@ public sealed class SettingsWindow : DialogWindow
             Content = "Avisar quando sair uma versão nova",
             IsChecked = s.AvisarAtualizacao,
         };
+
+        // Sem isto, quem abriu o app minutos antes de sair uma release ficava 24h sem
+        // saber: a consulta é uma por dia e não havia como pedir outra.
+        var procurar = Btn("Procurar agora");
+        var resultadoBusca = new TextBlock
+        {
+            FontSize = 11.5,
+            TextWrapping = TextWrapping.Wrap,
+            Classes = { "faint" },
+            Text = MainViewModel.VersaoEmUso.Length > 0
+                ? "Consultado uma vez por dia."
+                : "Build local não tem versão para comparar — o aviso fica desligado.",
+        };
+
+        procurar.Click += async (_, _) =>
+        {
+            try
+            {
+                procurar.IsEnabled = false;
+                resultadoBusca.Text = "Consultando…";
+                await main.VerificarAtualizacaoAsync(forcar: true);
+                resultadoBusca.Text = main.TemAtualizacao
+                    ? $"Versão {main.AtualizacaoTag} disponível — o aviso está na barra de status."
+                    : "Você já está na versão mais recente.";
+            }
+            catch (Exception ex)
+            {
+                resultadoBusca.Text = ex.Message;
+            }
+            finally
+            {
+                procurar.IsEnabled = true;
+            }
+        };
+
+        var linhaAtualizacao = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 10,
+            Margin = new Thickness(0, 6, 0, 0),
+            Children = { procurar },
+        };
         var logLimit = new NumericUpDown { Minimum = 50, Maximum = 5000, Value = s.LogLimit, Increment = 50 };
 
         var accent = s.Accent;
@@ -791,6 +834,8 @@ public sealed class SettingsWindow : DialogWindow
             Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
             Field("Commits carregados no histórico", logLimit),
             avisarAtualizacao,
+            linhaAtualizacao,
+            resultadoBusca,
         };
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
 

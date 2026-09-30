@@ -133,14 +133,58 @@ public class AtualizadorTests
         {
             var exe = Path.Combine(dir, "GRepos.exe");
             File.WriteAllText(exe, "exe");
-            Assert.True(Atualizador.PodeTrocarSozinho(exe));
+
+            // arquivo único: o assembly de entrada não tem .dll em disco para apontar
+            Assert.True(Atualizador.PodeTrocarSozinho(exe, ""));
+            Assert.True(Atualizador.PodeTrocarSozinho(exe, null));
 
             // build de pasta: trocar só o .exe deixaria as DLLs ao lado desencontradas
-            File.WriteAllText(Path.Combine(dir, "GRepos.dll"), "dll");
-            Assert.False(Atualizador.PodeTrocarSozinho(exe));
+            Assert.False(Atualizador.PodeTrocarSozinho(exe, Path.Combine(dir, "GRepos.dll")));
 
-            Assert.False(Atualizador.PodeTrocarSozinho(null));
-            Assert.False(Atualizador.PodeTrocarSozinho(""));
+            Assert.False(Atualizador.PodeTrocarSozinho(null, ""));
+            Assert.False(Atualizador.PodeTrocarSozinho("", ""));
+        }
+        finally
+        {
+            Limpar(dir);
+        }
+    }
+
+    [Fact]
+    public void Renomear_o_executavel_nao_engana_a_validacao()
+    {
+        var dir = Pasta();
+        try
+        {
+            // build de pasta com o .exe renomeado pelo usuário: o GRepos.dll continua
+            // ali, e a checagem antiga (procurar "MeuGit.dll") dava falso positivo
+            var exe = Path.Combine(dir, "MeuGit.exe");
+            File.WriteAllText(exe, "exe");
+            File.WriteAllText(Path.Combine(dir, "GRepos.dll"), "dll");
+
+            Assert.False(Atualizador.PodeTrocarSozinho(exe, Path.Combine(dir, "GRepos.dll")));
+
+            // arquivo único renomeado continua podendo trocar: o nome não entra na conta
+            Assert.True(Atualizador.PodeTrocarSozinho(exe, ""));
+        }
+        finally
+        {
+            Limpar(dir);
+        }
+    }
+
+    [Fact]
+    public void Pasta_sem_permissao_de_escrita_nao_troca()
+    {
+        var dir = Pasta();
+        try
+        {
+            Assert.True(Atualizador.PastaGravavel(dir));
+
+            // pasta inexistente é o caso que dá para simular sem mexer em ACL
+            var inexistente = Path.Combine(dir, "nao-existe", "nem-aqui");
+            Assert.False(Atualizador.PastaGravavel(inexistente));
+            Assert.False(Atualizador.PodeTrocarSozinho(Path.Combine(inexistente, "GRepos.exe"), ""));
         }
         finally
         {

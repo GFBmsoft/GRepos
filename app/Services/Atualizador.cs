@@ -48,19 +48,50 @@ public static class Atualizador
     }
 
     /// <summary>
-    /// A troca automática só vale para o executável de arquivo único. Num build de pasta
-    /// (o `dist`, com GRepos.dll e as outras DLLs ao lado) trocar só o .exe deixaria a
-    /// pasta em estado inconsistente — nesse caso resta abrir a página da release.
+    /// Estamos num executável de arquivo único? Num app publicado assim o
+    /// <c>Location</c> do assembly de entrada vem **vazio**, porque não existe .dll em
+    /// disco para apontar. Num build de pasta ele é o caminho do GRepos.dll.
+    ///
+    /// Isso não depende do nome do arquivo — e o nome é justamente o que o usuário pode
+    /// mudar. Procurar um ".dll de mesmo nome" dava falso positivo em qualquer .exe
+    /// renomeado dentro do `dist`.
     /// </summary>
-    public static bool PodeTrocarSozinho(string? caminhoDoExe)
+    public static bool ArquivoUnico(string? localDoAssembly) => string.IsNullOrEmpty(localDoAssembly);
+
+    /// <summary>
+    /// A troca automática só vale no arquivo único e com a pasta gravável. Num build de
+    /// pasta, trocar só o .exe deixaria as DLLs ao lado desencontradas; numa pasta sem
+    /// permissão (Arquivos de Programas sem elevação) a renomeação falharia no meio.
+    /// Nos dois casos resta abrir a página da release.
+    /// </summary>
+    public static bool PodeTrocarSozinho(string? caminhoDoExe, string? localDoAssembly)
     {
         if (string.IsNullOrEmpty(caminhoDoExe)) return false;
+        if (!ArquivoUnico(localDoAssembly)) return false;
 
         var pasta = Path.GetDirectoryName(caminhoDoExe);
-        if (string.IsNullOrEmpty(pasta)) return false;
+        return !string.IsNullOrEmpty(pasta) && PastaGravavel(pasta);
+    }
 
-        var dll = Path.Combine(pasta, Path.GetFileNameWithoutExtension(caminhoDoExe) + ".dll");
-        return !File.Exists(dll);
+    /// <summary>Como está rodando agora: pergunta ao próprio assembly onde ele está.</summary>
+    public static bool PodeTrocarSozinho(string? caminhoDoExe) =>
+        PodeTrocarSozinho(caminhoDoExe,
+            System.Reflection.Assembly.GetEntryAssembly()?.Location);
+
+    /// <summary>Descobre gravando: permissão no Windows não se deduz pelo caminho.</summary>
+    public static bool PastaGravavel(string pasta)
+    {
+        try
+        {
+            var teste = Path.Combine(pasta, ".grepos-" + Path.GetRandomFileName());
+            using (File.Create(teste)) { }
+            File.Delete(teste);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     public static string? CaminhoDoExe() => Environment.ProcessPath;

@@ -81,7 +81,10 @@ velha. A barra de status mostra a data do executável em uso, justamente para co
   deixa **renomear**. Por isso a troca é `atual → .old`, `novo → atual`, reabre — e o
   `.old` some na abertura seguinte. Nada de `.bat` esperando o app fechar. Só vale para o
   build de arquivo único: no `dist` (com as DLLs ao lado) trocar só o .exe desencontra a
-  pasta, e aí o certo é abrir a página da release.
+  pasta, e aí o certo é abrir a página da release. Para saber em qual dos dois se está,
+  use `Assembly.GetEntryAssembly()?.Location` — **vazio** significa arquivo único. Não
+  deduza pelo nome do arquivo: o usuário renomeia o .exe, e procurar um ".dll de mesmo
+  nome" dava falso positivo em qualquer executável renomeado dentro do `dist`.
 - O usuário das preferências só serve ao git se chegar em `GitService.CredentialUser`
   (feito no `InitAsync` e no `SetGithubUser`). Sem isso o git procura credencial sem
   conta, não acha o token e abre a janela de login a cada envio.
