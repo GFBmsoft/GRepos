@@ -421,7 +421,12 @@ public class ScreenshotTests
         window.Measure(new Size(1000, 640));
         window.Arrange(new Rect(0, 0, 1000, 640));
 
-        var botoes = window.GetVisualDescendants().OfType<Button>()
+        // só os ícones da sidebar: são eles que a largura mínima precisa comportar.
+        // Contar os da janela inteira pegava junto o do rodapé, que é menor de propósito.
+        var sidebar = window.GetVisualDescendants().OfType<Border>()
+            .First(b => b.Classes.Contains("panel"));
+
+        var botoes = sidebar.GetVisualDescendants().OfType<Button>()
             .Where(b => b.Classes.Contains("icon"))
             .ToList();
 

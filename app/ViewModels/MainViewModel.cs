@@ -807,8 +807,38 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _atualizacaoTag = "";
     [ObservableProperty] private string _atualizacaoAviso = "";
     [ObservableProperty] private bool _atualizando;
+    [ObservableProperty] private bool _verificandoAtualizacao;
 
     public bool TemAtualizacao => AtualizacaoTag.Length > 0;
+
+    /// <summary>
+    /// Busca pedida pelo ícone do rodapé. Diferente da automática, esta sempre responde
+    /// alguma coisa: silêncio depois de clicar não diz se procurou ou se deu errado.
+    /// </summary>
+    [RelayCommand]
+    private async Task ProcurarAtualizacaoAsync()
+    {
+        if (VerificandoAtualizacao) return;
+
+        VerificandoAtualizacao = true;
+        try
+        {
+            if (VersaoEmUso.Length == 0)
+            {
+                Notify("Este é um build local, sem versão carimbada para comparar com a release.");
+                return;
+            }
+
+            await VerificarAtualizacaoAsync(forcar: true);
+            Notify(TemAtualizacao
+                ? $"Versão {AtualizacaoTag} disponível — o aviso está aqui na barra."
+                : $"Você já está na versão mais recente ({VersaoEmUso}).");
+        }
+        finally
+        {
+            VerificandoAtualizacao = false;
+        }
+    }
 
     partial void OnAtualizacaoTagChanged(string value)
     {
@@ -828,7 +858,8 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     public async Task VerificarAtualizacaoAsync(bool forcar = false)
     {
-        if (!_ws.Settings.AvisarAtualizacao) return;
+        // pedida pelo usuário, a busca acontece mesmo com o aviso automático desligado
+        if (!forcar && !_ws.Settings.AvisarAtualizacao) return;
 
         var atual = VersaoEmUso;
         if (atual.Length == 0) return;

@@ -255,7 +255,7 @@
       <!-- barra de status -->
       <Border Grid.Row="2" Background="{DynamicResource BgPanel}" Padding="12,4"
               BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
-        <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
           <TextBlock Grid.Column="0" Text="{Binding StatusLine}" Classes="faint" FontSize="11" />
 
           <!-- discreto, mas com a cor de destaque: é novidade, não é erro -->
@@ -270,7 +270,15 @@
 
           <TextBlock Grid.Column="2" Text="{Binding RepoCountText}" Classes="faint" FontSize="11" />
           <TextBlock Grid.Column="3" Text="{Binding VersaoTexto}" Classes="faint" FontSize="11"
-                     Margin="14,0,0,0" ToolTip.Tip="Versão e data do executável em uso" />
+                     Margin="14,0,0,0" VerticalAlignment="Center"
+                     ToolTip.Tip="Versão e data do executável em uso" />
+
+          <!-- só o ícone: a versão ao lado já diz do que se trata -->
+          <Button Grid.Column="4" Classes="icon" Content="&#xE895;" Width="22" Height="20"
+                  FontSize="11" Margin="4,0,0,0" VerticalAlignment="Center"
+                  IsEnabled="{Binding !VerificandoAtualizacao}"
+                  Command="{Binding ProcurarAtualizacaoCommand}"
+                  ToolTip.Tip="Procurar uma versão nova" />
         </Grid>
       </Border>
 
