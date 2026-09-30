@@ -625,25 +625,50 @@ public sealed class SettingsWindow : DialogWindow
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 12),
             Classes = { "faint" },
-            Text = WorkspaceStore.FilePath,
         };
+
+        // Erro em linha separada: antes ele substituía o caminho, e aí a informação
+        // sumia da tela e não voltava mais — nem ao desmarcar.
+        var erroPortatil = new TextBlock
+        {
+            FontSize = 11.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 12),
+            Foreground = new SolidColorBrush(Color.Parse("#E5534B")),
+            IsVisible = false,
+        };
+
+        // O caminho é sempre relido de quem manda nele, nunca deduzido do que a ação
+        // devolveu: assim a tela mostra onde o arquivo está de fato, dê certo ou errado.
+        void MostrarOndeFica()
+        {
+            ondeFica.Text = WorkspaceStore.FilePath;
+            portatil.IsChecked = WorkspaceStore.Portatil;
+        }
+
+        MostrarOndeFica();
 
         portatil.IsCheckedChanged += (_, _) =>
         {
             var querPortatil = portatil.IsChecked == true;
-            if (querPortatil == WorkspaceStore.Portatil) return;
+            if (querPortatil == WorkspaceStore.Portatil)
+            {
+                MostrarOndeFica();
+                return;
+            }
 
             try
             {
-                ondeFica.Text = WorkspaceStore.MoverPara(querPortatil);
-                ondeFica.Foreground = null;
+                WorkspaceStore.MoverPara(querPortatil);
+                erroPortatil.IsVisible = false;
             }
             catch (Exception ex)
             {
-                portatil.IsChecked = WorkspaceStore.Portatil; // volta ao que vale de fato
-                ondeFica.Text = ex.Message;
-                ondeFica.Foreground = new SolidColorBrush(Color.Parse("#E5534B"));
+                erroPortatil.Text = ex.Message;
+                erroPortatil.IsVisible = true;
             }
+
+            MostrarOndeFica();
         };
         var logLimit = new NumericUpDown { Minimum = 50, Maximum = 5000, Value = s.LogLimit, Increment = 50 };
 
@@ -888,6 +913,7 @@ public sealed class SettingsWindow : DialogWindow
             resultadoBusca,
             portatil,
             ondeFica,
+            erroPortatil,
         };
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
 

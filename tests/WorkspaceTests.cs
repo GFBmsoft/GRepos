@@ -87,6 +87,60 @@ public class WorkspaceStoreTests
         }
     }
 
+    /// <summary>
+    /// Ida e volta do modo portátil. O caminho mostrado na tela sai de FilePath, e é
+    /// ele que precisa acompanhar a mudança nos dois sentidos — o defeito era a tela
+    /// exibir o que a ação devolveu, em vez de reler onde o arquivo está de fato.
+    /// </summary>
+    [Fact]
+    public void Ligar_e_desligar_o_portatil_leva_o_arquivo_junto()
+    {
+        var antes = System.Environment.GetEnvironmentVariable("GREPOS_HOME");
+        System.Environment.SetEnvironmentVariable("GREPOS_HOME", null);
+
+        // pastas de mentira nos dois lados: o workspace real do usuário não entra nisso
+        var perfil = Path.Combine(Path.GetTempPath(), "grepos-perfil-" + Path.GetRandomFileName());
+        var pastaApp = Path.Combine(Path.GetTempPath(), "grepos-app-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(perfil);
+        Directory.CreateDirectory(pastaApp);
+
+        WorkspaceStore.PastaPadraoDeTeste = perfil;
+        WorkspaceStore.PastaDoAppDeTeste = pastaApp;
+
+        var doApp = Path.Combine(pastaApp, WorkspaceStore.NomeDoArquivo);
+
+        try
+        {
+            var ws = new Workspace { Groups = { new Group { Id = "g1", Name = "Marcador" } } };
+            WorkspaceStore.Save(ws);
+            Assert.False(WorkspaceStore.Portatil);
+            Assert.Equal(Path.Combine(perfil, WorkspaceStore.NomeDoArquivo), WorkspaceStore.FilePath);
+
+            WorkspaceStore.MoverPara(true);
+            Assert.True(WorkspaceStore.Portatil);
+            Assert.Equal(doApp, WorkspaceStore.FilePath);
+            Assert.True(File.Exists(doApp));
+            Assert.False(File.Exists(Path.Combine(perfil, WorkspaceStore.NomeDoArquivo)));
+
+            // o conteúdo foi junto: mover não pode significar recomeçar do zero
+            Assert.Equal("Marcador", WorkspaceStore.Load().Groups.Single().Name);
+
+            WorkspaceStore.MoverPara(false);
+            Assert.False(WorkspaceStore.Portatil);
+            Assert.Equal(Path.Combine(perfil, WorkspaceStore.NomeDoArquivo), WorkspaceStore.FilePath);
+            Assert.False(File.Exists(doApp));
+            Assert.Equal("Marcador", WorkspaceStore.Load().Groups.Single().Name);
+        }
+        finally
+        {
+            WorkspaceStore.PastaPadraoDeTeste = null;
+            WorkspaceStore.PastaDoAppDeTeste = null;
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { Directory.Delete(perfil, true); } catch (System.Exception) { /* temporária */ }
+            try { Directory.Delete(pastaApp, true); } catch (System.Exception) { /* temporária */ }
+        }
+    }
+
     [Fact]
     public void Sem_arquivo_ao_lado_do_executavel_o_workspace_fica_no_perfil()
     {

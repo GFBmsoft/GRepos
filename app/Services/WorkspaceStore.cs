@@ -17,9 +17,17 @@ public static class WorkspaceStore
 
     public const string NomeDoArquivo = "workspace.json";
 
+    /// <summary>
+    /// Desvios usados só pelos testes: sem eles, exercitar a troca entre perfil e modo
+    /// portátil significaria mover o workspace real do usuário de um lado para o outro.
+    /// </summary>
+    internal static string? PastaDoAppDeTeste { get; set; }
+    internal static string? PastaPadraoDeTeste { get; set; }
+
     /// <summary>Pasta do executável em uso; vazia quando não dá para descobrir.</summary>
     public static string PastaDoApp =>
-        Environment.ProcessPath is { Length: > 0 } exe ? Path.GetDirectoryName(exe) ?? "" : "";
+        PastaDoAppDeTeste ??
+        (Environment.ProcessPath is { Length: > 0 } exe ? Path.GetDirectoryName(exe) ?? "" : "");
 
     /// <summary>
     /// Modo portátil: existir um workspace.json ao lado do executável **é** o próprio
@@ -46,6 +54,7 @@ public static class WorkspaceStore
     }
 
     public static string PastaPadrao =>
+        PastaPadraoDeTeste ??
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GRepos");
 
     public static string FilePath => Path.Combine(Directory, NomeDoArquivo);

@@ -811,6 +811,13 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool TemAtualizacao => AtualizacaoTag.Length > 0;
 
+    /// <summary>Com versão nova o ícone acende; sem ela fica apagado como o resto do rodapé.</summary>
+    public string CorDoIconeAtualizacao => TemAtualizacao ? "Accent" : "TextFaint";
+
+    public string DicaDoIconeAtualizacao => TemAtualizacao
+        ? $"Versão {AtualizacaoTag} disponível"
+        : "Procurar uma versão nova";
+
     /// <summary>
     /// Busca pedida pelo ícone do rodapé. Diferente da automática, esta sempre responde
     /// alguma coisa: silêncio depois de clicar não diz se procurou ou se deu errado.
@@ -842,7 +849,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnAtualizacaoTagChanged(string value)
     {
-        OnPropertyChanged(nameof(TemAtualizacao));
+        foreach (var p in new[] { nameof(TemAtualizacao), nameof(CorDoIconeAtualizacao),
+                                  nameof(DicaDoIconeAtualizacao) })
+            OnPropertyChanged(p);
+
         if (value.Length > 0 && AtualizacaoAviso.Length == 0)
             AtualizacaoAviso = $"Atualização {value} disponível";
     }
