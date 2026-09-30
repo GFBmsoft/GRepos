@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -276,8 +277,20 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
                 if (string.IsNullOrEmpty(exe)) return "";
+
                 var quando = System.IO.File.GetLastWriteTime(exe);
-                return $"build {quando:dd/MM HH:mm}";
+
+                // A data é a do arquivo — serve para conferir que o build recém-publicado
+                // é o que está aberto. Num .exe baixado da Release ela é a do download,
+                // por isso a versão carimbada pelo workflow vem na frente quando existe.
+                var versao = Rotulos.VersaoPublicada(
+                    typeof(MainViewModel).Assembly
+                        .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+                        ?.InformationalVersion);
+
+                return versao.Length > 0
+                    ? $"versão {versao} · build {quando:dd/MM HH:mm}"
+                    : $"build {quando:dd/MM HH:mm}";
             }
             catch (Exception)
             {

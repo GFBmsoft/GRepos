@@ -149,6 +149,21 @@ public class EsteiraTests
         Assert.True(curto.Length <= Rotulos.LimiteBranch);
     }
 
+    [Theory]
+    // o workflow carimba quatro números; só isso é versão publicada
+    [InlineData("1.0.0.1+9dfd09b", "1.0.0.1")]
+    [InlineData("0.0.0.0-dev.7+9dfd09b", "0.0.0.0-dev.7")]
+    [InlineData("1.0.0.1", "1.0.0.1")]
+    // build local fica com o padrão do SDK e não pode parecer versão lançada
+    [InlineData("1.0.0+9dfd09b", "")]
+    [InlineData("1.0.0", "")]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    public void So_a_versao_carimbada_pelo_workflow_aparece(string? informacional, string esperado)
+    {
+        Assert.Equal(esperado, Rotulos.VersaoPublicada(informacional));
+    }
+
     [Fact]
     public void Quando_e_duracao_viram_texto_curto()
     {

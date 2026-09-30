@@ -30,6 +30,22 @@ public static class Rotulos
         return nome[..(limite - 1)] + "…";
     }
 
+    /// <summary>
+    /// Versão a mostrar na barra de status, a partir do InformationalVersion.
+    /// Só conta a que o workflow carimbou, que tem quatro números (1.0.0.1, 0.0.0.0-dev.7);
+    /// build local fica com o "1.0.0" padrão do SDK e devolve vazio, para não parecer
+    /// uma versão lançada. O "+sha" do fim não interessa a quem está olhando a tela.
+    /// </summary>
+    public static string VersaoPublicada(string? informacional)
+    {
+        if (string.IsNullOrWhiteSpace(informacional)) return "";
+
+        var texto = informacional.Split('+')[0].Trim();
+        var numeros = texto.Split('-')[0];
+
+        return numeros.Split('.').Length == 4 ? texto : "";
+    }
+
     /// <summary>"há 3 min", "há 2 h", "há 5 d" — data absoluta só quando passa de uma semana.</summary>
     public static string Quando(DateTime? utc, DateTime? agora = null)
     {
