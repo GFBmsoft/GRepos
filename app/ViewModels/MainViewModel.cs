@@ -119,8 +119,25 @@ public sealed partial class MainViewModel : ObservableObject
                 CorDoGrupo(r.GroupId),
                 this));
 
-        Painel = new PainelViewModel(titulo, "", cartoes, this);
-        Painel.Subtitulo = Painel.Resumo;
+        var painel = new PainelViewModel(titulo, "", cartoes, this);
+        painel.Subtitulo = painel.Resumo;
+
+        // no painel geral, cada grupo é uma seção; no de um grupo, uma seção só e sem
+        // título, que seria repetir o cabeçalho logo acima
+        var geral = grupoId is null;
+        painel.Secoes = new ObservableCollection<SecaoPainelViewModel>(
+            painel.Cartoes
+                .GroupBy(c => c.Repo.GroupId ?? "")
+                .OrderBy(g => NomeDoGrupo(g.Key), StringComparer.CurrentCultureIgnoreCase)
+                .Select(g => new SecaoPainelViewModel
+                {
+                    Titulo = NomeDoGrupo(g.Key),
+                    Cor = CorDoGrupo(g.Key),
+                    MostraTitulo = geral,
+                    Cartoes = new ObservableCollection<CartaoRepoViewModel>(g),
+                }));
+
+        Painel = painel;
 
         // o cartão de perfil é da conta inteira, não de um grupo
         if (grupoId is null && _ws.Settings.GithubUser.Length > 0)
@@ -160,6 +177,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Abre a janela da esteira de um repositório qualquer, vindo do painel.</summary>
     public Task AbrirEsteiraDeAsync(string slug, string branch, string usuario, string nome) =>
         _dialogs.ShowEsteiraAsync(slug, branch, usuario, nome);
+
+    private string NomeDoGrupo(string? grupoId) =>
+        _ws.Groups.FirstOrDefault(g => g.Id == (grupoId ?? ""))?.Name ?? "Sem grupo";
 
     private string CorDoGrupo(string? grupoId) =>
         _ws.Groups.FirstOrDefault(g => g.Id == (grupoId ?? ""))?.Color ?? "#5D6675";

@@ -196,6 +196,21 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
 }
 
 /// <summary>
+/// Um grupo dentro do painel. No painel geral cada grupo vira uma seção com seu próprio
+/// título; no painel de um grupo só existe uma, e o título seria repetir o cabeçalho.
+/// </summary>
+public sealed class SecaoPainelViewModel
+{
+    public string Titulo { get; init; } = "";
+    public string Cor { get; init; } = "#5D6675";
+    public bool MostraTitulo { get; init; }
+
+    public ObservableCollection<CartaoRepoViewModel> Cartoes { get; init; } = new();
+
+    public string Contagem => Cartoes.Count.ToString();
+}
+
+/// <summary>
 /// Painel com os repositórios de um grupo — ou de todos. É o que aparece ao clicar num
 /// grupo, no lugar das abas de um repositório que não está mais selecionado.
 /// </summary>
@@ -210,11 +225,24 @@ public sealed partial class PainelViewModel : ObservableObject
         Titulo = titulo;
         Subtitulo = subtitulo;
         Cartoes = new ObservableCollection<CartaoRepoViewModel>(cartoes);
+
+        // seção única por padrão; quem sabe os grupos (o MainViewModel) substitui depois.
+        // Sem isto, um painel montado direto ficaria sem nada na tela.
+        Secoes = new ObservableCollection<SecaoPainelViewModel>
+        {
+            new() { Cartoes = new ObservableCollection<CartaoRepoViewModel>(Cartoes) },
+        };
     }
 
     [ObservableProperty] private string _titulo = "";
     [ObservableProperty] private string _subtitulo = "";
     [ObservableProperty] private ObservableCollection<CartaoRepoViewModel> _cartoes = new();
+
+    /// <summary>
+    /// Os mesmos cartões, repartidos por grupo. A lista achatada continua existindo
+    /// porque resumo e atualização olham o painel inteiro, não seção por seção.
+    /// </summary>
+    [ObservableProperty] private ObservableCollection<SecaoPainelViewModel> _secoes = new();
 
     /// <summary>Cartão de perfil; só o painel geral tem um, os de grupo não.</summary>
     [ObservableProperty] private PerfilViewModel? _perfil;

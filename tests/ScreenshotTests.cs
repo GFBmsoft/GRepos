@@ -208,6 +208,24 @@ public class ScreenshotTests
 
         var vm = new PainelViewModel("Todos os repositórios", "", cartoes, main);
         vm.Subtitulo = vm.Resumo;
+        vm.LarguraDisponivel = 954;
+
+        // no painel geral cada grupo é uma seção, como o MainViewModel monta
+        vm.Secoes = new System.Collections.ObjectModel.ObservableCollection<SecaoPainelViewModel>
+        {
+            new()
+            {
+                Titulo = "Manuais - BMSoft", Cor = "#DB4C9B", MostraTitulo = true,
+                Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel>(
+                    cartoes.Take(3)),
+            },
+            new()
+            {
+                Titulo = "Módulos", Cor = "#1F9D55", MostraTitulo = true,
+                Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel>(
+                    cartoes.Skip(3)),
+            },
+        };
         vm.Perfil = new PerfilViewModel("GFBmsoft", cartoes.Select(c => c.Repo).ToList())
         {
             Perfil = new GRepos.Services.Perfil
