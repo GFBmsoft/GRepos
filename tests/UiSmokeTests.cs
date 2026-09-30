@@ -45,6 +45,7 @@ public class UiSmokeTests
         public Task ShowRepoConfigAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
         public Task ShowSettingsAsync(MainViewModel main) => Task.CompletedTask;
         public Task ShowBranchesAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
+        public Task ShowEsteiraAsync(string s, string b, string u, string n) => Task.CompletedTask;
         public Task ShowStashAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
     }
 
@@ -129,6 +130,50 @@ public class UiSmokeTests
         vm.Left.OnlyHere.Add(new PairCommitViewModel { Subject = "Só na origem", Short = "abc1234" });
 
         Render(new PairView(), vm);
+    }
+
+    [AvaloniaFact]
+    public void ChangesView_monta_com_quebra_de_linha_ligada()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new ChangesViewModel(DemoRepo(), main, split: true);
+        vm.Diff.Wrap = true;
+        vm.Diff.Load("@@ -1 +1 @@\n-linha curta\n+" + new string('x', 400) + "\n");
+
+        Render(new ChangesView(), vm);
+    }
+
+    [AvaloniaFact]
+    public void EsteiraWindow_monta_com_execucoes_e_passos()
+    {
+        var vm = new EsteiraViewModel("bmsoft/financeiro", "main", "GFBmsoft", "Financeiro");
+
+        // cartões e passos populados: é o que constrói os ItemTemplates de verdade
+        vm.Execucoes.Add(new CiExecucaoViewModel
+        {
+            Execucao = new GRepos.Services.CiExecucao
+            {
+                Id = 1, Numero = 42, Situacao = "falha", Workflow = "build",
+                Titulo = "Fix missing files", Branch = "main", Autor = "GFBmsoft",
+                Url = "https://github.com/x/y/actions/runs/1",
+                Criada = System.DateTime.UtcNow.AddMinutes(-12),
+            },
+        });
+        vm.Jobs.Add(new CiJobViewModel
+        {
+            Job = new GRepos.Services.CiJob { Nome = "build", Situacao = "falha" },
+            Etapas =
+            {
+                new CiEtapaViewModel { Etapa = new GRepos.Services.CiEtapa { Numero = 1, Nome = "Checkout", Situacao = "sucesso", Duracao = System.TimeSpan.FromSeconds(4) } },
+                new CiEtapaViewModel { Etapa = new GRepos.Services.CiEtapa { Numero = 2, Nome = "dotnet test", Situacao = "falha", Duracao = System.TimeSpan.FromSeconds(83) } },
+            },
+        });
+
+        var window = new EsteiraWindow { DataContext = vm, Width = 900, Height = 640 };
+        window.Show();
+        window.Measure(new Size(900, 640));
+        window.Arrange(new Rect(0, 0, 900, 640));
+        window.Close();
     }
 
     [AvaloniaFact]

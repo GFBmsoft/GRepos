@@ -10,9 +10,10 @@
         Icon="avares://GRepos/Assets/app.ico"
         Background="{DynamicResource Bg}">
 
-  <Grid>
+  <Grid x:Name="Layout">
     <Grid.ColumnDefinitions>
-      <!-- a sidebar não encolhe além do logo + os quatro ícones da barra -->
+      <!-- a sidebar não encolhe além do logo + os quatro ícones da barra;
+           a largura escolhida no divisor é guardada e volta na próxima abertura -->
       <ColumnDefinition Width="280" MinWidth="196" />
       <ColumnDefinition Width="4" />
       <ColumnDefinition Width="*" MinWidth="420" />
@@ -137,7 +138,7 @@
       </Grid>
     </Border>
 
-    <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+    <GridSplitter Grid.Column="1" x:Name="Divisor" Background="Transparent" ResizeDirection="Columns" />
 
     <!-- ======================================================== main -->
     <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
@@ -146,7 +147,7 @@
       <Border Grid.Row="0" Background="{DynamicResource BgPanel}" Padding="10,4"
               BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
               IsVisible="{Binding HasSelection}">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
           <StackPanel Grid.Column="0" Margin="2,0,12,0" VerticalAlignment="Center">
             <TextBlock Text="{Binding RepoTitle}" FontWeight="SemiBold" />
             <TextBlock Text="{Binding RepoPath}" Classes="faint" FontSize="10.5" MaxWidth="300" />
@@ -167,7 +168,7 @@
           <controls:ToolButton Grid.Column="4" Label="{Binding BranchCaption}"
                                Icon="{StaticResource IconBranch}"
                                Classes.destacado="{Binding ForaDaPrincipal}"
-                               ToolTip.Tip="Branches: trocar ou criar"
+                               ToolTip.Tip="{Binding BranchTooltip}"
                                IsEnabled="{Binding !Busy}" Command="{Binding OpenBranchesCommand}" />
           <controls:ToolButton Grid.Column="5" Label="Esconder" Icon="{StaticResource IconStash}"
                                Badge="{Binding StashBadge}"
@@ -198,7 +199,11 @@
           <controls:ToolButton Grid.Column="12" Label="Lado a lado" Icon="{StaticResource IconSplit}"
                                ToolTip.Tip="Alternar entre diff lado a lado e unificado"
                                Command="{Binding ToggleSplitCommand}" />
-          <controls:ToolButton Grid.Column="13" Label="Ajustes" Icon="{StaticResource IconConfig}"
+          <controls:ToolButton Grid.Column="13" Label="Quebrar linha" Icon="{StaticResource IconWrap}"
+                               Classes.destacado="{Binding WrapDiff}"
+                               ToolTip.Tip="Quebrar linhas longas do diff em vez de rolar na horizontal"
+                               Command="{Binding ToggleWrapCommand}" />
+          <controls:ToolButton Grid.Column="14" Label="Ajustes" Icon="{StaticResource IconConfig}"
                                ToolTip.Tip="Configurar repositório"
                                Command="{Binding OpenRepoConfigCommand}" />
         </Grid>

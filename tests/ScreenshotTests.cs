@@ -112,7 +112,51 @@ public class ScreenshotTests
         public System.Threading.Tasks.Task ShowRepoConfigAsync(MainViewModel m, Repo r) => System.Threading.Tasks.Task.CompletedTask;
         public System.Threading.Tasks.Task ShowSettingsAsync(MainViewModel m) => System.Threading.Tasks.Task.CompletedTask;
         public System.Threading.Tasks.Task ShowBranchesAsync(MainViewModel m, Repo r) => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowEsteiraAsync(string s, string b, string u, string n) => System.Threading.Tasks.Task.CompletedTask;
         public System.Threading.Tasks.Task ShowStashAsync(MainViewModel m, Repo r) => System.Threading.Tasks.Task.CompletedTask;
+    }
+
+    /// <summary>Janela inteira, para conferir moldura, seções e rodapé.</summary>
+    private static void ShotJanela(Window window, string nome, int w, int h)
+    {
+        window.Width = w;
+        window.Height = h;
+        window.Show();
+        window.Measure(new Size(w, h));
+        window.Arrange(new Rect(0, 0, w, h));
+
+        var dir = OutDir;
+        if (dir is null) return;
+
+        Directory.CreateDirectory(dir);
+        using var frame = window.CaptureRenderedFrame();
+        frame?.Save(Path.Combine(dir, nome + ".png"));
+    }
+
+    /// <summary>
+    /// Preferências com grupos: são as linhas de grupo, com botões encostados à direita,
+    /// que denunciam a barra de rolagem passando por cima do conteúdo.
+    /// </summary>
+    [AvaloniaFact]
+    public void Preferencias_com_secoes_e_grupos()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-prefs-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(home);
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+
+        try
+        {
+            var main = new MainViewModel(new FakeDialogs());
+            main.CreateGroup("Manuais - BMSoft", "#DB4C9B");
+            main.CreateGroup("Módulos", "#1F9D55");
+
+            ShotJanela(new SettingsWindow(main), "preferencias", 480, 720);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", null);
+            try { Directory.Delete(home, true); } catch (Exception) { /* pasta temporária */ }
+        }
     }
 
     [AvaloniaFact]

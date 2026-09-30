@@ -1,0 +1,145 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.EsteiraWindow"
+        x:DataType="vm:EsteiraViewModel"
+        Title="Esteira" Width="900" Height="640" MinWidth="680" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="11" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <!-- cartões à esquerda, passo a passo do cartão escolhido à direita -->
+    <Grid Grid.Row="2" ColumnDefinitions="312,10,*">
+
+      <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                  BorderThickness="0,0,0,1">
+            <TextBlock Classes="sectionTitle" Text="EXECUÇÕES" />
+          </Border>
+
+          <TextBlock Grid.Row="1" Text="Carregando…" Classes="faint" Margin="12,10"
+                     IsVisible="{Binding Carregando}" />
+          <TextBlock Grid.Row="1" Text="Nenhuma execução encontrada para esta branch."
+                     Classes="faint" Margin="12,10" TextWrapping="Wrap"
+                     IsVisible="{Binding SemExecucoes}" />
+
+          <ListBox Grid.Row="1" ItemsSource="{Binding Execucoes}"
+                   SelectedItem="{Binding Selecionada}"
+                   Background="Transparent" Padding="0,0,4,0">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:CiExecucaoViewModel">
+                <Grid ColumnDefinitions="16,*,Auto" Margin="6,5" ToolTip.Tip="{Binding Tooltip}">
+                  <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="13"
+                             VerticalAlignment="Top" Margin="0,1,0,0"
+                             Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                    <TextBlock Text="{Binding Workflow}" FontWeight="SemiBold" FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Titulo}" Classes="dim" FontSize="11.5"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Rodape}" Classes="faint" FontSize="10.5"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding Numero}" Classes="faint" FontSize="10.5"
+                             VerticalAlignment="Top" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                  BorderThickness="0,0,0,1">
+            <TextBlock Classes="sectionTitle" Text="PASSO A PASSO" />
+          </Border>
+
+          <TextBlock Grid.Row="1" Text="Escolha uma execução à esquerda." Classes="faint"
+                     Margin="12,10" IsVisible="{Binding SemSelecao}" />
+          <TextBlock Grid.Row="1" Text="Carregando os passos…" Classes="faint" Margin="12,10"
+                     IsVisible="{Binding CarregandoJobs}" />
+          <TextBlock Grid.Row="1" Text="Esta execução não detalhou os passos." Classes="faint"
+                     Margin="12,10" TextWrapping="Wrap" IsVisible="{Binding SemJobs}" />
+
+          <ScrollViewer Grid.Row="1" Padding="0,0,4,0">
+            <ItemsControl ItemsSource="{Binding Jobs}" Margin="10,8">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="vm:CiJobViewModel">
+                  <StackPanel Margin="0,0,0,14">
+                    <Grid ColumnDefinitions="16,*,Auto" Margin="0,0,0,4">
+                      <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="13"
+                                 VerticalAlignment="Center"
+                                 Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                      <TextBlock Grid.Column="1" Text="{Binding Nome}" FontWeight="SemiBold"
+                                 FontSize="12" Margin="6,0" VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
+                                 FontSize="10.5" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Etapas}" Margin="22,0,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="vm:CiEtapaViewModel">
+                          <Grid ColumnDefinitions="14,*,Auto" Height="22">
+                            <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11.5"
+                                       Margin="6,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       FontWeight="{Binding Peso}" />
+                            <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
+                                       FontSize="10.5" VerticalAlignment="Center" />
+                          </Grid>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,12,0,0">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <TextBlock Text="✓" Foreground="{DynamicResource Green}" FontSize="12" />
+          <TextBlock Text="passou" Classes="faint" FontSize="11" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <TextBlock Text="✕" Foreground="{DynamicResource Red}" FontSize="12" />
+          <TextBlock Text="quebrou" Classes="faint" FontSize="11" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <TextBlock Text="●" Foreground="{DynamicResource Yellow}" FontSize="12" />
+          <TextBlock Text="rodando" Classes="faint" FontSize="11" />
+        </StackPanel>
+      </StackPanel>
+
+      <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
+      <Button Grid.Column="3" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}" />
+      <Button Grid.Column="4" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

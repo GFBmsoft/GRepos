@@ -26,6 +26,7 @@ public partial class MainWindow : Window, IDialogService
             {
                 await _vm.InitAsync();
                 ApplyTheme(_vm.Settings);
+                AplicarLarguraSidebar();
             }
             catch (System.Exception ex)
             {
@@ -35,7 +36,34 @@ public partial class MainWindow : Window, IDialogService
         };
     }
 
-    private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+    private void InitializeComponent()
+    {
+        AvaloniaXamlLoader.Load(this);
+        var divisor = this.FindControl<GridSplitter>("Divisor");
+        if (divisor is not null) divisor.DragCompleted += (_, _) => GuardarLarguraSidebar();
+    }
+
+    /// <summary>Devolve a sidebar à largura que o usuário deixou na última sessão.</summary>
+    private void AplicarLarguraSidebar()
+    {
+        var coluna = Coluna();
+        if (coluna is null) return;
+
+        var largura = _vm.Settings.SidebarWidth;
+        if (largura >= coluna.MinWidth && largura > 0)
+            coluna.Width = new GridLength(largura);
+    }
+
+    private void GuardarLarguraSidebar()
+    {
+        var coluna = Coluna();
+        if (coluna is not null) _vm.SetSidebarWidth(coluna.ActualWidth);
+    }
+
+    private ColumnDefinition? Coluna() =>
+        this.FindControl<Grid>("Layout") is { } g && g.ColumnDefinitions.Count > 0
+            ? g.ColumnDefinitions[0]
+            : null;
 
     /// <summary>Tema e cor de destaque vêm do workspace, não de constantes.</summary>
     public void ApplyTheme(Settings settings)
@@ -123,6 +151,9 @@ public partial class MainWindow : Window, IDialogService
 
     public Task ShowBranchesAsync(MainViewModel main, Repo repo) =>
         new BranchesWindow(main, repo).ShowDialog(this);
+
+    public Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome) =>
+        new EsteiraWindow(slug, branch, usuario, repoNome).ShowDialog(this);
 
     public Task ShowStashAsync(MainViewModel main, Repo repo) =>
         new StashWindow(main, repo).ShowDialog(this);

@@ -93,6 +93,12 @@ public sealed partial class DiffViewModel : ObservableObject
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private bool _split = true;
 
+    /// <summary>
+    /// Quebra a linha longa em vez de rolar na horizontal. Desligado por padrão: a
+    /// quebra desalinha a indentação, e em código isso atrapalha mais do que ajuda.
+    /// </summary>
+    [ObservableProperty] private bool _wrap;
+
     /// <summary>Largura de um caractere da fonte monoespaçada, medida pela View.</summary>
     [ObservableProperty] private double _charWidth = 7.2;
 
@@ -109,9 +115,25 @@ public sealed partial class DiffViewModel : ObservableObject
 
     public bool HasContent => !IsEmpty;
 
+    /// <summary>Quebra de linha do texto do diff, no formato que o TextBlock espera.</summary>
+    public Avalonia.Media.TextWrapping Wrapping =>
+        Wrap ? Avalonia.Media.TextWrapping.Wrap : Avalonia.Media.TextWrapping.NoWrap;
+
+    /// <summary>Com quebra de linha não sobra nada para rolar na horizontal.</summary>
+    public Avalonia.Controls.Primitives.ScrollBarVisibility RolagemHorizontal =>
+        Wrap ? Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+             : Avalonia.Controls.Primitives.ScrollBarVisibility.Auto;
+
     partial void OnIsEmptyChanged(bool value) => OnPropertyChanged(nameof(HasContent));
 
     partial void OnSplitChanged(bool value) => Rebuild();
+
+    partial void OnWrapChanged(bool value)
+    {
+        OnPropertyChanged(nameof(Wrapping));
+        OnPropertyChanged(nameof(RolagemHorizontal));
+        MeasureColumns();
+    }
 
     partial void OnCharWidthChanged(double value) => MeasureColumns();
 
@@ -196,6 +218,16 @@ public sealed partial class DiffViewModel : ObservableObject
         var half = Math.Max(0, (ViewportWidth - splitGutters) / 2);
         var full = Math.Max(0, ViewportWidth - unifiedGutters);
         var minimum = Math.Max(120, half);
+
+        // Com quebra de linha a coluna é a que cabe na tela: medir pelo conteúdo
+        // devolveria a largura da linha mais longa e a rolagem horizontal voltaria.
+        if (Wrap)
+        {
+            LeftWidth = minimum;
+            RightWidth = minimum;
+            UnifiedWidth = Math.Max(120, full);
+            return;
+        }
 
         var left = 0;
         var right = 0;

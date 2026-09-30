@@ -60,5 +60,8 @@ velha. A barra de status mostra a data do executável em uso, justamente para co
   pode roubar seleção nem posição de rolagem do usuário.
 - Antes de otimizar, **meça**: o relato de lentidão em um repositório de 3,6 mil arquivos
   era falta de atualização automática, não custo do git (que respondia em ~60 ms).
+- O usuário das preferências só serve ao git se chegar em `GitService.CredentialUser`
+  (feito no `InitAsync` e no `SetGithubUser`). Sem isso o git procura credencial sem
+  conta, não acha o token e abre a janela de login a cada envio.
 - Operação destrutiva (descartar, dropar stash, remover repositório) sempre confirma antes.
 - Textos de interface em pt-br com acentuação correta.

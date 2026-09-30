@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -15,6 +16,40 @@ public sealed class CiRun
     public string Workflow { get; init; } = "";
     public string Url { get; init; } = "";
     public string Detalhe { get; init; } = "";
+}
+
+/// <summary>Uma execução do GitHub Actions, como aparece no cartão da esteira.</summary>
+public sealed class CiExecucao
+{
+    public long Id { get; init; }
+    public int Numero { get; init; }
+    public string Situacao { get; init; } = "nenhum";
+    public string Workflow { get; init; } = "";
+    public string Titulo { get; init; } = "";
+    public string Branch { get; init; } = "";
+    public string Autor { get; init; } = "";
+    public string Url { get; init; } = "";
+    public DateTime? Criada { get; init; }
+    public DateTime? Atualizada { get; init; }
+}
+
+/// <summary>Um passo de um job: é o detalhe que o usuário abre para achar o que quebrou.</summary>
+public sealed class CiEtapa
+{
+    public int Numero { get; init; }
+    public string Nome { get; init; } = "";
+    public string Situacao { get; init; } = "nenhum";
+    public TimeSpan? Duracao { get; init; }
+}
+
+/// <summary>Job de uma execução, com seus passos em ordem.</summary>
+public sealed class CiJob
+{
+    public string Nome { get; init; } = "";
+    public string Situacao { get; init; } = "nenhum";
+    public string Url { get; init; } = "";
+    public TimeSpan? Duracao { get; init; }
+    public List<CiEtapa> Etapas { get; init; } = new();
 }
 
 /// <summary>
@@ -137,6 +172,57 @@ public static class GitHubService
         Cache.Clear();
     }
 
+    /// <summary>
+    /// Helper de credenciais configurado no git global. Vazio significa que o git não
+    /// guarda nada: cada push abre a janela de login de novo.
+    /// </summary>
+    public static async Task<string> HelperAsync()
+    {
+        try
+        {
+            var saida = await GitService.RunWithEnvAsync(
+                System.IO.Path.GetTempPath(),
+                new[] { "config", "--global", "--get-all", "credential.helper" },
+                null,
+                ("GCM_INTERACTIVE", "never"), ("GIT_TERMINAL_PROMPT", "0"));
+
+            return string.Join(", ", saida
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+        catch (Exception)
+        {
+            return ""; // "não configurado" sai do git como código de erro
+        }
+    }
+
+    /// <summary>Nome do helper do Windows. O git &gt;= 2.39 chama de "manager".</summary>
+    public const string HelperPadrao = "manager";
+
+    /// <summary>
+    /// Aponta o git global para o Gerenciador de Credenciais do Windows. É o que faz a
+    /// autenticação ser pedida uma vez só: sem helper, o git esquece o token a cada push.
+    /// </summary>
+    public static async Task ConfigurarHelperAsync()
+    {
+        await GitService.RunWithEnvAsync(
+            System.IO.Path.GetTempPath(),
+            new[] { "config", "--global", "credential.helper", HelperPadrao },
+            null,
+            ("GCM_INTERACTIVE", "never"), ("GIT_TERMINAL_PROMPT", "0"));
+
+        Tokens.Clear();
+    }
+
+    /// <summary>
+    /// Pergunta ao helper se já existe credencial guardada para o usuário — a mesma
+    /// consulta que o push faria, sem chance de abrir janela.
+    /// </summary>
+    public static async Task<bool> TemCredencialAsync(string usuario)
+    {
+        Tokens.TryRemove(usuario.Trim(), out _);
+        return !string.IsNullOrEmpty(await TokenAsync(usuario.Trim()));
+    }
+
     public static bool TemTokenGuardado(string usuario) =>
         Tokens.TryGetValue(usuario, out var t) && !string.IsNullOrEmpty(t);
 
@@ -144,12 +230,20 @@ public static class GitHubService
     public static Task<string?> TokenDoUsuarioAsync(string usuario) => TokenAsync(usuario);
 
     /// <summary>Confere o token contra a API e devolve o login e o nome da conta.</summary>
-    public static async Task<string> TestarAsync(string usuario)
+    /// <param name="tokenInformado">
+    /// Token digitado na tela, ainda não salvo. Testar o que está na caixa é o que o
+    /// usuário espera do botão — sem isso ele conferiria a credencial antiga.
+    /// </param>
+    public static async Task<string> TestarAsync(string usuario, string? tokenInformado = null)
     {
-        var token = await TokenAsync(usuario);
+        var token = string.IsNullOrWhiteSpace(tokenInformado)
+            ? await TokenAsync(usuario)
+            : tokenInformado.Trim();
+
         if (string.IsNullOrEmpty(token))
             throw new InvalidOperationException(
-                "Nenhum token encontrado para este usuário. Informe o token e salve antes de testar.");
+                "Nenhum token guardado para este usuário. Cole o token no campo acima e clique " +
+                "em Testar, ou em Salvar token para guardá-lo antes.");
 
         using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -179,6 +273,120 @@ public static class GitHubService
     }
 
     public static void LimparCache() => Cache.Clear();
+
+    // ------------------------------------------------------ esteira detalhada
+
+    /// <summary>
+    /// Últimas execuções da branch (ou de todas, quando a branch vem vazia). É a lista
+    /// de cartões da janela da esteira.
+    /// </summary>
+    public static async Task<List<CiExecucao>> ExecucoesAsync(
+        string slug, string branch, string usuario = "", int limite = 12)
+    {
+        var url = $"https://api.github.com/repos/{slug}/actions/runs?per_page={limite}" +
+                  (string.IsNullOrEmpty(branch) ? "" : $"&branch={Uri.EscapeDataString(branch)}");
+
+        return LerExecucoes(await BaixarAsync(url, usuario));
+    }
+
+    /// <summary>Jobs e passos de uma execução — o passo a passo do cartão aberto.</summary>
+    public static async Task<List<CiJob>> JobsAsync(string slug, long runId, string usuario = "")
+    {
+        var url = $"https://api.github.com/repos/{slug}/actions/runs/{runId}/jobs?per_page=100";
+        return LerJobs(await BaixarAsync(url, usuario));
+    }
+
+    private static async Task<string> BaixarAsync(string url, string usuario)
+    {
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        var token = await TokenAsync(usuario);
+        if (!string.IsNullOrEmpty(token))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var resp = await Http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"GitHub respondeu {(int)resp.StatusCode} ao consultar a esteira." +
+                (resp.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? " Repositório privado costuma exigir token em Preferências → Autenticação."
+                    : ""));
+
+        return await resp.Content.ReadAsStringAsync();
+    }
+
+    /// <summary>Separado da rede para poder ser testado com uma resposta de verdade.</summary>
+    public static List<CiExecucao> LerExecucoes(string json)
+    {
+        var lista = new List<CiExecucao>();
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("workflow_runs", out var runs)) return lista;
+
+        foreach (var r in runs.EnumerateArray())
+        {
+            lista.Add(new CiExecucao
+            {
+                Id = r.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number ? id.GetInt64() : 0,
+                Numero = r.TryGetProperty("run_number", out var n) && n.ValueKind == JsonValueKind.Number ? n.GetInt32() : 0,
+                Situacao = Traduzir(Texto(r, "status"), Texto(r, "conclusion")),
+                Workflow = Texto(r, "name"),
+                Titulo = Texto(r, "display_title"),
+                Branch = Texto(r, "head_branch"),
+                Autor = r.TryGetProperty("actor", out var a) ? Texto(a, "login") : "",
+                Url = Texto(r, "html_url"),
+                Criada = Data(r, "run_started_at") ?? Data(r, "created_at"),
+                Atualizada = Data(r, "updated_at"),
+            });
+        }
+        return lista;
+    }
+
+    public static List<CiJob> LerJobs(string json)
+    {
+        var lista = new List<CiJob>();
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("jobs", out var jobs)) return lista;
+
+        foreach (var j in jobs.EnumerateArray())
+        {
+            var etapas = new List<CiEtapa>();
+            if (j.TryGetProperty("steps", out var steps) && steps.ValueKind == JsonValueKind.Array)
+                foreach (var s in steps.EnumerateArray())
+                    etapas.Add(new CiEtapa
+                    {
+                        Numero = s.TryGetProperty("number", out var n) && n.ValueKind == JsonValueKind.Number
+                            ? n.GetInt32() : etapas.Count + 1,
+                        Nome = Texto(s, "name"),
+                        Situacao = Traduzir(Texto(s, "status"), Texto(s, "conclusion")),
+                        Duracao = Intervalo(s),
+                    });
+
+            lista.Add(new CiJob
+            {
+                Nome = Texto(j, "name"),
+                Situacao = Traduzir(Texto(j, "status"), Texto(j, "conclusion")),
+                Url = Texto(j, "html_url"),
+                Duracao = Intervalo(j),
+                Etapas = etapas,
+            });
+        }
+        return lista;
+    }
+
+    private static DateTime? Data(JsonElement e, string campo) =>
+        e.TryGetProperty(campo, out var v) && v.ValueKind == JsonValueKind.String &&
+        DateTime.TryParse(v.GetString(), System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+            out var d)
+            ? d
+            : null;
+
+    /// <summary>Duração entre started_at e completed_at; nula enquanto o passo roda.</summary>
+    private static TimeSpan? Intervalo(JsonElement e)
+    {
+        var inicio = Data(e, "started_at");
+        var fim = Data(e, "completed_at");
+        return inicio is null || fim is null || fim < inicio ? null : fim - inicio;
+    }
 
     private static async Task<CiRun> ConsultarAsync(string slug, string branch, string usuario)
     {

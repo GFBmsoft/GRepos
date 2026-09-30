@@ -52,6 +52,36 @@ public class DiffLayoutTests
     }
 
     [Fact]
+    public void Com_quebra_de_linha_a_coluna_para_na_largura_do_painel()
+    {
+        var vm = new DiffViewModel { CharWidth = 7, ViewportWidth = 400 };
+        vm.Load(Diff(LinhaLonga));
+        Assert.True(vm.RightWidth > 400); // sem quebra, a coluna acompanha o texto
+
+        vm.Wrap = true;
+
+        // ligada a quebra, nada pode passar do painel: é o que tira a rolagem horizontal
+        Assert.True(vm.RightWidth <= 400);
+        Assert.True(vm.LeftWidth <= 400);
+        Assert.True(vm.UnifiedWidth <= 400);
+        Assert.Equal(Avalonia.Media.TextWrapping.Wrap, vm.Wrapping);
+
+        vm.Wrap = false;
+        Assert.Equal(Avalonia.Media.TextWrapping.NoWrap, vm.Wrapping);
+        Assert.True(vm.RightWidth > 400);
+    }
+
+    [Fact]
+    public void Quebra_de_linha_sobrevive_a_troca_de_modo()
+    {
+        var vm = new DiffViewModel { CharWidth = 7, ViewportWidth = 400, Wrap = true };
+        vm.Load(Diff(LinhaLonga));
+
+        vm.Split = false; // Rebuild chama MeasureColumns de novo
+        Assert.True(vm.UnifiedWidth <= 400);
+    }
+
+    [Fact]
     public void Tabulacao_vira_espacos_para_nao_desalinhar()
     {
         var vm = new DiffViewModel { CharWidth = 7 };

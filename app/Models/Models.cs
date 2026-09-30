@@ -40,6 +40,12 @@ public sealed class Settings
     public int LogLimit { get; set; } = 300;
     public bool SplitDiff { get; set; } = true;
 
+    /// <summary>Quebra linhas longas no diff em vez de rolar na horizontal.</summary>
+    public bool WrapDiff { get; set; }
+
+    /// <summary>Largura da sidebar em pixels, como o usuário deixou o divisor.</summary>
+    public double SidebarWidth { get; set; } = 280;
+
     /// <summary>Aba aberta ao selecionar um repositório: "alteracoes" ou "historico".</summary>
     public string DefaultTab { get; set; } = "alteracoes";
 

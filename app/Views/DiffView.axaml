@@ -45,7 +45,7 @@
                TextWrapping="Wrap" Margin="24"
                IsVisible="{Binding IsEmpty}" />
 
-    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto"
+    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="{Binding RolagemHorizontal}"
                   IsVisible="{Binding HasContent}">
       <ItemsControl ItemsSource="{Binding Rows}">
         <ItemsControl.ItemsPanel>
@@ -76,7 +76,8 @@
               <TextBlock Classes="gutter" Text="{Binding NewNo}" />
               <Border Classes.add="{Binding IsAdd}" Classes.del="{Binding IsDel}"
                       Width="{Binding $parent[ItemsControl].DataContext.UnifiedWidth}">
-                <TextBlock Classes="code" Text="{Binding Text}" />
+                <TextBlock Classes="code" Text="{Binding Text}"
+                           TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
               </Border>
             </StackPanel>
           </DataTemplate>
@@ -86,12 +87,14 @@
               <TextBlock Classes="gutter" Width="44" Text="{Binding LeftNo}" />
               <Border Classes.del="{Binding LeftIsDel}" Classes.empty="{Binding LeftEmpty}"
                       Width="{Binding $parent[ItemsControl].DataContext.LeftWidth}">
-                <TextBlock Classes="code" Text="{Binding LeftText}" />
+                <TextBlock Classes="code" Text="{Binding LeftText}"
+                           TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
               </Border>
               <TextBlock Classes="gutter" Width="44" Text="{Binding RightNo}" />
               <Border Classes.add="{Binding RightIsAdd}" Classes.empty="{Binding RightEmpty}"
                       Width="{Binding $parent[ItemsControl].DataContext.RightWidth}">
-                <TextBlock Classes="code" Text="{Binding RightText}" />
+                <TextBlock Classes="code" Text="{Binding RightText}"
+                           TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
               </Border>
             </StackPanel>
           </DataTemplate>

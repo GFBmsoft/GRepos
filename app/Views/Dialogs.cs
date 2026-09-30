@@ -63,7 +63,21 @@ public abstract class DialogWindow : Window
         return b;
     }
 
-    protected void Compose(string heading, IEnumerable<Control> body, IEnumerable<Control> footer)
+    /// <summary>Espaço reservado à barra de rolagem, que é desenhada sobre o conteúdo.</summary>
+    protected const double LarguraBarraRolagem = 14;
+
+    /// <summary>Título de seção, para separar assuntos dentro do mesmo diálogo.</summary>
+    protected static TextBlock Secao(string texto, bool primeira = false) => new()
+    {
+        Text = texto.ToUpperInvariant(),
+        Classes = { "sectionTitle" },
+        Margin = new Thickness(0, primeira ? 0 : 14, 0, 8),
+    };
+
+    /// <param name="rodapeCentralizado">Botões no meio, em vez de encostados à direita.</param>
+    /// <param name="alturaMaximaCorpo">Acima de zero, o corpo rola em vez de esticar a janela.</param>
+    protected void Compose(string heading, IEnumerable<Control> body, IEnumerable<Control> footer,
+        bool rodapeCentralizado = false, double alturaMaximaCorpo = 0)
     {
         var panel = new StackPanel { Spacing = 0 };
         panel.Children.Add(new TextBlock
@@ -73,12 +87,32 @@ public abstract class DialogWindow : Window
             FontWeight = FontWeight.SemiBold,
             Margin = new Thickness(0, 0, 0, 12),
         });
-        foreach (var c in body) panel.Children.Add(c);
+
+        var corpo = new StackPanel { Spacing = 0 };
+        foreach (var c in body) corpo.Children.Add(c);
+
+        if (alturaMaximaCorpo > 0)
+        {
+            // a barra de rolagem fica por cima do conteúdo: sem esta folga à direita
+            // ela corta o fim dos campos e dos botões de cada linha
+            corpo.Margin = new Thickness(0, 0, LarguraBarraRolagem, 0);
+            panel.Children.Add(new ScrollViewer
+            {
+                MaxHeight = alturaMaximaCorpo,
+                VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                Content = corpo,
+            });
+        }
+        else
+        {
+            panel.Children.Add(corpo);
+        }
 
         var foot = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
+            HorizontalAlignment = rodapeCentralizado ? HorizontalAlignment.Center : HorizontalAlignment.Right,
             Spacing = 8,
             Margin = new Thickness(0, 14, 0, 0),
         };
@@ -588,18 +622,30 @@ public sealed class SettingsWindow : DialogWindow
         remover.Classes.Add("danger");
         foreach (var b in new[] { salvarToken, testar, remover }) b.MinWidth = 96;
 
+        // o resultado precisa saltar aos olhos: antes ele virava mais uma linha
+        // cinza no meio do texto de ajuda e passava despercebido
         async void ComAviso(Func<Task<string>> acao)
         {
             try
             {
-                situacao.Text = "Aguarde…";
+                situacao.Classes.Set("faint", true);
+                situacao.FontWeight = FontWeight.Normal;
                 situacao.Foreground = null;
-                situacao.Text = await acao();
+                situacao.Text = "Aguarde…";
+
+                var recado = await acao();
+
+                situacao.Classes.Set("faint", false);
+                situacao.FontWeight = FontWeight.SemiBold;
+                situacao.Foreground = new SolidColorBrush(Color.Parse("#3FB950"));
+                situacao.Text = "✓ " + recado;
             }
             catch (Exception ex)
             {
-                situacao.Text = ex.Message;
+                situacao.Classes.Set("faint", false);
+                situacao.FontWeight = FontWeight.SemiBold;
                 situacao.Foreground = new SolidColorBrush(Color.Parse("#E5534B"));
+                situacao.Text = "✕ " + ex.Message;
             }
         }
 
@@ -612,7 +658,18 @@ public sealed class SettingsWindow : DialogWindow
         });
 
         testar.Click += (_, _) => ComAviso(async () =>
-            "Conectado como " + await GitHubService.TestarAsync(usuario.Text ?? ""));
+        {
+            var conta = await GitHubService.TestarAsync(usuario.Text ?? "", token.Text);
+
+            // testou com o campo vazio e o GitHub disse quem é: preenche o usuário,
+            // que é justamente o que o git precisa para achar a credencial depois
+            if (string.IsNullOrWhiteSpace(usuario.Text))
+            {
+                var login = conta.Split(' ')[0];
+                if (login.Length > 0) usuario.Text = login;
+            }
+            return "Conectado como " + conta;
+        });
 
         remover.Click += (_, _) => ComAviso(async () =>
         {
@@ -624,6 +681,64 @@ public sealed class SettingsWindow : DialogWindow
         acoesToken.Children.Add(salvarToken);
         acoesToken.Children.Add(testar);
         acoesToken.Children.Add(remover);
+
+        // ------------------------------------------ gerenciador de credenciais
+
+        var helperTexto = new TextBlock
+        {
+            FontSize = 11.5,
+            TextWrapping = TextWrapping.Wrap,
+            Classes = { "faint" },
+            Text = "Verificando…",
+        };
+        var configurarHelper = Btn("Usar o Gerenciador de Credenciais do Windows");
+        configurarHelper.MinWidth = 260;
+
+        async Task AtualizarHelperAsync()
+        {
+            try
+            {
+                var atual = await GitHubService.HelperAsync();
+                var conta = (usuario.Text ?? "").Trim();
+                var temCred = conta.Length > 0 && await GitHubService.TemCredencialAsync(conta);
+
+                if (atual.Length == 0)
+                {
+                    helperTexto.Text = "Nenhum gerenciador configurado no git — a autenticação é " +
+                                       "pedida a cada envio. Configure para guardar uma vez só.";
+                    configurarHelper.IsEnabled = true;
+                }
+                else
+                {
+                    helperTexto.Text = $"Gerenciador em uso: {atual}. " + (temCred
+                        ? $"Credencial encontrada para {conta}: enviar não pede login."
+                        : conta.Length == 0
+                            ? "Informe o usuário acima para o git achar a credencial certa."
+                            : $"Nenhuma credencial guardada para {conta} ainda — salve o token acima.");
+                    configurarHelper.IsEnabled = !atual.Contains(GitHubService.HelperPadrao, StringComparison.Ordinal);
+                }
+            }
+            catch (Exception ex)
+            {
+                helperTexto.Text = "Não foi possível consultar o git: " + ex.Message;
+            }
+        }
+
+        configurarHelper.Click += async (_, _) =>
+        {
+            try
+            {
+                helperTexto.Text = "Configurando…";
+                await GitHubService.ConfigurarHelperAsync();
+                await AtualizarHelperAsync();
+            }
+            catch (Exception ex)
+            {
+                helperTexto.Text = ex.Message;
+            }
+        };
+
+        Opened += async (_, _) => await AtualizarHelperAsync();
 
         var close = Btn("Fechar");
         var save = Btn("Salvar", true);
@@ -643,21 +758,27 @@ public sealed class SettingsWindow : DialogWindow
 
         var body = new List<Control>
         {
+            Secao("Customização", primeira: true),
             Field("Tema", theme),
             Field("Cor de destaque", swatches),
             Field("Densidade das listas", density),
             Field("Abrir o repositório em", abaInicial),
             Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
             Field("Commits carregados no histórico", logLimit),
-            new TextBlock { Text = "AUTENTICAÇÃO NO GITHUB", Classes = { "sectionTitle" }, Margin = new Thickness(0, 6, 0, 8) },
-            Field("Usuário", usuario),
-            Field("Token de acesso pessoal", token),
-            acoesToken,
-            situacao,
         };
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
 
-        Compose("Preferências", body, new[] { close, save });
+        body.Add(Secao("Autenticação"));
+        body.Add(Field("Usuário do GitHub", usuario));
+        body.Add(Field("Token de acesso pessoal", token));
+        body.Add(acoesToken);
+        body.Add(situacao);
+        body.Add(Secao("Gerenciador de credenciais"));
+        body.Add(helperTexto);
+        body.Add(new StackPanel { Margin = new Thickness(0, 8, 0, 0), Children = { configurarHelper } });
+
+        Compose("Preferências", body, new[] { close, save },
+            rodapeCentralizado: true, alturaMaximaCorpo: 520);
     }
 }
 

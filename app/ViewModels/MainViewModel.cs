@@ -24,6 +24,9 @@ public interface IDialogService
     Task ShowRepoConfigAsync(MainViewModel main, Repo repo);
     Task ShowSettingsAsync(MainViewModel main);
     Task ShowBranchesAsync(MainViewModel main, Repo repo);
+
+    /// <summary>Janela da esteira: execuções do GitHub Actions e seus passos.</summary>
+    Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome);
     Task ShowStashAsync(MainViewModel main, Repo repo);
 }
 
@@ -74,7 +77,22 @@ public sealed partial class MainViewModel : ObservableObject
 
     public string RepoTitle => CurrentRepo?.Name ?? "";
     public string RepoPath => CurrentRepo?.Path ?? "";
-    public string BranchCaption => CurrentStatus?.Branch is { Length: > 0 } b ? b : "—";
+    public string BranchCaption => Rotulos.Branch(CurrentStatus?.Branch ?? "");
+
+    /// <summary>O nome inteiro da branch, que não cabe no botão, vive aqui.</summary>
+    public string BranchTooltip
+    {
+        get
+        {
+            var s = CurrentStatus;
+            if (s is null || s.Branch.Length == 0) return "Branches: trocar ou criar";
+
+            var linhas = "Branch atual: " + s.Branch;
+            if (!string.IsNullOrEmpty(s.Upstream)) linhas += "\nAcompanha: " + s.Upstream;
+            if (s.Ahead > 0 || s.Behind > 0) linhas += $"\n↑{s.Ahead} à frente · ↓{s.Behind} atrás";
+            return linhas + "\nClique para trocar ou criar branch";
+        }
+    }
     public string PairTabHeader => CurrentRepo?.PairKey is { Length: > 0 } k ? $"Par: {k}" : "Par";
 
     // conta arquivos, não situações: um arquivo preparado e alterado de novo é um só,
@@ -89,6 +107,10 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _ciSituacao = "";
     [ObservableProperty] private string _ciDetalhe = "";
     [ObservableProperty] private string _ciUrl = "";
+
+    /// <summary>"owner/repo" e conta do remoto: é o que a janela da esteira consulta.</summary>
+    private string _ciSlug = "";
+    private string _ciUsuario = "";
 
     public bool TemRemoto => RemoteWebUrl.Length > 0;
     public bool TemCi => CiSituacao.Length > 0 && CiSituacao != "nenhum";
@@ -113,7 +135,7 @@ public sealed partial class MainViewModel : ObservableObject
     };
 
     public string CiTooltip => CiDetalhe.Length > 0
-        ? $"{CiRotulo} — {CiDetalhe}\nClique para abrir no GitHub"
+        ? $"{CiRotulo} — {CiDetalhe}\nClique para ver as execuções e o passo a passo"
         : "Status do GitHub Actions";
 
     /// <summary>
@@ -154,6 +176,8 @@ public sealed partial class MainViewModel : ObservableObject
         CiSituacao = "";
         CiDetalhe = "";
         CiUrl = "";
+        _ciSlug = "";
+        _ciUsuario = "";
 
         try
         {
@@ -164,8 +188,14 @@ public sealed partial class MainViewModel : ObservableObject
             var slug = GitHubService.Slug(remoto);
             if (slug is null) return;
 
+            // o usuário do remoto vem na frente; sem ele vale o das preferências
+            var usuario = GitHubService.Usuario(remoto);
+            if (usuario.Length == 0) usuario = _ws.Settings.GithubUser;
+            _ciSlug = slug;
+            _ciUsuario = usuario;
+
             var run = await GitHubService.UltimaExecucaoAsync(
-                slug, CurrentStatus?.Branch ?? "", GitHubService.Usuario(remoto));
+                slug, CurrentStatus?.Branch ?? "", usuario);
             if (SelectedNode?.Repo.Id != repo.Id) return;
 
             CiSituacao = run.Situacao;
@@ -204,11 +234,22 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Abre a esteira dentro do app: cartões das execuções e o passo a passo de cada
+    /// job. Sem slug do GitHub não há API a consultar, e aí vale a página no navegador.
+    /// </summary>
     [RelayCommand]
-    private void AbrirEsteira()
+    private async Task AbrirEsteiraAsync()
     {
         try
         {
+            if (_ciSlug.Length > 0)
+            {
+                await _dialogs.ShowEsteiraAsync(
+                    _ciSlug, CurrentStatus?.Branch ?? "", _ciUsuario, CurrentRepo?.Name ?? "");
+                return;
+            }
+
             ShellService.AbrirUrl(CiUrl.Length > 0 ? CiUrl : RemoteWebUrl + "/actions");
         }
         catch (Exception e)
@@ -271,11 +312,27 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>Quebra de linha no diff; a preferência vale para Alterações e Histórico.</summary>
+    public bool WrapDiff
+    {
+        get => _ws.Settings.WrapDiff;
+        set
+        {
+            if (_ws.Settings.WrapDiff == value) return;
+            _ws.Settings.WrapDiff = value;
+            if (Changes is not null) Changes.Diff.Wrap = value;
+            if (History is not null) History.Diff.Wrap = value;
+            OnPropertyChanged();
+            Persist();
+        }
+    }
+
     // ---------------------------------------------------------- inicialização
 
     public async Task InitAsync()
     {
         _ws = WorkspaceStore.Load();
+        GitService.CredentialUser = _ws.Settings.GithubUser;
         RebuildTree();
         ApplyTimer();
         await RefreshAllAsync();
@@ -388,7 +445,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         foreach (var n in new[] { nameof(CurrentRepo), nameof(CurrentStatus), nameof(HasSelection),
                                   nameof(NoSelection), nameof(HasPair), nameof(RepoTitle), nameof(RepoPath),
-                                  nameof(BranchCaption), nameof(StatusLine), nameof(ChangesTabHeader),
+                                  nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine), nameof(ChangesTabHeader),
                                   nameof(PairTabHeader), nameof(BehindBadge), nameof(AheadBadge),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText),
                                   nameof(ForaDaPrincipal) })
@@ -409,6 +466,8 @@ public sealed partial class MainViewModel : ObservableObject
         _watcher = new RepoWatcher(repo.Path, () => Dispatcher.UIThread.Post(() => _ = OnDiskChangedAsync(repo.Id)));
         Changes = new ChangesViewModel(repo, this, SplitDiff);
         History = new HistoryViewModel(repo, this, _ws.Settings.LogLimit, SplitDiff);
+        Changes.Diff.Wrap = WrapDiff;
+        History.Diff.Wrap = WrapDiff;
 
         var other = PairRepoOf(repo);
         if (other is not null) Pair = new PairViewModel(repo, other, this, _ws.Settings.LogLimit);
@@ -538,7 +597,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void RefreshHeaderBindings()
     {
-        foreach (var n in new[] { nameof(CurrentStatus), nameof(BranchCaption), nameof(StatusLine),
+        foreach (var n in new[] { nameof(CurrentStatus), nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine),
                                   nameof(ChangesTabHeader), nameof(BehindBadge), nameof(AheadBadge),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText) })
             OnPropertyChanged(n);
@@ -637,6 +696,9 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ToggleSplit() => SplitDiff = !SplitDiff;
 
+    [RelayCommand]
+    private void ToggleWrap() => WrapDiff = !WrapDiff;
+
     // ------------------------------------------------ mutações do workspace
 
     public string CreateGroup(string name, string? cor = null)
@@ -715,6 +777,19 @@ public sealed partial class MainViewModel : ObservableObject
     public void SetGithubUser(string usuario)
     {
         _ws.Settings.GithubUser = usuario.Trim();
+
+        // sem repassar para o GitService o usuário só existia no arquivo: o git ia ao
+        // credential manager sem conta, não achava o token e abria a janela de login
+        GitService.CredentialUser = _ws.Settings.GithubUser;
+        GitHubService.EsquecerTokens();
+        Persist();
+    }
+
+    /// <summary>Largura da sidebar escolhida no divisor; volta assim na próxima abertura.</summary>
+    public void SetSidebarWidth(double largura)
+    {
+        if (largura <= 0 || Math.Abs(_ws.Settings.SidebarWidth - largura) < 1) return;
+        _ws.Settings.SidebarWidth = largura;
         Persist();
     }
 
