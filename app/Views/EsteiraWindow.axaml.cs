@@ -16,7 +16,11 @@ public partial class EsteiraWindow : Window
     {
         var vm = new EsteiraViewModel(slug, branch, usuario, repoNome);
         DataContext = vm;
-        Opened += async (_, _) => await vm.CarregarAsync();
+
+        // a consulta periódica vive enquanto a janela existe: fechada, não há
+        // motivo para continuar gastando cota da API do GitHub
+        Opened += async (_, _) => await vm.IniciarAsync();
+        Closed += (_, _) => vm.Parar();
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

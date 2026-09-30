@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using GRepos.Services;
+using GRepos.ViewModels;
 using Xunit;
 
 namespace GRepos.Tests;
@@ -147,6 +148,82 @@ public class EsteiraTests
 
         Assert.Equal(esperado, curto);
         Assert.True(curto.Length <= Rotulos.LimiteBranch);
+    }
+
+    /// <summary>
+    /// O ponto da atualização automática: a linha precisa ser **a mesma** depois do
+    /// ciclo, com o conteúdo novo. Trocar o item recriaria a linha na tela e levaria
+    /// junto a rolagem e a seleção do usuário, bem enquanto ele acompanha o build.
+    /// </summary>
+    [Fact]
+    public void Atualizar_muda_o_conteudo_sem_recriar_a_linha()
+    {
+        var lista = new System.Collections.ObjectModel.ObservableCollection<CiEtapaViewModel>();
+
+        void Aplicar(params CiEtapa[] etapas) => ListaSync.AplicarModelos(
+            lista, etapas,
+            item => item.Etapa.Numero.ToString(),
+            modelo => modelo.Numero.ToString(),
+            (item, modelo) => item.Etapa = modelo,
+            modelo => new CiEtapaViewModel { Etapa = modelo });
+
+        Aplicar(
+            new CiEtapa { Numero = 1, Nome = "Checkout", Situacao = "sucesso" },
+            new CiEtapa { Numero = 2, Nome = "dotnet test", Situacao = "rodando" });
+
+        var primeira = lista[0];
+        var segunda = lista[1];
+        Assert.Equal("●", segunda.Simbolo);
+
+        // o passo terminou e um terceiro começou
+        Aplicar(
+            new CiEtapa { Numero = 1, Nome = "Checkout", Situacao = "sucesso" },
+            new CiEtapa { Numero = 2, Nome = "dotnet test", Situacao = "falha", Duracao = TimeSpan.FromSeconds(83) },
+            new CiEtapa { Numero = 3, Nome = "Publicar", Situacao = "rodando" });
+
+        Assert.Same(primeira, lista[0]);
+        Assert.Same(segunda, lista[1]); // mesma instância...
+        Assert.Equal("✕", segunda.Simbolo); // ...com o conteúdo novo
+        Assert.Equal("1m 23s", segunda.DuracaoTexto);
+        Assert.Equal("SemiBold", segunda.Peso);
+        Assert.Equal(3, lista.Count);
+    }
+
+    [Fact]
+    public void Execucao_que_sumiu_da_resposta_sai_da_lista()
+    {
+        var lista = new System.Collections.ObjectModel.ObservableCollection<CiExecucaoViewModel>();
+
+        void Aplicar(params CiExecucao[] execucoes) => ListaSync.AplicarModelos(
+            lista, execucoes,
+            item => item.Execucao.Id.ToString(),
+            modelo => modelo.Id.ToString(),
+            (item, modelo) => item.Execucao = modelo,
+            modelo => new CiExecucaoViewModel { Execucao = modelo });
+
+        Aplicar(
+            new CiExecucao { Id = 2, Situacao = "rodando" },
+            new CiExecucao { Id = 1, Situacao = "sucesso" });
+        var antiga = lista[1];
+
+        // execução nova entra no topo e a mais velha sai da página
+        Aplicar(
+            new CiExecucao { Id = 3, Situacao = "rodando" },
+            new CiExecucao { Id = 2, Situacao = "sucesso" });
+
+        Assert.Equal(2, lista.Count);
+        Assert.Equal(3, lista[0].Execucao.Id);
+        Assert.Equal("passou", lista[1].Rodape.Split(' ')[0]);
+        Assert.DoesNotContain(antiga, lista);
+    }
+
+    [Fact]
+    public void O_ritmo_e_mais_rapido_quando_algo_esta_rodando()
+    {
+        // acompanhar um build pedindo de 30 em 30 segundos seria inútil; e pedir de 8 em
+        // 8 com tudo parado só gastaria a cota por hora da API
+        Assert.True(EsteiraViewModel.IntervaloRodando < EsteiraViewModel.IntervaloParado);
+        Assert.True(EsteiraViewModel.IntervaloRodando >= TimeSpan.FromSeconds(5));
     }
 
     [Theory]
