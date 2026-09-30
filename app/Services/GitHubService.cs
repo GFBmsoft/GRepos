@@ -300,6 +300,38 @@ public static class GitHubService
 
     public static void LimparCache() => Cache.Clear();
 
+    /// <summary>
+    /// Qual execução representa o repositório na barra: a mais recente da branch, a não
+    /// ser que exista outra **ainda rodando**, mais nova, em qualquer branch.
+    ///
+    /// O segundo caso é o build de tag: o GitHub põe o nome da tag no head_branch, então
+    /// um build da 1.0.0.10 não é "main" e some do filtro por branch — mas é justamente
+    /// o que o usuário acabou de disparar e quer ver andando.
+    /// </summary>
+    public static CiExecucao? EscolherExecucao(IReadOnlyList<CiExecucao> execucoes, string branch)
+    {
+        if (execucoes.Count == 0) return null;
+
+        var daBranch = branch.Length == 0
+            ? execucoes[0]
+            : execucoes.FirstOrDefault(e => e.Branch == branch);
+
+        // "mais nova" pela ordem da resposta, que vem da mais recente para a mais antiga
+        var posRodando = Posicao(execucoes, e => e.Situacao == "rodando");
+        if (posRodando < 0) return daBranch ?? execucoes[0];
+        if (daBranch is null) return execucoes[posRodando];
+
+        var posBranch = Posicao(execucoes, e => ReferenceEquals(e, daBranch));
+        return posRodando < posBranch ? execucoes[posRodando] : daBranch;
+    }
+
+    private static int Posicao(IReadOnlyList<CiExecucao> lista, Func<CiExecucao, bool> criterio)
+    {
+        for (var i = 0; i < lista.Count; i++)
+            if (criterio(lista[i])) return i;
+        return -1;
+    }
+
     // ------------------------------------------------------ esteira detalhada
 
     /// <summary>
@@ -456,8 +488,9 @@ public static class GitHubService
     {
         try
         {
-            var url = $"https://api.github.com/repos/{slug}/actions/runs?per_page=1" +
-                      (string.IsNullOrEmpty(branch) ? "" : $"&branch={Uri.EscapeDataString(branch)}");
+            // sem filtro de branch, e escolhendo depois: uma chamada só serve para achar
+            // tanto a execução da branch quanto um build de tag em andamento
+            var url = $"https://api.github.com/repos/{slug}/actions/runs?per_page=10";
 
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
             var token = await TokenAsync(usuario);
@@ -468,21 +501,19 @@ public static class GitHubService
             if (!resp.IsSuccessStatusCode)
                 return new CiRun { Situacao = "indisponivel", Detalhe = $"GitHub respondeu {(int)resp.StatusCode}" };
 
-            using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-            var runs = doc.RootElement.GetProperty("workflow_runs");
-            if (runs.GetArrayLength() == 0)
-                return new CiRun { Situacao = "nenhum", Detalhe = "Sem execuções para esta branch" };
+            var escolhida = EscolherExecucao(LerExecucoes(await resp.Content.ReadAsStringAsync()), branch);
+            if (escolhida is null)
+                return new CiRun { Situacao = "nenhum", Detalhe = "Sem execuções neste repositório" };
 
-            var r = runs[0];
-            var status = Texto(r, "status");        // queued, in_progress, completed
-            var conclusao = Texto(r, "conclusion"); // success, failure, cancelled, ...
-
+            // a branch entra no detalhe: é o que explica um "rodando" que não é da sua
             return new CiRun
             {
-                Situacao = Traduzir(status, conclusao),
-                Workflow = Texto(r, "name"),
-                Url = Texto(r, "html_url"),
-                Detalhe = Texto(r, "display_title"),
+                Situacao = escolhida.Situacao,
+                Workflow = escolhida.Workflow,
+                Url = escolhida.Url,
+                Detalhe = escolhida.Branch.Length > 0 && escolhida.Branch != branch
+                    ? $"{escolhida.Titulo} ({escolhida.Branch})"
+                    : escolhida.Titulo,
             };
         }
         catch (Exception e)

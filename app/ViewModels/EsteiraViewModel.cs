@@ -156,11 +156,26 @@ public sealed partial class EsteiraViewModel : ObservableObject
         _branch = branch;
         _usuario = usuario;
         Title = repoNome.Length > 0 ? $"Esteira — {repoNome}" : "Esteira";
-        Subtitulo = branch.Length > 0 ? $"{slug} · branch {branch}" : slug;
+        Subtitulo = slug;
 
         _timer = new DispatcherTimer { Interval = IntervaloParado };
         _timer.Tick += (_, _) => _ = AtualizarAsync();
     }
+
+    /// <summary>
+    /// Filtrar pela branch esconde justamente os builds de tag: o GitHub põe o nome da
+    /// tag no head_branch dessas execuções, então um build da 1.0.0.10 não é "main".
+    /// Por isso o padrão é mostrar tudo, e a branch vem escrita em cada cartão.
+    /// </summary>
+    [ObservableProperty] private bool _somenteBranch;
+
+    public bool PodeFiltrarPorBranch => _branch.Length > 0;
+
+    public string FiltroTexto => _branch.Length > 0
+        ? $"só a branch {_branch}"
+        : "só a branch atual";
+
+    partial void OnSomenteBranchChanged(bool value) => _ = CarregarAsync();
 
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private string _subtitulo = "";
@@ -262,7 +277,8 @@ public sealed partial class EsteiraViewModel : ObservableObject
 
         try
         {
-            var lista = await GitHubService.ExecucoesAsync(_slug, _branch, _usuario);
+            var lista = await GitHubService.ExecucoesAsync(
+                _slug, SomenteBranch ? _branch : "", _usuario);
             Erro = "";
 
             ListaSync.AplicarModelos(

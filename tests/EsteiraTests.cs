@@ -97,6 +97,54 @@ public class EsteiraTests
         Assert.Equal("rodando", lista[1].Situacao);
     }
 
+    /// <summary>
+    /// Build de tag traz o nome da tag no head_branch. Filtrar por "main" o esconde —
+    /// foi o que fez a execução da 1.0.0.10 não aparecer no app.
+    /// </summary>
+    [Fact]
+    public void Build_de_tag_rodando_aparece_mesmo_estando_fora_da_branch()
+    {
+        var lista = new[]
+        {
+            new CiExecucao { Id = 20, Branch = "1.0.0.10", Situacao = "rodando", Titulo = "Painel" },
+            new CiExecucao { Id = 19, Branch = "main", Situacao = "sucesso", Titulo = "Painel" },
+        };
+
+        var escolhida = GitHubService.EscolherExecucao(lista, "main");
+
+        Assert.NotNull(escolhida);
+        Assert.Equal(20, escolhida!.Id);
+        Assert.Equal("1.0.0.10", escolhida.Branch);
+    }
+
+    [Fact]
+    public void Terminado_o_build_de_tag_a_barra_volta_a_falar_da_branch()
+    {
+        var lista = new[]
+        {
+            new CiExecucao { Id = 20, Branch = "1.0.0.10", Situacao = "sucesso" },
+            new CiExecucao { Id = 19, Branch = "main", Situacao = "falha" },
+        };
+
+        // nada rodando: vale a da branch, mesmo sendo mais antiga
+        var escolhida = GitHubService.EscolherExecucao(lista, "main");
+        Assert.Equal(19, escolhida!.Id);
+        Assert.Equal("falha", escolhida.Situacao);
+    }
+
+    [Fact]
+    public void Sem_execucao_da_branch_vale_a_mais_recente()
+    {
+        var lista = new[]
+        {
+            new CiExecucao { Id = 20, Branch = "1.0.0.10", Situacao = "sucesso" },
+            new CiExecucao { Id = 19, Branch = "outra", Situacao = "falha" },
+        };
+
+        Assert.Equal(20, GitHubService.EscolherExecucao(lista, "feat/nova")!.Id);
+        Assert.Null(GitHubService.EscolherExecucao(System.Array.Empty<CiExecucao>(), "main"));
+    }
+
     [Fact]
     public void Resposta_sem_execucoes_nao_quebra()
     {

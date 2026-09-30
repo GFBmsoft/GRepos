@@ -135,8 +135,16 @@
         </StackPanel>
       </StackPanel>
 
-      <TextBlock Grid.Column="1" Text="{Binding RitmoTexto}" Classes="faint" FontSize="11"
-                 VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,14,0" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="14"
+                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0">
+        <!-- desmarcado mostra também os builds de tag, cujo head_branch é o nome da tag -->
+        <CheckBox Content="{Binding FiltroTexto}" FontSize="11" VerticalAlignment="Center"
+                  IsVisible="{Binding PodeFiltrarPorBranch}"
+                  IsChecked="{Binding SomenteBranch}"
+                  ToolTip.Tip="Desmarcado, a lista inclui os builds de tag e de outras branches" />
+        <TextBlock Text="{Binding RitmoTexto}" Classes="faint" FontSize="11"
+                   VerticalAlignment="Center" />
+      </StackPanel>
 
       <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
               IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
