@@ -152,7 +152,7 @@ public sealed partial class EsteiraViewModel : ObservableObject
     private long _jobsCarregadosDe;
 
     public EsteiraViewModel(string slug, string branch, string usuario, string repoNome = "",
-        IDialogService? dialogs = null, int visiveis = 6)
+        IDialogService? dialogs = null, int visiveis = 6, bool somenteBranch = false)
     {
         Visiveis = Math.Max(1, visiveis);
         _slug = slug;
@@ -165,6 +165,9 @@ public sealed partial class EsteiraViewModel : ObservableObject
 
         _timer = new DispatcherTimer { Interval = IntervaloParado };
         _timer.Tick += (_, _) => _ = AtualizarAsync();
+
+        // antes do timer existir a troca não recarrega nada: quem carrega é o IniciarAsync
+        SomenteBranch = somenteBranch && branch.Length > 0;
     }
 
     /// <summary>
@@ -180,7 +183,11 @@ public sealed partial class EsteiraViewModel : ObservableObject
         ? $"só a branch {_branch}"
         : "só a branch atual";
 
-    partial void OnSomenteBranchChanged(bool value) => _ = CarregarAsync();
+    // só recarrega depois de iniciada; no construtor, quem carrega é o IniciarAsync
+    partial void OnSomenteBranchChanged(bool value)
+    {
+        if (_timer.IsEnabled) _ = CarregarAsync();
+    }
 
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private string _subtitulo = "";
@@ -276,6 +283,9 @@ public sealed partial class EsteiraViewModel : ObservableObject
         // o cartão aberto pode ter saído pelo filtro
         if (Selecionada is not null && !Execucoes.Contains(Selecionada)) Selecionada = null;
         Selecionada ??= Execucoes.FirstOrDefault();
+
+        // a execução escolhida pode ter terminado neste ciclo: Parar some, Reexecutar volta
+        AvisarBotoes();
     }
 
     /// <summary>Recado do rodapé, para a atualização sozinha não parecer mágica.</summary>
@@ -320,11 +330,14 @@ public sealed partial class EsteiraViewModel : ObservableObject
     public bool PodeReexecutarFalhas =>
         PodeReexecutar && Selecionada?.Execucao.Situacao == "falha";
 
+    /// <summary>Parar só existe enquanto a execução está rodando.</summary>
+    public bool PodeCancelar => Selecionada is { Rodando: true } && !Executando;
+
     partial void OnExecutandoChanged(bool value) => AvisarBotoes();
 
     private void AvisarBotoes()
     {
-        foreach (var p in new[] { nameof(PodeDisparar), nameof(PodeReexecutar), nameof(PodeReexecutarFalhas) })
+        foreach (var p in new[] { nameof(PodeDisparar), nameof(PodeReexecutar), nameof(PodeReexecutarFalhas), nameof(PodeCancelar) })
             OnPropertyChanged(p);
     }
 
@@ -423,6 +436,40 @@ public sealed partial class EsteiraViewModel : ObservableObject
         }
     }
 
+    /// <summary>Para a execução escolhida no GitHub. Confirma antes, como as outras ações.</summary>
+    [RelayCommand]
+    private async Task CancelarAsync()
+    {
+        var cartao = Selecionada;
+        if (Executando || cartao is null || !cartao.Rodando) return;
+
+        if (_dialogs is not null && !await _dialogs.ConfirmAsync(
+                "Parar execução",
+                $"Parar \"{cartao.Workflow} {cartao.Numero}\" no GitHub Actions?\n\n" +
+                "Os passos que ainda não rodaram não vão rodar."))
+            return;
+
+        Executando = true;
+        Erro = "";
+        try
+        {
+            await GitHubService.CancelarAsync(_slug, cartao.Execucao.Id, _usuario);
+
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            await CarregarAsync(silencioso: true);
+            if (Selecionada is not null) await CarregarJobsAsync(Selecionada, silencioso: true);
+            AjustarRitmo();
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            Executando = false;
+        }
+    }
+
     /// <summary>Começa a acompanhar. A janela chama ao abrir.</summary>
     public async Task IniciarAsync()
     {
@@ -477,6 +524,8 @@ public sealed partial class EsteiraViewModel : ObservableObject
 
     private async Task CarregarAsync(bool silencioso)
     {
+        if (_slug.Length == 0) return; // sem repositório no GitHub não há o que consultar
+
         if (!silencioso)
         {
             if (Carregando) return;
@@ -514,6 +563,8 @@ public sealed partial class EsteiraViewModel : ObservableObject
 
     private async Task CarregarJobsAsync(CiExecucaoViewModel cartao, bool silencioso = false)
     {
+        if (_slug.Length == 0) return;
+
         if (!silencioso) CarregandoJobs = true;
 
         try

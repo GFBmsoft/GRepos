@@ -98,6 +98,51 @@ public class RepoNodeTests
     }
 
     /// <summary>
+    /// Recolher e abrir o grupo recria os nós. O status tem que ir junto, senão a pílula
+    /// da branch e os contadores somem até a próxima varredura — foi o que o usuário viu.
+    /// </summary>
+    [Fact]
+    public async System.Threading.Tasks.Task Recolher_e_abrir_o_grupo_mantem_a_pilula_da_branch()
+    {
+        var home = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+            "grepos-pilula-" + System.IO.Path.GetRandomFileName());
+        var repo = System.IO.Path.Combine(home, "repo");
+        System.IO.Directory.CreateDirectory(repo);
+
+        var antes = System.Environment.GetEnvironmentVariable("GREPOS_HOME");
+        System.Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+
+        try
+        {
+            await GRepos.Services.GitService.RunAsync(repo, new[] { "init", "-q", "-b", "develop" });
+
+            var main = new MainViewModel(new FakeDialogs());
+            main.CreateGroup("Módulos");
+            main.AddRepository(repo, "Financeiro", main.Groups[0].Id);
+            main.RebuildTree();
+
+            var id = main.Tree.OfType<RepoNode>().Single().Id;
+            main.ApplyStatus(id, new GRepos.Models.RepoStatus { Branch = "develop", Ahead = 2 });
+
+            var grupo = main.Tree.OfType<GroupNode>().First();
+            main.ToggleGroupCommand.Execute(grupo);
+            Assert.Empty(main.Tree.OfType<RepoNode>());
+
+            main.ToggleGroupCommand.Execute(main.Tree.OfType<GroupNode>().First());
+
+            var no = main.Tree.OfType<RepoNode>().Single();
+            Assert.True(no.TemBranch);
+            Assert.Equal("develop", no.BranchRotulo);
+            Assert.True(no.ShowAhead);
+        }
+        finally
+        {
+            System.Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { System.IO.Directory.Delete(home, true); } catch (System.Exception) { /* temporária */ }
+        }
+    }
+
+    /// <summary>
     /// O estilo chega pronto em cada nó — a cor do nome vem do dado, e estilo de XAML
     /// não troca isso —, então mudar a preferência exige remontar a árvore.
     /// </summary>

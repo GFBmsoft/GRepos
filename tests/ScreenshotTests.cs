@@ -249,6 +249,61 @@ public class ScreenshotTests
         Shot(new PainelView(), vm, "painel", 1000, 560);
     }
 
+    /// <summary>Cartão do painel aberto, com a última execução e o passo a passo.</summary>
+    [AvaloniaFact]
+    public void Painel_com_cartao_aberto()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+
+        var aberto = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "Financeiro" },
+            new RepoStatus { Branch = "develop", Ahead = 1 }, "#DB4C9B", main) { CiSituacao = "rodando", CiWorkflow = "build" };
+
+        var esteira = new EsteiraViewModel("", "develop", "", "Financeiro", visiveis: 1, somenteBranch: true);
+        var execucao = new CiExecucaoViewModel
+        {
+            Execucao = new CiExecucao
+            {
+                Id = 1, Numero = 42, Situacao = "rodando", Workflow = "build",
+                Titulo = "fix(boleto): ocultar campo do boleto online", Branch = "develop", Autor = "GFBmsoft",
+                Criada = DateTime.UtcNow.AddMinutes(-3),
+            },
+        };
+        esteira.Execucoes.Add(execucao);
+        esteira.Selecionada = execucao;
+
+        var job = new CiJob
+        {
+            Nome = "build", Situacao = "rodando", Duracao = TimeSpan.FromSeconds(95),
+            Etapas =
+            {
+                new CiEtapa { Numero = 1, Nome = "Set up job", Situacao = "sucesso", Duracao = TimeSpan.FromSeconds(2) },
+                new CiEtapa { Numero = 2, Nome = "Run actions/checkout@v7", Situacao = "sucesso", Duracao = TimeSpan.FromSeconds(6) },
+                new CiEtapa { Numero = 3, Nome = "Testes", Situacao = "rodando" },
+                new CiEtapa { Numero = 4, Nome = "Publicar", Situacao = "nenhum" },
+            },
+        };
+        var jobVm = new CiJobViewModel { Job = job };
+        jobVm.SincronizarEtapas(job);
+        esteira.Jobs.Add(jobVm);
+        esteira.Workflows.Add(new GitHubService.Workflow { Id = 1, Nome = "build", Ativo = true });
+        esteira.WorkflowEscolhido = esteira.Workflows[0];
+
+        aberto.Esteira = esteira;
+        aberto.Expandido = true;
+
+        var outros = new[]
+        {
+            new CartaoRepoViewModel(new Repo { Id = "r2", Name = "NFsPWS" }, new RepoStatus { Branch = "feat/qrcode" }, "#DB4C9B", main) { CiSituacao = "sucesso" },
+            new CartaoRepoViewModel(new Repo { Id = "r3", Name = "Backup" }, new RepoStatus { Branch = "master" }, "#DB4C9B", main) { CiSituacao = "nenhum" },
+            new CartaoRepoViewModel(new Repo { Id = "r4", Name = "SPED" }, new RepoStatus { Branch = "develop", Unstaged = 2, PendingFiles = 2 }, "#DB4C9B", main) { CiSituacao = "falha" },
+        };
+
+        var vm = new PainelViewModel("Módulos", "4 repositório(s)", new[] { aberto }.Concat(outros), main);
+
+        Shot(new PainelView(), vm, "painel-aberto", 1000, 600);
+    }
+
     /// <summary>README de verdade — o deste projeto — renderizado na aba Leia-me.</summary>
     [AvaloniaFact]
     public void Leiame_renderizado()

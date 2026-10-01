@@ -154,7 +154,81 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
                                   nameof(CiTexto), nameof(CiCor), nameof(CiSimbolo),
                                   nameof(CiDetalheTexto), nameof(Tooltip) })
             OnPropertyChanged(p);
+
+        // expandiu antes de a consulta voltar: a esteira entra assim que se sabe que existe
+        if (Expandido && TemCi) _ = AcompanharEsteiraAsync();
     }
+
+    // ------------------------------------------------------------ expandido
+
+    /// <summary>
+    /// Clicar no cartão o abre ali mesmo, com o passo a passo da última execução da
+    /// branch e as ações da esteira. Abrir o repositório virou um botão dentro dele.
+    /// </summary>
+    [ObservableProperty] private bool _expandido;
+
+    /// <summary>Esteira do cartão aberto; nasce na primeira expansão e é reaproveitada.</summary>
+    [ObservableProperty] private EsteiraViewModel? _esteira;
+    private string _branchDaEsteira = "";
+
+    /// <summary>Larguras repassadas pelo painel: fechado divide a fileira, aberto a ocupa toda.</summary>
+    [ObservableProperty] private double _larguraBase = 250;
+    [ObservableProperty] private double _larguraTotal = 250;
+
+    public double Largura => Expandido ? Math.Max(LarguraBase, LarguraTotal) : LarguraBase;
+
+    public string Seta => Expandido ? "" : "";
+
+    public bool MostraEsteira => Expandido && Esteira is not null;
+    public bool MostraSemEsteira => Expandido && SemCi;
+    public bool MostraConsultando => Expandido && ConsultandoCi;
+
+    partial void OnLarguraBaseChanged(double value) => OnPropertyChanged(nameof(Largura));
+    partial void OnLarguraTotalChanged(double value) => OnPropertyChanged(nameof(Largura));
+    partial void OnEsteiraChanged(EsteiraViewModel? value) => OnPropertyChanged(nameof(MostraEsteira));
+
+    partial void OnExpandidoChanged(bool value)
+    {
+        foreach (var p in new[] { nameof(Largura), nameof(Seta), nameof(MostraEsteira),
+                                  nameof(MostraSemEsteira), nameof(MostraConsultando) })
+            OnPropertyChanged(p);
+
+        if (value && TemCi) _ = AcompanharEsteiraAsync();
+        else if (!value) Esteira?.Parar();
+    }
+
+    [RelayCommand]
+    private void Alternar() => Expandido = !Expandido;
+
+    private async Task AcompanharEsteiraAsync()
+    {
+        try
+        {
+            if (Slug.Length == 0) return;
+
+            // trocou de branch desde a última vez: a esteira antiga olhava outra branch
+            var branch = Status?.Branch ?? "";
+            if (Esteira is not null && _branchDaEsteira != branch)
+            {
+                Esteira.Parar();
+                Esteira = null;
+            }
+
+            // uma execução só — a mais recente da branch; o histórico fica em "Ver todas"
+            _branchDaEsteira = branch;
+            Esteira ??= new EsteiraViewModel(Slug, branch, Usuario, Nome,
+                _main?.Dialogos, visiveis: 1, somenteBranch: true);
+
+            await Esteira.IniciarAsync();
+        }
+        catch (Exception e)
+        {
+            _main?.Notify(e.Message, true);
+        }
+    }
+
+    /// <summary>Para a consulta periódica; o painel chama quando sai de cena.</summary>
+    public void PararEsteira() => Esteira?.Parar();
 
     [RelayCommand]
     private void Abrir() => _main?.SelecionarRepositorio(Repo.Id);
@@ -225,6 +299,7 @@ public sealed partial class PainelViewModel : ObservableObject
         Titulo = titulo;
         Subtitulo = subtitulo;
         Cartoes = new ObservableCollection<CartaoRepoViewModel>(cartoes);
+        RepassarLarguras();
 
         // seção única por padrão; quem sabe os grupos (o MainViewModel) substitui depois.
         // Sem isto, um painel montado direto ficaria sem nada na tela.
@@ -278,7 +353,31 @@ public sealed partial class PainelViewModel : ObservableObject
         }
     }
 
-    partial void OnLarguraDisponivelChanged(double value) => OnPropertyChanged(nameof(LarguraDoCartao));
+    partial void OnLarguraDisponivelChanged(double value)
+    {
+        OnPropertyChanged(nameof(LarguraDoCartao));
+        RepassarLarguras();
+    }
+
+    /// <summary>
+    /// Cada cartão escolhe a própria largura: fechado, a de uma coluna; aberto, a fileira
+    /// inteira, para o passo a passo da esteira caber sem cortar o nome das etapas.
+    /// </summary>
+    private void RepassarLarguras()
+    {
+        var total = Math.Max(LarguraDisponivel, LarguraMinima);
+        foreach (var c in Cartoes)
+        {
+            c.LarguraBase = LarguraDoCartao;
+            c.LarguraTotal = total;
+        }
+    }
+
+    /// <summary>Painel saiu de cena: nenhum cartão aberto continua consultando a API.</summary>
+    public void PararEsteiras()
+    {
+        foreach (var c in Cartoes) c.PararEsteira();
+    }
 
     public string Resumo
     {

@@ -111,17 +111,19 @@
 
                 <ItemsControl.ItemTemplate>
                   <DataTemplate DataType="vm:CartaoRepoViewModel">
-            <!-- o cartão inteiro é o botão: clicar abre o repositório -->
-            <Button Classes="cartao" Padding="0" Margin="0,0,10,10"
-                    Width="{Binding $parent[UserControl].DataContext.LarguraDoCartao}"
-                    Command="{Binding AbrirCommand}" ToolTip.Tip="{Binding Tooltip}"
-                    HorizontalContentAlignment="Stretch">
-              <Grid ColumnDefinitions="3,*" MinHeight="58">
-                <Border Grid.Column="0" CornerRadius="3,0,0,3"
+            <!-- moldura do cartão. O topo é o botão que abre e fecha; o conteúdo aberto
+                 fica fora dele, senão clicar num passo da esteira fecharia o cartão -->
+            <Border Classes="cartaoMoldura" Margin="0,0,10,10" Width="{Binding Largura}">
+              <Grid ColumnDefinitions="3,*">
+                <Border Grid.Column="0" CornerRadius="7,0,0,7"
                         Background="{Binding CorDoGrupo, Converter={x:Static local:Converters.StringToBrush}}" />
 
-                <StackPanel Grid.Column="1" Margin="11,9,11,9" Spacing="3">
-                  <Grid ColumnDefinitions="*,Auto">
+               <StackPanel Grid.Column="1">
+                <Button Classes="cartaoTopo" Command="{Binding AlternarCommand}"
+                        ToolTip.Tip="{Binding Tooltip}" HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                <StackPanel Margin="11,9,11,9" Spacing="3" MinHeight="40">
+                  <Grid ColumnDefinitions="*,Auto,Auto">
                     <TextBlock Grid.Column="0" Text="{Binding Nome}" FontWeight="SemiBold"
                                FontSize="12.5" TextTrimming="CharacterEllipsis" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7"
@@ -135,6 +137,9 @@
                       <TextBlock Text="{Binding SujoTexto}" FontSize="11" IsVisible="{Binding MostraSujo}"
                                  Foreground="{DynamicResource Yellow}" />
                     </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding Seta}" FontSize="9" Classes="faint"
+                               Margin="8,0,0,0" VerticalAlignment="Center"
+                               FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol" />
                   </Grid>
 
                   <!-- segunda linha: branch, esteira e PRs, tudo como texto corrido -->
@@ -152,8 +157,143 @@
                                Foreground="{DynamicResource Red}" />
                   </StackPanel>
                 </StackPanel>
+                </Button>
+
+                <!-- ============================================== cartão aberto -->
+                <Border IsVisible="{Binding Expandido}" Padding="11,8,11,10"
+                        BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,1,0,0">
+                  <StackPanel Spacing="8">
+
+                    <TextBlock Text="Consultando a esteira…" Classes="faint" FontSize="11.5"
+                               IsVisible="{Binding MostraConsultando}" />
+                    <TextBlock Text="Este repositório não tem esteira (GitHub Actions)." Classes="faint"
+                               FontSize="11.5" IsVisible="{Binding MostraSemEsteira}" />
+
+                    <!-- a última execução da branch, com o passo a passo de cada job.
+                         A visibilidade vem do cartão, antes de o DataContext virar a esteira -->
+                    <Panel IsVisible="{Binding MostraEsteira}">
+                    <StackPanel Spacing="8" DataContext="{Binding Esteira}">
+                      <TextBlock Text="{Binding Erro}" FontSize="11.5" TextWrapping="Wrap"
+                                 Foreground="{DynamicResource Red}" IsVisible="{Binding TemErro}" />
+                      <TextBlock Text="Carregando…" Classes="faint" FontSize="11.5"
+                                 IsVisible="{Binding Carregando}" />
+                      <TextBlock Text="Nenhuma execução nesta branch." Classes="faint" FontSize="11.5"
+                                 IsVisible="{Binding SemExecucoes}" />
+
+                      <ItemsControl ItemsSource="{Binding Execucoes}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate DataType="vm:CiExecucaoViewModel">
+                            <Grid ColumnDefinitions="16,*,Auto" ToolTip.Tip="{Binding Tooltip}">
+                              <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="13"
+                                         VerticalAlignment="Top"
+                                         Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                              <StackPanel Grid.Column="1" Margin="6,0">
+                                <TextBlock FontSize="12" TextTrimming="CharacterEllipsis">
+                                  <Run Text="{Binding Workflow}" FontWeight="SemiBold" />
+                                  <Run Text=" — " />
+                                  <Run Text="{Binding Titulo}" />
+                                </TextBlock>
+                                <TextBlock Text="{Binding Rodape}" Classes="faint" FontSize="10.5"
+                                           TextTrimming="CharacterEllipsis" />
+                              </StackPanel>
+                              <TextBlock Grid.Column="2" Text="{Binding Numero}" Classes="faint"
+                                         FontSize="10.5" VerticalAlignment="Top" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+
+                      <TextBlock Text="Carregando os passos…" Classes="faint" FontSize="11.5"
+                                 IsVisible="{Binding CarregandoJobs}" />
+
+                      <ItemsControl ItemsSource="{Binding Jobs}" Margin="22,0,0,0">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate DataType="vm:CiJobViewModel">
+                            <StackPanel Margin="0,0,0,8">
+                              <Grid ColumnDefinitions="16,*,Auto" Margin="0,0,0,2">
+                                <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="12"
+                                           VerticalAlignment="Center"
+                                           Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Nome}" FontWeight="SemiBold"
+                                           FontSize="11.5" Margin="6,0" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
+                                           FontSize="10.5" VerticalAlignment="Center" />
+                              </Grid>
+                              <ItemsControl ItemsSource="{Binding Etapas}" Margin="22,0,0,0">
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate DataType="vm:CiEtapaViewModel">
+                                    <Grid ColumnDefinitions="14,*,Auto" Height="20">
+                                      <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="10.5"
+                                                 VerticalAlignment="Center"
+                                                 Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                                      <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11"
+                                                 Margin="6,0" VerticalAlignment="Center"
+                                                 TextTrimming="CharacterEllipsis"
+                                                 FontWeight="{Binding Peso}" />
+                                      <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
+                                                 FontSize="10" VerticalAlignment="Center" />
+                                    </Grid>
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </StackPanel>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+
+                      <!-- ações da esteira: todas confirmam antes, como na janela -->
+                      <WrapPanel>
+                        <ComboBox MinWidth="140" Height="24" MinHeight="0" FontSize="11" Padding="8,0"
+                                  Margin="0,0,6,4" ItemsSource="{Binding Workflows}"
+                                  SelectedItem="{Binding WorkflowEscolhido}" VerticalAlignment="Center"
+                                  ToolTip.Tip="Workflow que o Executar dispara, nesta branch">
+                          <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                              <TextBlock Text="{Binding Nome}" />
+                            </DataTemplate>
+                          </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Content="Executar" Classes="tiny" BorderThickness="1" Margin="0,0,6,4"
+                                BorderBrush="{DynamicResource Border}" IsEnabled="{Binding PodeDisparar}"
+                                Command="{Binding DispararCommand}"
+                                ToolTip.Tip="Dispara o workflow escolhido nesta branch" />
+                        <Button Content="Reexecutar" Classes="tiny" BorderThickness="1" Margin="0,0,6,4"
+                                BorderBrush="{DynamicResource Border}" IsEnabled="{Binding PodeReexecutar}"
+                                Command="{Binding ReexecutarCommand}"
+                                ToolTip.Tip="Roda de novo esta execução" />
+                        <Button Content="Só as falhas" Classes="tiny" BorderThickness="1" Margin="0,0,6,4"
+                                BorderBrush="{DynamicResource Border}" IsEnabled="{Binding PodeReexecutarFalhas}"
+                                Command="{Binding ReexecutarFalhasCommand}"
+                                ToolTip.Tip="Roda de novo apenas os jobs que falharam" />
+                        <Button Content="Parar" Classes="tiny danger" BorderThickness="1" Margin="0,0,6,4"
+                                BorderBrush="{DynamicResource Border}" IsEnabled="{Binding PodeCancelar}"
+                                Command="{Binding CancelarCommand}"
+                                ToolTip.Tip="Cancela a execução, que ainda está rodando" />
+                        <TextBlock Text="{Binding RitmoTexto}" Classes="faint" FontSize="10.5"
+                                   VerticalAlignment="Center" Margin="4,0,0,4" />
+                      </WrapPanel>
+                    </StackPanel>
+                    </Panel>
+
+                    <!-- ações do repositório, valem com ou sem esteira -->
+                    <WrapPanel>
+                      <Button Content="Abrir repositório" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
+                              BorderBrush="{DynamicResource Border}" Command="{Binding AbrirCommand}"
+                              ToolTip.Tip="Abre as abas de alterações e histórico deste repositório" />
+                      <Button Content="Ver todas as execuções" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
+                              BorderBrush="{DynamicResource Border}" IsVisible="{Binding TemCi}"
+                              Command="{Binding AbrirEsteiraCommand}"
+                              ToolTip.Tip="Abre a janela da esteira, com o histórico e os filtros" />
+                      <Button Content="Pasta" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
+                              BorderBrush="{DynamicResource Border}" Command="{Binding AbrirPastaCommand}"
+                              ToolTip.Tip="Abre a pasta do repositório no Explorer" />
+                    </WrapPanel>
+                  </StackPanel>
+                </Border>
+               </StackPanel>
               </Grid>
-            </Button>
+            </Border>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>

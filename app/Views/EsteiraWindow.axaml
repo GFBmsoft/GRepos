@@ -176,6 +176,9 @@
           <Button Content="Só as falhas" MinWidth="96" IsEnabled="{Binding PodeReexecutarFalhas}"
                   Command="{Binding ReexecutarFalhasCommand}"
                   ToolTip.Tip="Roda de novo apenas os jobs que falharam" />
+          <Button Content="Parar" MinWidth="80" Classes="danger" IsEnabled="{Binding PodeCancelar}"
+                  Command="{Binding CancelarCommand}"
+                  ToolTip.Tip="Cancela a execução selecionada, que ainda está rodando" />
         </StackPanel>
       </Grid>
     </Border>

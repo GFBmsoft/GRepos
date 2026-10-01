@@ -158,19 +158,29 @@ public static class GitHubService
     /// <summary>
     /// Usuário embutido na URL do remoto (https://GFBmsoft@github.com/...). O credential
     /// manager guarda a credencial por conta, e sem o usuário ele não acha nada.
+    ///
+    /// Sem usuário na URL vale a conta configurada no app: consultar sem nenhuma manda a
+    /// chamada anônima, que tem cota de 60 por hora para a máquina inteira — o painel
+    /// esgota isso em minutos, e aí a esteira de todo mundo some.
     /// </summary>
     public static string Usuario(string remoteUrl)
     {
         var i = remoteUrl.IndexOf("://", StringComparison.Ordinal);
-        if (i < 0) return "";
+        if (i < 0) return remoteUrl.Length > 0 ? GitService.CredentialUser : "";
         var resto = remoteUrl[(i + 3)..];
         var arroba = resto.IndexOf('@');
         var barra = resto.IndexOf('/');
-        if (arroba <= 0 || (barra >= 0 && barra < arroba)) return "";
+        if (arroba <= 0 || (barra >= 0 && barra < arroba)) return GitService.CredentialUser;
 
         var usuario = resto[..arroba];
         var doisPontos = usuario.IndexOf(':'); // usuário:senha
-        return doisPontos > 0 ? usuario[..doisPontos] : usuario;
+        if (doisPontos > 0) return usuario[..doisPontos];
+
+        // "https://ghp_xxx@github.com/...", como o SourceTree deixa: o que está antes do @
+        // é o token, não uma conta. Procurar credencial com ele como usuário não acha
+        // nada, e a API era chamada sem autenticação — repositório privado não respondia
+        // e a cota anônima acabava. Vale a conta configurada no app.
+        return UrlTemplate.SegredoEmbutido(remoteUrl) == usuario ? GitService.CredentialUser : usuario;
     }
 
     /// <summary>
@@ -575,6 +585,10 @@ public static class GitHubService
         return EnviarAsync(
             $"https://api.github.com/repos/{slug}/actions/runs/{runId}/{acao}", null, usuario);
     }
+
+    /// <summary>Pede ao GitHub para parar uma execução em andamento.</summary>
+    public static Task CancelarAsync(string slug, long runId, string usuario = "") =>
+        EnviarAsync($"https://api.github.com/repos/{slug}/actions/runs/{runId}/cancel", null, usuario);
 
     // --------------------------------------------------------------- perfil
 

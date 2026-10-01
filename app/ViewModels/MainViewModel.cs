@@ -65,6 +65,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private int _selectedTab;
 
     private readonly Dictionary<string, RepoNode> _nodes = new();
+    private readonly Dictionary<string, RepoStatus> _statusConhecido = new();
 
     public Settings Settings => _ws.Settings;
     public IReadOnlyList<Group> Groups => _ws.Groups;
@@ -96,6 +97,14 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(SemNadaSelecionado));
     }
 
+    // cartão expandido consulta a esteira de tempos em tempos; painel que saiu de cena
+    // não pode continuar gastando a cota da API do GitHub
+    partial void OnPainelChanged(PainelViewModel? oldValue, PainelViewModel? newValue) =>
+        oldValue?.PararEsteiras();
+
+    /// <summary>Diálogos do app, para quem confirma ações fora da janela principal.</summary>
+    public IDialogService Dialogos => _dialogs;
+
     /// <summary>
     /// Monta o painel de um grupo — ou do workspace inteiro, com grupoId nulo.
     /// Some com a seleção de repositório: são duas visões do mesmo espaço.
@@ -115,7 +124,7 @@ public sealed partial class MainViewModel : ObservableObject
             .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)
             .Select(r => new CartaoRepoViewModel(
                 r,
-                _nodes.TryGetValue(r.Id, out var no) ? no.Status : null,
+                _statusConhecido.GetValueOrDefault(r.Id),
                 CorDoGrupo(r.GroupId),
                 this));
 
@@ -164,8 +173,8 @@ public sealed partial class MainViewModel : ObservableObject
         if (Painel is null) return;
 
         foreach (var cartao in Painel.Cartoes)
-            if (_nodes.TryGetValue(cartao.Repo.Id, out var no))
-                cartao.Status = no.Status;
+            if (_statusConhecido.TryGetValue(cartao.Repo.Id, out var status))
+                cartao.Status = status;
 
         Painel.Subtitulo = Painel.Resumo;
     }
@@ -550,6 +559,11 @@ public sealed partial class MainViewModel : ObservableObject
 
     public void RebuildTree()
     {
+        // os nós são recriados, mas o status já conhecido vai junto: sem isso, recolher e
+        // abrir um grupo apagava a pílula da branch e os contadores até a próxima varredura
+        foreach (var (id, no) in _nodes)
+            if (no.Status is not null) _statusConhecido[id] = no.Status;
+
         _nodes.Clear();
         var nodes = new ObservableCollection<SidebarNode>();
 
@@ -610,7 +624,14 @@ public sealed partial class MainViewModel : ObservableObject
 
     private RepoNode MakeNode(Repo r, bool paired, string groupColor)
     {
-        var node = new RepoNode { Repo = r, IsPaired = paired, GroupColor = groupColor, Minimalista = _ws.Settings.ArvoreMinimalista };
+        var node = new RepoNode
+        {
+            Repo = r,
+            IsPaired = paired,
+            GroupColor = groupColor,
+            Minimalista = _ws.Settings.ArvoreMinimalista,
+            Status = _statusConhecido.GetValueOrDefault(r.Id),
+        };
         _nodes[r.Id] = node;
         if (SelectedNode?.Id == r.Id) SelectedNode = node;
         return node;
@@ -771,11 +792,15 @@ public sealed partial class MainViewModel : ObservableObject
             var results = await Task.WhenAll(tasks);
 
             for (var i = 0; i < repos.Count; i++)
+            {
+                // guardado mesmo sem nó: o repositório pode estar num grupo recolhido
+                _statusConhecido[repos[i].Id] = results[i];
                 if (_nodes.TryGetValue(repos[i].Id, out var node))
                 {
                     node.Status = results[i];
                     node.Refreshed();
                 }
+            }
 
             RefreshHeaderBindings();
         }
@@ -800,6 +825,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Aplica um status já obtido, sem chamar o git de novo.</summary>
     public void ApplyStatus(string id, RepoStatus status)
     {
+        _statusConhecido[id] = status;
         if (_nodes.TryGetValue(id, out var node))
         {
             node.Status = status;

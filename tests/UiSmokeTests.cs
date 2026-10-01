@@ -189,6 +189,62 @@ public class UiSmokeTests
         Render(new PainelView(), vm);
     }
 
+    /// <summary>
+    /// Cartão aberto: execução, jobs e etapas são templates aninhados dentro do cartão,
+    /// com o DataContext trocado para a esteira — só aparecem com as listas preenchidas.
+    /// </summary>
+    [AvaloniaFact]
+    public void PainelView_monta_com_cartao_aberto_e_passo_a_passo()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+
+        var aberto = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "Financeiro" },
+            new RepoStatus { Branch = "develop" }, "#DB4C9B", main) { CiSituacao = "rodando" };
+
+        var esteira = new EsteiraViewModel("", "develop", "", "Financeiro", visiveis: 1, somenteBranch: true);
+        var execucao = new CiExecucaoViewModel
+        {
+            Execucao = new GRepos.Services.CiExecucao
+            {
+                Id = 1, Numero = 42, Situacao = "rodando", Workflow = "build",
+                Titulo = "Pílula de branch na árvore", Branch = "develop", Autor = "GFBmsoft",
+            },
+        };
+        esteira.Execucoes.Add(execucao);
+        esteira.Selecionada = execucao;
+
+        var job = new GRepos.Services.CiJob
+        {
+            Nome = "build", Situacao = "rodando", Duracao = System.TimeSpan.FromSeconds(75),
+            Etapas =
+            {
+                new GRepos.Services.CiEtapa { Numero = 1, Nome = "Checkout", Situacao = "sucesso", Duracao = System.TimeSpan.FromSeconds(3) },
+                new GRepos.Services.CiEtapa { Numero = 2, Nome = "Testes", Situacao = "rodando" },
+            },
+        };
+        var jobVm = new CiJobViewModel { Job = job };
+        jobVm.SincronizarEtapas(job);
+        esteira.Jobs.Add(jobVm);
+
+        aberto.Esteira = esteira;
+        aberto.Expandido = true;
+
+        // aberto sem esteira, para o ramo "sem GitHub Actions"
+        var semCi = new CartaoRepoViewModel(
+            new Repo { Id = "r2", Name = "Backup" }, new RepoStatus { Branch = "main" }, "#5D6675", main)
+        { CiSituacao = "nenhum" };
+        semCi.Expandido = true;
+
+        var vm = new PainelViewModel("Módulos", "", new[] { aberto, semCi }, main) { LarguraDisponivel = 1100 };
+
+        Assert.True(esteira.PodeCancelar);       // rodando: Parar disponível
+        Assert.False(esteira.PodeReexecutar);    // e Reexecutar não
+        Assert.Equal(1100, aberto.Largura);      // aberto ocupa a fileira inteira
+
+        Render(new PainelView(), vm);
+    }
+
     [AvaloniaFact]
     public void PainelView_monta_vazio()
     {

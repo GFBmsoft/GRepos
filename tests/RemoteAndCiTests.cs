@@ -41,13 +41,31 @@ public class GitHubSlugTests
     [Theory]
     [InlineData("https://GFBmsoft@github.com/bmsoftsistemas/BM2Maga.git", "GFBmsoft")]
     [InlineData("https://usuario:senha@github.com/owner/repo.git", "usuario")]
-    [InlineData("https://github.com/GFBmsoft/WinDock.git", "")]  // sem usuário embutido
-    [InlineData("git@github.com:owner/repo.git", "")]
     [InlineData("", "")]
     public void Extrai_o_usuario_da_url_para_achar_a_credencial(string remoto, string esperado)
     {
         // o credential manager guarda por conta: sem o usuário não acha o token
         Assert.Equal(esperado, GitHubService.Usuario(remoto));
+    }
+
+    [Theory]
+    [InlineData("https://github.com/GFBmsoft/WinDock.git")]
+    [InlineData("git@github.com:owner/repo.git")]
+    public void Sem_usuario_na_url_vale_a_conta_configurada(string remoto)
+    {
+        // sem conta a chamada vai anônima, e a cota anônima acaba em minutos no painel
+        Assert.Equal(GitService.CredentialUser, GitHubService.Usuario(remoto));
+    }
+
+    [Fact]
+    public void Token_no_lugar_do_usuario_cai_na_conta_configurada()
+    {
+        // remoto do jeito que o SourceTree deixa: o token não é uma conta, e usá-lo como
+        // usuário fazia a esteira ser consultada sem autenticação
+        var usuario = GitHubService.Usuario("https://ghp_abc123XYZ@github.com/bmsoftsistemas/Financeiro.git");
+
+        Assert.DoesNotContain("ghp_", usuario);
+        Assert.Equal(GitService.CredentialUser, usuario);
     }
 
     [Theory]
