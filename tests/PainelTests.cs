@@ -10,6 +10,7 @@ using Xunit;
 namespace GRepos.Tests;
 
 /// <summary>Painel de repositórios: seleção a partir do cartão e o texto de cada situação.</summary>
+[Collection(WorkspaceGlobal.Nome)]
 public class PainelTests
 {
     private sealed class FakeDialogs : IDialogService

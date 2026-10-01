@@ -6,6 +6,7 @@ using Xunit;
 
 namespace GRepos.Tests;
 
+[Collection(WorkspaceGlobal.Nome)]
 public class WorkspaceStoreTests
 {
     private const string Json = """

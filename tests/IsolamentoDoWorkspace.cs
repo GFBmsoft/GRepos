@@ -34,3 +34,15 @@ internal static class IsolamentoDoWorkspace
         Directory.CreateDirectory(WorkspaceStore.PastaDoAppDeTeste);
     }
 }
+
+/// <summary>
+/// Classes que mexem em GREPOS_HOME (ou nos desvios do WorkspaceStore). A variável é
+/// global ao processo: com essas classes em paralelo, uma definia a pasta enquanto outra
+/// zerava e conferia o caminho padrão — o teste do modo portátil falhava ao acaso e
+/// derrubava o build da tag. Na mesma coleção, e sem paralelismo, elas rodam uma de cada vez.
+/// </summary>
+[Xunit.CollectionDefinition(Nome, DisableParallelization = true)]
+public sealed class WorkspaceGlobal
+{
+    public const string Nome = "Workspace global";
+}

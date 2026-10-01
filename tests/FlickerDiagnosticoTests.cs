@@ -13,6 +13,7 @@ using Xunit.Abstractions;
 namespace GRepos.Tests;
 
 /// <summary>Conta quantas vezes a tela é remontada num único clique de "preparar".</summary>
+[Collection(WorkspaceGlobal.Nome)]
 public class FlickerDiagnosticoTests
 {
     private readonly ITestOutputHelper _saida;

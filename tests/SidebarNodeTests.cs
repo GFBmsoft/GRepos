@@ -26,6 +26,7 @@ public class GroupNodeTests
     }
 }
 
+[Collection(WorkspaceGlobal.Nome)]
 public class RepoNodeTests
 {
     private static RepoNode Node(RepoStatus? status = null) => new()

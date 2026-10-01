@@ -18,6 +18,7 @@ namespace GRepos.Tests;
 /// Renderiza as telas de verdade e grava PNG quando GREPOS_SHOTS aponta uma pasta.
 /// Serve para conferir layout sem abrir janela na máquina de quem está trabalhando.
 /// </summary>
+[Collection(WorkspaceGlobal.Nome)]
 public class ScreenshotTests
 {
     private static string? OutDir => Environment.GetEnvironmentVariable("GREPOS_SHOTS");
