@@ -186,9 +186,49 @@ public class UiSmokeTests
                 Local = "SC", RepositoriosPublicos = 3, Seguidores = 4, Estrelas = 13,
                 Linguagens = new[] { "C#" },
             },
+            Dias = DiasDeTeste(),
+            TotalContribuicoes = 321,
         };
+        vm.Perfil.LinhasContadas = true;
 
         Render(new PainelView(), vm);
+    }
+
+    private static System.Collections.Generic.List<GRepos.Services.DiaContribuicao> DiasDeTeste()
+    {
+        var hoje = new System.DateTime(2026, 10, 1);
+        return Enumerable.Range(0, 365)
+            .Select(i => new GRepos.Services.DiaContribuicao(hoje.AddDays(-364 + i), i % 7, i % 5))
+            .ToList();
+    }
+
+    /// <summary>
+    /// O quadriculado mostra só as semanas que cabem, sempre até hoje: em janela estreita
+    /// encolhe pela esquerda e, sem espaço para um mínimo, some em vez de espremer o texto.
+    /// </summary>
+    [AvaloniaFact]
+    public void Quadriculado_mostra_as_semanas_que_cabem()
+    {
+        var grade = new GRepos.Controls.GradeContribuicoes { Dias = DiasDeTeste(), ReservaEsquerda = 300 };
+
+        grade.Measure(new Size(double.PositiveInfinity, 200));
+        var cheio = grade.DesiredSize.Width;
+        Assert.True(cheio > 500, $"ano inteiro deveria passar de 500px, deu {cheio}");
+
+        grade.Measure(new Size(600, 200));
+        Assert.True(grade.DesiredSize.Width <= 300, $"sobrou só 300px, mas pediu {grade.DesiredSize.Width}");
+        Assert.True(grade.DesiredSize.Width > 0);
+
+        grade.Measure(new Size(350, 200));
+        Assert.Equal(0, grade.DesiredSize.Width);
+
+        // a última coluna é a semana de hoje: o dia sob o ponteiro na ponta direita
+        grade.Measure(new Size(600, 200));
+        grade.Arrange(new Rect(grade.DesiredSize));
+        var dia = grade.DiaEm(new Point(grade.DesiredSize.Width - 3, 13 + 3 * 11 + 2));
+        Assert.NotNull(dia);
+        Assert.Equal(new System.DateTime(2026, 9, 30), dia!.Data); // quarta-feira
+        Assert.Equal("6 contribuições em 30/09/2026", GRepos.Controls.GradeContribuicoes.Dica(dia));
     }
 
     /// <summary>

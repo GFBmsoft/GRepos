@@ -31,22 +31,28 @@
 
       <!-- perfil: só no painel geral. Enxuto de propósito — uma linha de identificação
            e uma de números, sem molduras internas -->
-      <Border Classes="card" Margin="0,0,0,12" Padding="16,12" IsVisible="{Binding TemPerfil}">
-       <Grid ColumnDefinitions="Auto,*" DataContext="{Binding Perfil}">
+      <Border Classes="card" Margin="0,0,0,12" Padding="14,10" IsVisible="{Binding TemPerfil}">
+       <DockPanel DataContext="{Binding Perfil}">
 
         <!-- foto redonda da conta; até ela chegar, a inicial no mesmo lugar -->
-        <Panel Grid.Column="0" Width="44" Height="44" Margin="0,0,14,0" VerticalAlignment="Center">
-          <Border CornerRadius="22" Background="{DynamicResource BgActive}" IsVisible="{Binding SemFoto}">
-            <TextBlock Text="{Binding Inicial}" FontSize="18" FontWeight="SemiBold"
+        <Panel DockPanel.Dock="Left" Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Top">
+          <Border CornerRadius="18" Background="{DynamicResource BgActive}" IsVisible="{Binding SemFoto}">
+            <TextBlock Text="{Binding Inicial}" FontSize="15" FontWeight="SemiBold"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        Foreground="{DynamicResource Accent}" />
           </Border>
-          <Border CornerRadius="22" ClipToBounds="True" IsVisible="{Binding TemFoto}">
+          <Border CornerRadius="18" ClipToBounds="True" IsVisible="{Binding TemFoto}">
             <Image Source="{Binding Foto}" Stretch="UniformToFill" />
           </Border>
         </Panel>
 
-        <StackPanel Grid.Column="1" Spacing="9">
+        <!-- o quadriculado do GitHub (EV05) à direita; mostra as semanas que cabem,
+             sempre até hoje, e some em janela estreita -->
+        <controls:GradeContribuicoes DockPanel.Dock="Right" Margin="16,0,0,0" VerticalAlignment="Center"
+                                     Dias="{Binding Dias}" ReservaEsquerda="390"
+                                     IsVisible="{Binding TemContribuicoes}" />
+
+        <StackPanel Spacing="5" VerticalAlignment="Center">
 
           <Grid ColumnDefinitions="Auto,*,Auto,Auto">
             <TextBlock Grid.Column="0" Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="13"
@@ -81,24 +87,24 @@
 
           <!-- números em linha, no tamanho do texto: destaque só na cor -->
           <WrapPanel>
-            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,16,0">
               <TextBlock Text="{Binding Repositorios}" FontSize="12.5" FontWeight="SemiBold" />
               <TextBlock Text="repos" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,16,0">
               <TextBlock Text="{Binding Estrelas}" FontSize="12.5" FontWeight="SemiBold"
                          Foreground="{DynamicResource Yellow}" />
               <TextBlock Text="estrelas" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,16,0">
               <TextBlock Text="{Binding Seguidores}" FontSize="12.5" FontWeight="SemiBold" />
               <TextBlock Text="seguidores" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,16,0">
               <TextBlock Text="{Binding ReposLocais}" FontSize="12.5" FontWeight="SemiBold" />
               <TextBlock Text="aqui" Classes="faint" FontSize="11" VerticalAlignment="Center" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,22,3">
+            <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,0,16,0">
               <TextBlock Text="{Binding LinhasTexto}" FontSize="12.5" FontWeight="SemiBold"
                          Foreground="{DynamicResource Green}" />
               <TextBlock Text="linhas" Classes="faint" FontSize="11" VerticalAlignment="Center" />
@@ -108,35 +114,66 @@
                       ToolTip.Tip="Soma as linhas dos seus commits em cada repositório local, sem repetir o histórico do par Origem × Destino" />
               <TextBlock Text="{Binding LinhasDetalhe}" Classes="faint" FontSize="10"
                          VerticalAlignment="Center" IsVisible="{Binding LinhasContadas}" />
+              <!-- a contagem fica guardada; recontar é pedir de novo, quando quiser -->
+              <Button Classes="icon" Content="&#xE72C;" Width="18" Height="18" FontSize="9"
+                      VerticalAlignment="Center" Padding="0"
+                      IsVisible="{Binding PodeRecontar}" Command="{Binding ContarLinhasCommand}"
+                      ToolTip.Tip="Contar de novo as linhas dos seus commits" />
               <TextBlock Text="{Binding ProgressoLinhas}" Classes="faint" FontSize="10"
                          VerticalAlignment="Center" IsVisible="{Binding ContandoLinhas}" />
             </StackPanel>
-            <TextBlock Text="{Binding Linguagens}" Classes="faint" FontSize="11"
-                       VerticalAlignment="Center" Margin="0,0,0,3"
-                       MaxWidth="260" TextTrimming="CharacterEllipsis" />
+          </WrapPanel>
+
+          <!-- terceira linha: o ano de contribuições com a legenda, e as linguagens -->
+          <WrapPanel>
+            <StackPanel Orientation="Horizontal" Spacing="3" Margin="0,0,16,0"
+                        IsVisible="{Binding TemContribuicoes}">
+              <TextBlock Text="{Binding ContribuicoesTexto}" Classes="faint" FontSize="10.5"
+                         VerticalAlignment="Center" Margin="0,0,6,0" />
+              <TextBlock Text="menos" Classes="faint" FontSize="9.5" VerticalAlignment="Center" Margin="0,0,2,0" />
+              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource BgActive}" VerticalAlignment="Center" />
+              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" Opacity="0.35" VerticalAlignment="Center" />
+              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" Opacity="0.55" VerticalAlignment="Center" />
+              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" Opacity="0.78" VerticalAlignment="Center" />
+              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" VerticalAlignment="Center" />
+              <TextBlock Text="mais" Classes="faint" FontSize="9.5" VerticalAlignment="Center" Margin="2,0,0,0" />
+            </StackPanel>
+            <TextBlock Text="{Binding Linguagens}" Classes="faint" FontSize="10.5"
+                       VerticalAlignment="Center" MaxWidth="260" TextTrimming="CharacterEllipsis" />
           </WrapPanel>
         </StackPanel>
-       </Grid>
+       </DockPanel>
       </Border>
 
       <!-- uma seção por grupo; no painel de um grupo só o título fica escondido -->
       <ItemsControl ItemsSource="{Binding Secoes}">
         <ItemsControl.ItemTemplate>
           <DataTemplate DataType="vm:SecaoPainelViewModel">
-            <StackPanel Margin="0,0,0,16">
+            <StackPanel Margin="0,0,0,10">
 
-              <StackPanel Orientation="Horizontal" Spacing="7" Margin="2,0,0,7"
-                          IsVisible="{Binding MostraTitulo}">
-                <Ellipse Width="8" Height="8" VerticalAlignment="Center"
-                         Fill="{Binding Cor, Converter={x:Static local:Converters.StringToBrush}}" />
-                <TextBlock Text="{Binding Titulo}" FontSize="11.5" FontWeight="SemiBold"
-                           VerticalAlignment="Center"
-                           Foreground="{Binding Cor, Converter={x:Static local:Converters.StringToBrush}}" />
-                <TextBlock Text="{Binding Contagem}" Classes="faint" FontSize="10.5"
-                           VerticalAlignment="Center" />
-              </StackPanel>
+              <!-- título do grupo: clicar recolhe a seção, como o grupo na árvore -->
+              <Button Classes="secaoTopo" Margin="0,0,0,6" Command="{Binding AlternarCommand}"
+                      IsVisible="{Binding MostraTitulo}" HorizontalAlignment="Left"
+                      ToolTip.Tip="Recolher ou abrir o grupo (vale também para a árvore)">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <TextBlock Text="{Binding Chevron}" FontSize="8" Classes="faint" Width="10"
+                             FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
+                             VerticalAlignment="Center" />
+                  <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                           Fill="{Binding Cor, Converter={x:Static local:Converters.StringToBrush}}" />
+                  <TextBlock Text="{Binding Titulo}" FontSize="11.5" FontWeight="SemiBold"
+                             VerticalAlignment="Center"
+                             Foreground="{Binding Cor, Converter={x:Static local:Converters.StringToBrush}}" />
+                  <TextBlock Text="{Binding Contagem}" Classes="faint" FontSize="10.5"
+                             VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Pendencias}" FontSize="10.5" Margin="6,0,0,0"
+                             Foreground="{DynamicResource Yellow}" VerticalAlignment="Center"
+                             IsVisible="{Binding MostraPendencias}" />
+                </StackPanel>
+              </Button>
 
-              <ItemsControl ItemsSource="{Binding Cartoes}" Classes="cartoes">
+              <ItemsControl ItemsSource="{Binding Cartoes}" Classes="cartoes"
+                            IsVisible="{Binding MostraCartoes}">
                 <!-- o cartão aberto ocupa a fileira sozinho. A marca vai no contêiner, que
                      é o filho que a grade enxerga; o ">" do Avalonia segue o pai lógico, que
                      é este ItemsControl, e a classe evita pegar as listas de dentro do cartão

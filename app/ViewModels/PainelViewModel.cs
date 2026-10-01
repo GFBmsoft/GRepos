@@ -265,8 +265,9 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
 /// Um grupo dentro do painel. No painel geral cada grupo vira uma seção com seu próprio
 /// título; no painel de um grupo só existe uma, e o título seria repetir o cabeçalho.
 /// </summary>
-public sealed class SecaoPainelViewModel
+public sealed partial class SecaoPainelViewModel : ObservableObject
 {
+    public string GrupoId { get; init; } = "";
     public string Titulo { get; init; } = "";
     public string Cor { get; init; } = "#5D6675";
     public bool MostraTitulo { get; init; }
@@ -274,6 +275,68 @@ public sealed class SecaoPainelViewModel
     public ObservableCollection<CartaoRepoViewModel> Cartoes { get; init; } = new();
 
     public string Contagem => Cartoes.Count.ToString();
+
+    /// <summary>
+    /// Seção fechada, como o grupo recolhido na árvore — e sincronizada com ela. Só o
+    /// painel geral tem título para clicar; o de um grupo nunca recolhe.
+    /// </summary>
+    [ObservableProperty] private bool _recolhido;
+
+    public bool MostraCartoes => !Recolhido;
+
+    /// <summary>Mesmas setas da árvore: para a direita fechado, para baixo aberto.</summary>
+    public string Chevron => Recolhido ? "" : "";
+
+    /// <summary>Recolhida, a seção ainda diz se tem algo pedindo atenção lá dentro.</summary>
+    public string Pendencias
+    {
+        get
+        {
+            var partes = new List<string>();
+            var sujos = Cartoes.Count(c => c.MostraSujo || c.MostraConflito);
+            var enviar = Cartoes.Count(c => c.MostraAhead);
+            var receber = Cartoes.Count(c => c.MostraBehind);
+            var quebrados = Cartoes.Count(c => c.CiSituacao == "falha");
+
+            if (sujos > 0) partes.Add($"{sujos} com alterações");
+            if (enviar > 0) partes.Add($"{enviar} a enviar");
+            if (receber > 0) partes.Add($"{receber} a receber");
+            if (quebrados > 0) partes.Add($"{quebrados} com esteira quebrada");
+
+            return string.Join(" · ", partes);
+        }
+    }
+
+    public bool MostraPendencias => Recolhido && Pendencias.Length > 0;
+
+    /// <summary>Quem leva a mudança para a árvore e o workspace (o MainViewModel).</summary>
+    public Action<SecaoPainelViewModel>? AoAlternar { get; init; }
+
+    partial void OnRecolhidoChanged(bool value)
+    {
+        foreach (var p in new[] { nameof(MostraCartoes), nameof(Chevron), nameof(MostraPendencias) })
+            OnPropertyChanged(p);
+
+        // cartão aberto dentro de seção fechada continuaria consultando a esteira à toa
+        if (value)
+            foreach (var c in Cartoes) c.Expandido = false;
+    }
+
+    /// <summary>Status ou esteira mudaram: o resumo da seção fechada acompanha.</summary>
+    public void AtualizarPendencias()
+    {
+        OnPropertyChanged(nameof(Pendencias));
+        OnPropertyChanged(nameof(MostraPendencias));
+    }
+
+    [RelayCommand]
+    private void Alternar()
+    {
+        if (!MostraTitulo) return;
+
+        Recolhido = !Recolhido;
+        AoAlternar?.Invoke(this);
+    }
 }
 
 /// <summary>
@@ -358,6 +421,12 @@ public sealed partial class PainelViewModel : ObservableObject
     {
         await Task.WhenAll(Cartoes.Select(CarregarEsteiraAsync));
         OnPropertyChanged(nameof(Resumo));
+        AtualizarPendencias();
+    }
+
+    public void AtualizarPendencias()
+    {
+        foreach (var s in Secoes) s.AtualizarPendencias();
     }
 
     private static async Task CarregarEsteiraAsync(CartaoRepoViewModel cartao)

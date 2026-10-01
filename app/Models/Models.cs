@@ -81,6 +81,21 @@ public sealed class Settings
 
     /// <summary>Tag vista na última consulta, para não bater na API a cada abertura.</summary>
     public string UltimaTagVista { get; set; } = "";
+
+    /// <summary>
+    /// Última contagem de linhas do cartão de perfil, por conta (login em minúsculas).
+    /// Contar é caro; sem guardar, o número sumia a cada vez que o painel era remontado.
+    /// </summary>
+    public Dictionary<string, ContagemDeLinhas> Linhas { get; set; } = new();
+}
+
+public sealed class ContagemDeLinhas
+{
+    public long Adicionadas { get; set; }
+    public long Removidas { get; set; }
+
+    /// <summary>Quando foi contado (ISO, UTC) — o cartão mostra a data junto do número.</summary>
+    public string Quando { get; set; } = "";
 }
 
 public sealed class Workspace

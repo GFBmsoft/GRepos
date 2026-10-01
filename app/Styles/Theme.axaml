@@ -399,6 +399,20 @@
     <Setter Property="Background" Value="{DynamicResource BgHover}" />
   </Style>
 
+  <!-- título de grupo no painel: linha clicável discreta, como o grupo na árvore -->
+  <Style Selector="Button.secaoTopo">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Padding" Value="4,3,10,3" />
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+
+  <Style Selector="Button.secaoTopo:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BgHover}" />
+  </Style>
+
   <Style Selector="Border.chip">
     <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
     <Setter Property="BorderThickness" Value="1" />

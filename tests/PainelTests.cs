@@ -216,4 +216,89 @@ public class PainelTests
         Assert.True(painel.Vazio);
         Assert.Equal("", painel.Resumo);
     }
+
+    /// <summary>
+    /// Seção do painel geral e grupo da árvore são o mesmo grupo: recolher de um lado
+    /// recolhe do outro, e o estado fica gravado no workspace.
+    /// </summary>
+    [Fact]
+    public async Task Secao_do_painel_recolhe_junto_com_a_arvore()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-secao-" + Path.GetRandomFileName());
+        var repo = Path.Combine(home, "repo");
+        Directory.CreateDirectory(repo);
+
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+
+        try
+        {
+            await GitService.RunAsync(repo, new[] { "init", "-q", "-b", "main" });
+
+            var main = new MainViewModel(new FakeDialogs());
+            var grupoId = main.CreateGroup("Módulos");
+            main.AddRepository(repo, "Financeiro", grupoId);
+            main.RebuildTree();
+
+            main.MostrarPainel(null);
+            var secao = main.Painel!.Secoes.Single(s => s.GrupoId == grupoId);
+            Assert.False(secao.Recolhido);
+            Assert.True(secao.MostraCartoes);
+
+            // árvore → painel
+            main.ToggleGroupCommand.Execute(main.Tree.OfType<GroupNode>().First(g => g.Id == grupoId));
+            Assert.True(secao.Recolhido);
+            Assert.False(secao.MostraCartoes);
+
+            // painel → árvore
+            secao.AlternarCommand.Execute(null);
+            Assert.False(secao.Recolhido);
+            Assert.False(main.Tree.OfType<GroupNode>().First(g => g.Id == grupoId).Collapsed);
+            Assert.Single(main.Tree.OfType<RepoNode>());
+
+            // recolhido no painel, o painel remontado nasce recolhido
+            secao.AlternarCommand.Execute(null);
+            Assert.Empty(main.Tree.OfType<RepoNode>());
+            main.MostrarPainel(null);
+            Assert.True(main.Painel!.Secoes.Single(s => s.GrupoId == grupoId).Recolhido);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { Directory.Delete(home, true); } catch (Exception) { /* temporária */ }
+        }
+    }
+
+    [Fact]
+    public void Secao_recolhida_avisa_o_que_tem_dentro_e_fecha_os_cartoes()
+    {
+        var sujo = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "Notas" },
+            new RepoStatus { Branch = "main", Ahead = 1, PendingFiles = 2, Unstaged = 2 }, "#1F9D55")
+        { Expandido = true };
+
+        var secao = new SecaoPainelViewModel
+        {
+            MostraTitulo = true,
+            Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel> { sujo },
+        };
+
+        Assert.False(secao.MostraPendencias); // aberta, os próprios cartões já dizem
+
+        secao.AlternarCommand.Execute(null);
+
+        Assert.True(secao.Recolhido);
+        Assert.True(secao.MostraPendencias);
+        Assert.Equal("1 com alterações · 1 a enviar", secao.Pendencias);
+        Assert.False(sujo.Expandido);
+    }
+
+    [Fact]
+    public void Secao_sem_titulo_nao_recolhe()
+    {
+        // painel de um grupo: a seção única não tem onde clicar e nunca some
+        var secao = new SecaoPainelViewModel { MostraTitulo = false };
+        secao.AlternarCommand.Execute(null);
+        Assert.False(secao.Recolhido);
+    }
 }

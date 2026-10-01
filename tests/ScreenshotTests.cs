@@ -252,7 +252,22 @@ public class ScreenshotTests
             LinhasRemovidas = 9_770,
             LinhasContadas = true,
             OutrasContas = new[] { "bmsoftsistemas" },
+            Dias = Enumerable.Range(0, 365).Select(i =>
+            {
+                var q = Math.Max(0, (i * 37 % 11) - 4 + (i > 250 ? 3 : 0));
+                return new GRepos.Services.DiaContribuicao(
+                    new DateTime(2026, 10, 1).AddDays(-364 + i), q, Math.Min(4, q));
+            }).ToList(),
+            TotalContribuicoes = 412,
         };
+
+        // terceira seção recolhida, como o grupo fechado na árvore
+        vm.Secoes.Add(new SecaoPainelViewModel
+        {
+            Titulo = "Arquivados", Cor = "#8957E5", MostraTitulo = true,
+            Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel>(cartoes.Skip(1).Take(2)),
+            Recolhido = true,
+        });
 
         // a foto de verdade vem da API; aqui vale o ícone do app no lugar
         var raiz = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", ".."));

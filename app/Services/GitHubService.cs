@@ -69,6 +69,12 @@ public sealed class Perfil
     public IReadOnlyList<string> Linguagens { get; init; } = Array.Empty<string>();
 }
 
+/// <summary>Um dia do calendário de contribuições; Nivel vai de 0 (nada) a 4 (o máximo).</summary>
+public sealed record DiaContribuicao(DateTime Data, int Quantidade, int Nivel);
+
+/// <summary>O último ano de contribuições da conta, dia a dia, do domingo mais antigo ao hoje.</summary>
+public sealed record Contribuicoes(int Total, IReadOnlyList<DiaContribuicao> Dias);
+
 /// <summary>Pull request, como aparece no cartão do painel.</summary>
 public sealed class PullRequest
 {
@@ -687,6 +693,83 @@ public static class GitHubService
         {
             return null; // sem foto o cartão mostra a inicial
         }
+    }
+
+    // -------------------------------------------------------- contribuições
+
+    private static readonly ConcurrentDictionary<string, (DateTime Quando, Contribuicoes Dados)> CacheContribuicoes = new();
+
+    /// <summary>
+    /// O calendário de contribuições do último ano, o mesmo quadriculado do perfil no
+    /// GitHub. Só existe na API GraphQL, que não aceita chamada anônima: sem token da
+    /// conta, devolve nulo e o cartão fica sem o quadriculado.
+    ///
+    /// Fica guardado por uma hora — o painel é remontado a cada clique na árvore e o
+    /// número muda pouco ao longo do dia.
+    /// </summary>
+    public static async Task<Contribuicoes?> ContribuicoesAsync(string login)
+    {
+        if (string.IsNullOrWhiteSpace(login)) return null;
+        login = login.Trim();
+
+        if (CacheContribuicoes.TryGetValue(login.ToLowerInvariant(), out var guardado) &&
+            DateTime.UtcNow - guardado.Quando < TimeSpan.FromHours(1))
+            return guardado.Dados;
+
+        var token = await TokenAsync(login);
+        if (string.IsNullOrEmpty(token)) return null;
+
+        const string consulta =
+            "query($login:String!){user(login:$login){contributionsCollection{contributionCalendar{" +
+            "totalContributions weeks{contributionDays{date contributionCount contributionLevel}}}}}}";
+        var corpo = JsonSerializer.Serialize(new { query = consulta, variables = new { login } });
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.github.com/graphql");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Content = new StringContent(corpo, System.Text.Encoding.UTF8, "application/json");
+
+        using var resp = await Http.SendAsync(req);
+        if (!resp.IsSuccessStatusCode) return null;
+
+        var dados = LerContribuicoes(await resp.Content.ReadAsStringAsync());
+        if (dados is not null) CacheContribuicoes[login.ToLowerInvariant()] = (DateTime.UtcNow, dados);
+        return dados;
+    }
+
+    /// <summary>Separado da rede para poder ser testado com uma resposta de verdade.</summary>
+    public static Contribuicoes? LerContribuicoes(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("data", out var data) ||
+            !data.TryGetProperty("user", out var user) || user.ValueKind != JsonValueKind.Object ||
+            !user.TryGetProperty("contributionsCollection", out var col) ||
+            !col.TryGetProperty("contributionCalendar", out var cal))
+            return null;
+
+        var dias = new List<DiaContribuicao>();
+        if (cal.TryGetProperty("weeks", out var semanas) && semanas.ValueKind == JsonValueKind.Array)
+            foreach (var semana in semanas.EnumerateArray())
+            {
+                if (!semana.TryGetProperty("contributionDays", out var ds)) continue;
+                foreach (var d in ds.EnumerateArray())
+                {
+                    if (!DateTime.TryParse(Texto(d, "date"), System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None, out var data2))
+                        continue;
+
+                    dias.Add(new DiaContribuicao(data2.Date, Inteiro(d, "contributionCount"),
+                        Texto(d, "contributionLevel") switch
+                        {
+                            "FIRST_QUARTILE" => 1,
+                            "SECOND_QUARTILE" => 2,
+                            "THIRD_QUARTILE" => 3,
+                            "FOURTH_QUARTILE" => 4,
+                            _ => 0,
+                        }));
+                }
+            }
+
+        return new Contribuicoes(Inteiro(cal, "totalContributions"), dias);
     }
 
     /// <summary>Estrelas somadas e linguagens por frequência, a partir da lista de repos.</summary>

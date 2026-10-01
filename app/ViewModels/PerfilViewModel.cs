@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,12 +22,29 @@ public sealed partial class PerfilViewModel : ObservableObject
     private readonly IReadOnlyList<Repo> _repos;
     private readonly string _login;
 
-    public PerfilViewModel(string login, IReadOnlyList<Repo> repos)
+    public PerfilViewModel(string login, IReadOnlyList<Repo> repos, ContagemDeLinhas? contagem = null)
     {
         _login = login;
         _repos = repos;
         Titulo = login.Length > 0 ? login + "@github" : "Perfil";
+
+        // a última contagem volta junto com o cartão: contar de novo é caro
+        if (contagem is not null)
+        {
+            _linhasAdicionadas = contagem.Adicionadas;
+            _linhasRemovidas = contagem.Removidas;
+            _contadoEm = DateTime.TryParse(contagem.Quando, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var q)
+                ? q.ToLocalTime()
+                : null;
+            _linhasContadas = true;
+        }
     }
+
+    /// <summary>Quem grava a contagem no workspace (o MainViewModel).</summary>
+    public Action<ContagemDeLinhas>? Guardar { get; init; }
+
+    private DateTime? _contadoEm;
 
     [ObservableProperty] private string _titulo = "";
     [ObservableProperty] private Perfil? _perfil;
@@ -93,8 +111,30 @@ public sealed partial class PerfilViewModel : ObservableObject
         : "—";
 
     public string LinhasDetalhe => LinhasContadas
-        ? $"{LinhasAdicionadas:N0}++, {LinhasRemovidas:N0}--"
+        ? $"{LinhasAdicionadas:N0}++, {LinhasRemovidas:N0}--" +
+          (_contadoEm is { } q ? $" · em {q:dd/MM}" : "")
         : "seus commits nos repositórios desta máquina";
+
+    // ------------------------------------------------------- contribuições
+
+    /// <summary>Quadriculado do último ano; nulo sem token ou enquanto não chega.</summary>
+    [ObservableProperty] private IReadOnlyList<DiaContribuicao>? _dias;
+    [ObservableProperty] private int _totalContribuicoes;
+
+    public bool TemContribuicoes => Dias is { Count: > 0 };
+
+    public string ContribuicoesTexto => TotalContribuicoes == 1
+        ? "1 contribuição no último ano"
+        : $"{TotalContribuicoes:N0} contribuições no último ano";
+
+    partial void OnDiasChanged(IReadOnlyList<DiaContribuicao>? value) =>
+        OnPropertyChanged(nameof(TemContribuicoes));
+
+    partial void OnTotalContribuicoesChanged(int value) => OnPropertyChanged(nameof(ContribuicoesTexto));
+
+    public bool PodeRecontar => LinhasContadas && !ContandoLinhas;
+
+    partial void OnContandoLinhasChanged(bool value) => OnPropertyChanged(nameof(PodeRecontar));
 
     partial void OnPerfilChanged(Perfil? value)
     {
@@ -111,6 +151,7 @@ public sealed partial class PerfilViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(LinhasTexto));
         OnPropertyChanged(nameof(LinhasDetalhe));
+        OnPropertyChanged(nameof(PodeRecontar));
     }
 
     [RelayCommand]
@@ -120,6 +161,7 @@ public sealed partial class PerfilViewModel : ObservableObject
 
         Carregando = true;
         Erro = "";
+        var contribuicoes = CarregarContribuicoesAsync();
         try
         {
             Perfil = await GitHubService.PerfilAsync(_login);
@@ -132,6 +174,25 @@ public sealed partial class PerfilViewModel : ObservableObject
         finally
         {
             Carregando = false;
+        }
+
+        await contribuicoes;
+    }
+
+    /// <summary>Falha aqui é silenciosa: o quadriculado é enfeite, o perfil não depende dele.</summary>
+    private async Task CarregarContribuicoesAsync()
+    {
+        try
+        {
+            var c = await GitHubService.ContribuicoesAsync(_login);
+            if (c is null) return;
+
+            TotalContribuicoes = c.Total;
+            Dias = c.Dias;
+        }
+        catch (Exception)
+        {
+            // sem rede ou sem permissão: o cartão fica sem o quadriculado
         }
     }
 
@@ -192,8 +253,18 @@ public sealed partial class PerfilViewModel : ObservableObject
 
             LinhasAdicionadas = mais;
             LinhasRemovidas = menos;
+            _contadoEm = DateTime.Now;
             LinhasContadas = true;
+            OnPropertyChanged(nameof(LinhasTexto));
+            OnPropertyChanged(nameof(LinhasDetalhe));
             ProgressoLinhas = "";
+
+            Guardar?.Invoke(new ContagemDeLinhas
+            {
+                Adicionadas = mais,
+                Removidas = menos,
+                Quando = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+            });
         }
         finally
         {

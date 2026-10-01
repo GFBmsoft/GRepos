@@ -140,10 +140,14 @@ public sealed partial class MainViewModel : ObservableObject
                 .OrderBy(g => NomeDoGrupo(g.Key), StringComparer.CurrentCultureIgnoreCase)
                 .Select(g => new SecaoPainelViewModel
                 {
+                    GrupoId = g.Key,
                     Titulo = NomeDoGrupo(g.Key),
                     Cor = CorDoGrupo(g.Key),
                     MostraTitulo = geral,
                     Cartoes = new ObservableCollection<CartaoRepoViewModel>(g),
+                    // recolhido na árvore, recolhido no painel: é o mesmo grupo
+                    Recolhido = geral && _ws.Groups.Any(x => x.Id == g.Key && x.Collapsed),
+                    AoAlternar = AlternarGrupoDoPainel,
                 }));
 
         Painel = painel;
@@ -170,10 +174,19 @@ public sealed partial class MainViewModel : ObservableObject
         if (!contas.Contains(login, StringComparer.OrdinalIgnoreCase)) login = _ws.Settings.GithubUser;
         _perfilEscolhido = login;
 
-        Painel.Perfil = new PerfilViewModel(login, _ws.Repos.ToList())
+        _ws.Settings.Linhas ??= new();
+        var chave = login.ToLowerInvariant();
+
+        Painel.Perfil = new PerfilViewModel(login, _ws.Repos.ToList(), _ws.Settings.Linhas.GetValueOrDefault(chave))
         {
             OutrasContas = contas.Where(c => !string.Equals(c, login, StringComparison.OrdinalIgnoreCase)).ToList(),
             Trocar = MostrarPerfil,
+            Guardar = contagem =>
+            {
+                _ws.Settings.Linhas ??= new();
+                _ws.Settings.Linhas[chave] = contagem;
+                Persist();
+            },
         };
         _ = Painel.Perfil.CarregarAsync();
     }
@@ -197,6 +210,7 @@ public sealed partial class MainViewModel : ObservableObject
                 cartao.Status = status;
 
         Painel.Subtitulo = Painel.Resumo;
+        Painel.AtualizarPendencias();
     }
 
     /// <summary>Changelog do próprio app, montado a partir das releases publicadas.</summary>
@@ -779,6 +793,24 @@ public sealed partial class MainViewModel : ObservableObject
         var g = _ws.Groups.FirstOrDefault(x => x.Id == node.Id);
         if (g is null) return;
         g.Collapsed = !g.Collapsed;
+        Persist();
+        RebuildTree();
+
+        // o painel geral aberto acompanha a árvore
+        if (Painel?.Secoes.FirstOrDefault(s => s.GrupoId == g.Id && s.MostraTitulo) is { } secao)
+            secao.Recolhido = g.Collapsed;
+    }
+
+    /// <summary>
+    /// Seção do painel recolhida ou aberta: vale também para a árvore, como se o clique
+    /// tivesse sido no grupo de lá. "Sem grupo" não existe no workspace e fica só no painel.
+    /// </summary>
+    private void AlternarGrupoDoPainel(SecaoPainelViewModel secao)
+    {
+        var g = _ws.Groups.FirstOrDefault(x => x.Id == secao.GrupoId);
+        if (g is null) return;
+
+        g.Collapsed = secao.Recolhido;
         Persist();
         RebuildTree();
     }

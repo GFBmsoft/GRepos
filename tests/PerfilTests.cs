@@ -177,4 +177,66 @@ public class PerfilTests
         Assert.Contains(46_835.ToString("N0") + "++", vm.LinhasDetalhe);
         Assert.Contains(9_770.ToString("N0") + "--", vm.LinhasDetalhe);
     }
+
+    [Fact]
+    public void Contagem_guardada_volta_com_o_cartao()
+    {
+        var contagem = new ContagemDeLinhas
+        {
+            Adicionadas = 1_000, Removidas = 250, Quando = "2026-09-30T12:00:00.0000000Z",
+        };
+
+        // o painel é remontado a cada clique na árvore: o cartão novo nasce já contado
+        var vm = new PerfilViewModel("GFBmsoft", Array.Empty<Repo>(), contagem);
+
+        Assert.True(vm.LinhasContadas);
+        Assert.True(vm.PodeRecontar);
+        Assert.Equal(750.ToString("N0"), vm.LinhasTexto);
+        Assert.Contains("· em ", vm.LinhasDetalhe);
+    }
+
+    [Fact]
+    public async Task Contar_entrega_o_resultado_para_ser_guardado()
+    {
+        ContagemDeLinhas? guardada = null;
+        var vm = new PerfilViewModel("GFBmsoft", Array.Empty<Repo>()) { Guardar = c => guardada = c };
+
+        await vm.ContarLinhasCommand.ExecuteAsync(null);
+
+        Assert.NotNull(guardada);
+        Assert.True(vm.LinhasContadas);
+        Assert.True(DateTime.TryParse(guardada!.Quando, out _));
+    }
+
+    [Fact]
+    public void Contribuicoes_saem_do_calendario_do_graphql()
+    {
+        const string json = """
+        {"data":{"user":{"contributionsCollection":{"contributionCalendar":{
+          "totalContributions": 7,
+          "weeks":[
+            {"contributionDays":[
+              {"date":"2026-09-20","contributionCount":0,"contributionLevel":"NONE"},
+              {"date":"2026-09-21","contributionCount":5,"contributionLevel":"FOURTH_QUARTILE"}]},
+            {"contributionDays":[
+              {"date":"2026-09-27","contributionCount":2,"contributionLevel":"SECOND_QUARTILE"}]}
+          ]}}}}}
+        """;
+
+        var c = GitHubService.LerContribuicoes(json);
+
+        Assert.NotNull(c);
+        Assert.Equal(7, c!.Total);
+        Assert.Equal(3, c.Dias.Count);
+        Assert.Equal(new DateTime(2026, 9, 21), c.Dias[1].Data);
+        Assert.Equal(4, c.Dias[1].Nivel);
+        Assert.Equal(2, c.Dias[2].Nivel);
+    }
+
+    [Fact]
+    public void Contribuicoes_de_usuario_inexistente_viram_nulo()
+    {
+        Assert.Null(GitHubService.LerContribuicoes("""{"data":{"user":null}}"""));
+        Assert.Null(GitHubService.LerContribuicoes("""{"errors":[{"message":"Bad credentials"}]}"""));
+    }
 }
