@@ -53,6 +53,19 @@ public class UiSmokeTests
         public Task ShowStashAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
     }
 
+    [AvaloniaFact]
+    public void Preferencias_monta_com_o_campo_do_git_bash()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var janela = new SettingsWindow(main);
+        janela.Show();
+
+        // o campo mostra o que o botão Terminal vai abrir, ou o aviso de que não achou
+        var textos = janela.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "").ToList();
+        Assert.Contains(textos, t => t.StartsWith("Abre: ") || t.Contains("Git Bash não encontrado"));
+        janela.Close();
+    }
+
     private static void Render(Control view, object dataContext)
     {
         var window = new Window { Width = 1200, Height = 800, Content = view };

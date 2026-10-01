@@ -213,7 +213,7 @@
       <Border Grid.Row="0" Background="{DynamicResource BgPanel}" Padding="10,4"
               BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
               IsVisible="{Binding HasSelection}">
-        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
           <StackPanel Grid.Column="0" Margin="2,0,12,0" VerticalAlignment="Center">
             <TextBlock Text="{Binding RepoTitle}" FontWeight="SemiBold" />
             <TextBlock Text="{Binding RepoPath}" Classes="faint" FontSize="10.5" MaxWidth="300" />
@@ -250,7 +250,7 @@
           <Border Grid.Column="8" Width="1" Margin="8,8" VerticalAlignment="Stretch"
                   Background="{DynamicResource Border}" IsVisible="{Binding TemCi}" />
 
-          <!-- abrir o repositório: no GitHub e na pasta do Windows -->
+          <!-- abrir o repositório: no GitHub, na pasta do Windows e no Git Bash -->
           <controls:ToolButton Grid.Column="9" Label="Remoto" Icon="{StaticResource IconRemoto}"
                                ToolTip.Tip="Abrir o repositório no GitHub"
                                IsVisible="{Binding TemRemoto}"
@@ -258,25 +258,29 @@
           <controls:ToolButton Grid.Column="10" Label="Local" Icon="{StaticResource IconLocal}"
                                ToolTip.Tip="Abrir a pasta no Windows"
                                Command="{Binding AbrirPastaCommand}" />
+          <controls:ToolButton Grid.Column="11" Label="Terminal" Icon="{StaticResource IconTerminal}"
+                               ToolTip.Tip="Mostrar ou esconder o Git Bash embutido, na pasta do repositório"
+                               Command="{Binding AlternarTerminalCommand}" Classes.destacado="{Binding TerminalAberto}" />
 
-          <Border Grid.Column="11" Width="1" Margin="8,8" VerticalAlignment="Stretch"
+          <Border Grid.Column="12" Width="1" Margin="8,8" VerticalAlignment="Stretch"
                   Background="{DynamicResource Border}" />
 
-          <controls:ToolButton Grid.Column="12" Label="Lado a lado" Icon="{StaticResource IconSplit}"
+          <controls:ToolButton Grid.Column="13" Label="Lado a lado" Icon="{StaticResource IconSplit}"
                                ToolTip.Tip="Alternar entre diff lado a lado e unificado"
                                Command="{Binding ToggleSplitCommand}" />
-          <controls:ToolButton Grid.Column="13" Label="Quebrar linha" Icon="{StaticResource IconWrap}"
+          <controls:ToolButton Grid.Column="14" Label="Quebrar linha" Icon="{StaticResource IconWrap}"
                                Classes.destacado="{Binding WrapDiff}"
                                ToolTip.Tip="Quebrar linhas longas do diff em vez de rolar na horizontal"
                                Command="{Binding ToggleWrapCommand}" />
-          <controls:ToolButton Grid.Column="14" Label="Ajustes" Icon="{StaticResource IconConfig}"
+          <controls:ToolButton Grid.Column="15" Label="Ajustes" Icon="{StaticResource IconConfig}"
                                ToolTip.Tip="Configurar repositório"
                                Command="{Binding OpenRepoConfigCommand}" />
         </Grid>
       </Border>
 
-      <!-- conteúdo -->
-      <Grid Grid.Row="1">
+      <!-- conteúdo em cima, terminal embutido embaixo (a altura da linha 2 é do code-behind) -->
+      <Grid Grid.Row="1" x:Name="AreaTerminal" RowDefinitions="*,Auto,0">
+      <Grid Grid.Row="0">
 
         <views:PainelView DataContext="{Binding Painel}"
                           IsVisible="{Binding $parent[Window].DataContext.PainelAtivo}" />
@@ -324,6 +328,11 @@
             </ScrollViewer>
           </TabItem>
         </TabControl>
+      </Grid>
+
+      <GridSplitter Grid.Row="1" Height="4" Background="Transparent" ResizeDirection="Rows"
+                    IsVisible="{Binding TerminalVisivel}" />
+      <views:TerminalPanel Grid.Row="2" x:Name="PainelTerminal" IsVisible="{Binding TerminalVisivel}" />
       </Grid>
 
       <!-- barra de status -->

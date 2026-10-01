@@ -259,6 +259,9 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
             _main?.Notify(e.Message, true);
         }
     }
+
+    [RelayCommand]
+    private void AbrirTerminal() => _main?.AbrirTerminalEm(Repo.Path);
 }
 
 /// <summary>

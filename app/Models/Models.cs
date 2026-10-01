@@ -87,6 +87,12 @@ public sealed class Settings
     /// Contar é caro; sem guardar, o número sumia a cada vez que o painel era remontado.
     /// </summary>
     public Dictionary<string, ContagemDeLinhas> Linhas { get; set; } = new();
+
+    /// <summary>
+    /// Pasta de instalação do Git (ou o caminho do git-bash.exe) para o botão Terminal.
+    /// Vazio procura sozinho no PATH e nas pastas padrão do instalador.
+    /// </summary>
+    public string GitBashPath { get; set; } = "";
 }
 
 public sealed class ContagemDeLinhas

@@ -428,6 +428,107 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private void AbrirTerminal()
+    {
+        if (CurrentRepo is not null) AbrirTerminalEm(CurrentRepo.Path);
+    }
+
+    // ------------------------------------------------------- terminal embutido
+
+    /// <summary>Uma sessão por repositório já aberto no terminal; trocar não as encerra.</summary>
+    public ObservableCollection<TerminalSessao> Terminais { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TerminalVisivel))]
+    private bool _terminalAberto;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TerminalVisivel))]
+    private TerminalSessao? _terminalAtual;
+
+    /// <summary>O painel só aparece com um repositório selecionado.</summary>
+    public bool TerminalVisivel => TerminalAberto && TerminalAtual is not null;
+
+    [RelayCommand]
+    private void AlternarTerminal()
+    {
+        TerminalAberto = !TerminalAberto;
+        SincronizarTerminal();
+    }
+
+    /// <summary>Mostra a sessão do repositório atual, criando-a na primeira vez.</summary>
+    private void SincronizarTerminal()
+    {
+        TerminalSessao? atual = null;
+        if (TerminalAberto && CurrentRepo is { } repo)
+        {
+            atual = Terminais.FirstOrDefault(t => t.RepoId == repo.Id);
+            if (atual is null)
+            {
+                var nova = new TerminalSessao(repo.Id, repo.Name, repo.Path, () => _ws.Settings.GitBashPath);
+                try
+                {
+                    nova.Iniciar();
+                    Terminais.Add(nova);
+                    atual = nova;
+                }
+                catch (Exception e)
+                {
+                    nova.Dispose();
+                    TerminalAberto = false;
+                    Notify(e.Message, true);
+                }
+            }
+        }
+
+        foreach (var t in Terminais) t.Ativa = t == atual;
+        TerminalAtual = atual;
+    }
+
+    [RelayCommand]
+    private void EncerrarTerminal()
+    {
+        if (TerminalAtual is not { } sessao) return;
+        Terminais.Remove(sessao);
+        sessao.Dispose();
+        TerminalAberto = false;
+        TerminalAtual = null;
+    }
+
+    [RelayCommand]
+    private void ReiniciarTerminal()
+    {
+        try
+        {
+            TerminalAtual?.Iniciar();
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    /// <summary>Ao fechar o app: sem isto os bash ficariam órfãos.</summary>
+    public void EncerrarTerminais()
+    {
+        foreach (var t in Terminais) t.Dispose();
+        Terminais.Clear();
+    }
+
+    /// <summary>Git Bash na pasta dada; também usado pelo cartão do painel.</summary>
+    public void AbrirTerminalEm(string pasta)
+    {
+        try
+        {
+            GitBash.Abrir(pasta, _ws.Settings.GitBashPath);
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
     /// <summary>
     /// Abre a esteira dentro do app: cartões das execuções e o passo a passo de cada
     /// job. Sem slug do GitHub não há API a consultar, e aí vale a página no navegador.
@@ -688,6 +789,8 @@ public sealed partial class MainViewModel : ObservableObject
 
         // repositório e painel são visões concorrentes: escolher um fecha o outro
         if (value is not null) Painel = null;
+
+        SincronizarTerminal();
 
         Changes = null;
         History = null;
@@ -1314,6 +1417,15 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Vale para a próxima janela de esteira aberta; as abertas seguem como estão.</summary>
+    public void SetGitBashPath(string caminho)
+    {
+        var valor = (caminho ?? "").Trim().Trim('"');
+        if (_ws.Settings.GitBashPath == valor) return;
+
+        _ws.Settings.GitBashPath = valor;
+        Persist();
+    }
+
     public void SetEsteirasVisiveis(int quantas)
     {
         var valor = Math.Clamp(quantas, 1, 50);

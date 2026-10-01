@@ -1,0 +1,48 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:term="using:AvaloniaTerminal"
+             x:Class="GRepos.Views.TerminalPanel"
+             x:DataType="vm:MainViewModel">
+
+  <Border Background="{DynamicResource Bg}" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
+    <Grid RowDefinitions="Auto,*">
+
+      <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="12,3,6,3">
+        <TextBlock Grid.Column="0" Text="TERMINAL" FontSize="11" FontWeight="SemiBold" Classes="dim"
+                   VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Text="{Binding TerminalAtual.Nome}" FontSize="11" Classes="faint"
+                   VerticalAlignment="Center" Margin="10,0,0,0" />
+        <Button Grid.Column="2" Classes="tiny" Content="Reiniciar" Margin="0,0,4,0"
+                Command="{Binding ReiniciarTerminalCommand}"
+                ToolTip.Tip="Encerra este Git Bash e abre outro na pasta do repositório" />
+        <Button Grid.Column="3" Classes="tiny" Content="Em janela" Margin="0,0,4,0"
+                Command="{Binding AbrirTerminalCommand}"
+                ToolTip.Tip="Abre o Git Bash numa janela separada" />
+        <Button Grid.Column="4" Classes="tiny danger" Content="Encerrar" Margin="0,0,4,0"
+                Command="{Binding EncerrarTerminalCommand}"
+                ToolTip.Tip="Encerra o Git Bash deste repositório e fecha o painel" />
+        <Button Grid.Column="5" Classes="tiny" Content="&#x2715;"
+                Command="{Binding AlternarTerminalCommand}"
+                ToolTip.Tip="Esconde o painel; o terminal continua rodando" />
+      </Grid>
+
+      <!-- uma sessão por repositório, todas vivas; só a do repositório atual aparece -->
+      <ItemsControl Grid.Row="1" x:Name="Sessoes" ItemsSource="{Binding Terminais}" Margin="8,0,2,4">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <Grid />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TerminalSessao">
+            <term:TerminalControl Model="{Binding Modelo}" IsVisible="{Binding Ativa}"
+                                  RightClickAction="CopyOrPaste" CaretStyle="Bar"
+                                  DefaultBackground="{DynamicResource Bg}" CaretBrush="{DynamicResource Text}"
+                                  FontFamily="Cascadia Mono, Consolas" FontSize="13" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Grid>
+  </Border>
+</UserControl>

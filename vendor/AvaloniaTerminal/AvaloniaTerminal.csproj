@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Cópia do AvaloniaTerminal 1.0.0-alpha.13 (MIT, Ivan Josipovic; ver LICENSE), trazida
+    para dentro do repositório para corrigir o que o pacote não deixa mudar: teclas eram
+    enviadas ao soltar (atraso ao digitar, acento morto quebrado), cursor só em bloco e
+    fundo preso à cor 0 da paleta. Alterações marcadas com "GRepos:".
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>preview</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>AvaloniaTerminal</AssemblyName>
+    <RootNamespace>AvaloniaTerminal</RootNamespace>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="XTerm.NET" Version="1.0.12" />
+  </ItemGroup>
+
+</Project>

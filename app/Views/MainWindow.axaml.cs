@@ -7,6 +7,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using GRepos.Models;
 using GRepos.ViewModels;
 
@@ -21,6 +22,12 @@ public partial class MainWindow : Window, IDialogService
         InitializeComponent();
         _vm = new MainViewModel(this);
         DataContext = _vm;
+
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.TerminalVisivel)) AjustarTerminal();
+        };
+        Closed += (_, _) => _vm.EncerrarTerminais();
 
         Opened += async (_, _) =>
         {
@@ -55,6 +62,10 @@ public partial class MainWindow : Window, IDialogService
         var caixa = this.FindControl<TextBox>("CaixaFiltro");
         if (caixa is null) return;
 
+        // no terminal o Ctrl+F é do bash (avança o cursor), não do filtro
+        if ((e.Source as Visual)?.FindAncestorOfType<AvaloniaTerminal.TerminalControl>(includeSelf: true) is not null)
+            return;
+
         if (e.Key == Key.F && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             caixa.Focus();
@@ -68,6 +79,34 @@ public partial class MainWindow : Window, IDialogService
             caixa.Text = "";
             this.FindControl<ListBox>("TreeList")?.Focus();
             e.Handled = true;
+        }
+    }
+
+    private double _alturaTerminal = 260;
+
+    /// <summary>
+    /// Abre ou recolhe a linha do terminal. A altura é guardada ao recolher, para voltar
+    /// do tamanho em que o usuário deixou o divisor.
+    /// </summary>
+    private void AjustarTerminal()
+    {
+        var area = this.FindControl<Grid>("AreaTerminal");
+        if (area is null) return;
+        var linha = area.RowDefinitions[2];
+
+        if (_vm.TerminalVisivel)
+        {
+            linha.MinHeight = 80;
+            linha.Height = new GridLength(_alturaTerminal);
+            Avalonia.Threading.Dispatcher.UIThread.Post(
+                () => this.FindControl<TerminalPanel>("PainelTerminal")?.Focar(),
+                Avalonia.Threading.DispatcherPriority.Background);
+        }
+        else
+        {
+            if (linha.ActualHeight > 0) _alturaTerminal = linha.ActualHeight;
+            linha.MinHeight = 0;
+            linha.Height = new GridLength(0);
         }
     }
 

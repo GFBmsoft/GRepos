@@ -369,6 +369,9 @@
                       <Button Content="Pasta" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
                               BorderBrush="{DynamicResource Border}" Command="{Binding AbrirPastaCommand}"
                               ToolTip.Tip="Abre a pasta do repositório no Explorer" />
+                      <Button Content="Terminal" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
+                              BorderBrush="{DynamicResource Border}" Command="{Binding AbrirTerminalCommand}"
+                              ToolTip.Tip="Abre o Git Bash na pasta do repositório" />
                     </WrapPanel>
                   </StackPanel>
                 </Border>

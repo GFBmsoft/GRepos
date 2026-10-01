@@ -780,6 +780,49 @@ public sealed class SettingsWindow : DialogWindow
         };
         var logLimit = new NumericUpDown { Minimum = 50, Maximum = 5000, Value = s.LogLimit, Increment = 50 };
 
+        // ------------------------------------------------------------ terminal
+
+        var gitBash = new TextBox
+        {
+            Text = s.GitBashPath,
+            Watermark = @"vazio procura sozinho — ex.: C:\Program Files\Git",
+        };
+        var procurarGit = BtnDiscreto("Procurar…");
+        procurarGit.Margin = new Thickness(6, 0, 0, 0);
+        var gitBashUsado = new TextBlock
+        {
+            FontSize = 11.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 0),
+            Classes = { "faint" },
+        };
+
+        // mostra o executável que o botão Terminal vai abrir, para o erro aparecer aqui
+        // e não só na hora de clicar
+        void MostrarGitBash()
+        {
+            var achou = GitBash.Localizar(gitBash.Text);
+            gitBashUsado.Text = achou is not null
+                ? "Abre: " + achou
+                : string.IsNullOrWhiteSpace(gitBash.Text)
+                    ? "Git Bash não encontrado automaticamente — informe a pasta de instalação do Git."
+                    : "Nenhum git-bash.exe nesse caminho.";
+            gitBashUsado.Foreground = achou is null ? new SolidColorBrush(Color.Parse("#E5534B")) : null;
+        }
+
+        MostrarGitBash();
+        gitBash.TextChanged += (_, _) => MostrarGitBash();
+        procurarGit.Click += async (_, _) =>
+        {
+            var pasta = await main.Dialogos.PickFolderAsync("Pasta de instalação do Git");
+            if (pasta is not null) gitBash.Text = pasta;
+        };
+
+        var linhaGitBash = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        Grid.SetColumn(procurarGit, 1);
+        linhaGitBash.Children.Add(gitBash);
+        linhaGitBash.Children.Add(procurarGit);
+
         var accent = s.Accent;
         var swatches = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         foreach (var color in Accents)
@@ -1089,6 +1132,7 @@ public sealed class SettingsWindow : DialogWindow
             main.SetAvisarAtualizacao(avisarAtualizacao.IsChecked == true);
             main.SetArvoreMinimalista(estiloArvore.SelectedIndex == 0);
             main.SetEsteirasVisiveis((int)(esteiras.Value ?? 6));
+            main.SetGitBashPath(gitBash.Text ?? "");
             main.ApplySettings(
                 theme.SelectedIndex == 1 ? "light" : "dark",
                 accent,
@@ -1118,6 +1162,10 @@ public sealed class SettingsWindow : DialogWindow
             erroPortatil,
         };
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
+
+        body.Add(Secao("Terminal"));
+        body.Add(Field("Git Bash (pasta do Git ou caminho do git-bash.exe)", linhaGitBash));
+        body.Add(gitBashUsado);
 
         body.Add(Secao("Autenticação"));
         body.Add(Label("Contas do GitHub. A principal vale para os repositórios que não escolhem outra em Configurar repositório."));
