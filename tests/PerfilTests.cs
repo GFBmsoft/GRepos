@@ -15,7 +15,8 @@ public class PerfilTests
     {
       "login": "GFBmsoft", "name": "Gabriel Ferreira", "bio": "Delphi, Go, C",
       "company": "Bmsoft Sistemas", "location": "Rio do Sul, SC",
-      "public_repos": 3, "followers": 4, "following": 1
+      "public_repos": 3, "followers": 4, "following": 1,
+      "avatar_url": "https://avatars.githubusercontent.com/u/123?v=4"
     }
     """;
 
@@ -39,6 +40,7 @@ public class PerfilTests
         Assert.Equal("Rio do Sul, SC", p.Local);
         Assert.Equal(3, p.RepositoriosPublicos);
         Assert.Equal(4, p.Seguidores);
+        Assert.Equal("https://avatars.githubusercontent.com/u/123?v=4", p.AvatarUrl);
     }
 
     [Fact]

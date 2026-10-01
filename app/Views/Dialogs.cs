@@ -419,7 +419,21 @@ public sealed class RepoConfigWindow : DialogWindow
             Watermark = "https://{{user}}@github.com/owner/repo.git",
         };
 
-        var usuarioConta = main.Settings.GithubUser ?? "";
+        // conta do repositório: "automática" segue a URL e, sem usuário nela, a principal
+        var principalConta = main.Settings.GithubUser ?? "";
+        var contasCadastradas = main.Contas.ToList();
+        var conta = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        conta.ItemsSource = new[] { principalConta.Length > 0 ? $"Automática (principal: {principalConta})" : "Automática" }
+            .Concat(contasCadastradas).ToList();
+        conta.SelectedIndex = repo.Conta is { Length: > 0 } atualConta
+            ? contasCadastradas.FindIndex(c => string.Equals(c, atualConta, StringComparison.OrdinalIgnoreCase)) + 1
+            : 0;
+        if (conta.SelectedIndex < 0) conta.SelectedIndex = 0;
+
+        string ContaEscolhida() => conta.SelectedIndex > 0 ? contasCadastradas[conta.SelectedIndex - 1] : "";
+
+        // {{user}} vira a conta escolhida; na automática, a principal
+        var usuarioConta = ContaEscolhida() is { Length: > 0 } escolhida ? escolhida : principalConta;
 
         var dicaUrl = new TextBlock
         {
@@ -427,9 +441,13 @@ public sealed class RepoConfigWindow : DialogWindow
             Margin = new Thickness(0, 4, 0, 0),
             TextWrapping = TextWrapping.Wrap,
             Classes = { "faint" },
-            Text = "{{user}} vira " + (usuarioConta.Length > 0 ? $"“{usuarioConta}”" : "o usuário de Preferências → Autenticação") +
-                   ". O token não vai no link: o git pede ao Credential Manager o token dessa conta.",
         };
+
+        void AtualizarDica() => dicaUrl.Text =
+            "{{user}} vira " + (usuarioConta.Length > 0 ? $"“{usuarioConta}”" : "o usuário de Preferências → Autenticação") +
+            ". O token não vai no link: o git pede ao Credential Manager o token dessa conta." +
+            (ContaEscolhida().Length > 0 ? " Ao trocar de conta, aplique no git para o link levar o usuário novo." : "");
+        AtualizarDica();
 
         var autenticacao = new TextBlock
         {
@@ -484,6 +502,13 @@ public sealed class RepoConfigWindow : DialogWindow
                 ? $"Autenticação: ✓ token da conta “{usuarioConta}” no Credential Manager."
                 : $"Autenticação: ✗ nenhum token salvo para “{usuarioConta}”. Salve em Preferências → Autenticação.";
         }
+
+        conta.SelectionChanged += async (_, _) =>
+        {
+            usuarioConta = ContaEscolhida() is { Length: > 0 } c ? c : principalConta;
+            AtualizarDica();
+            await MostrarRemotoAtualAsync();
+        };
 
         sugerir.Click += async (_, _) =>
         {
@@ -562,7 +587,8 @@ public sealed class RepoConfigWindow : DialogWindow
                 gid,
                 pairKey.Text,
                 role.SelectedItem as string,
-                urlBox.Text);
+                urlBox.Text,
+                ContaEscolhida());
             Close();
         };
 
@@ -579,6 +605,7 @@ public sealed class RepoConfigWindow : DialogWindow
                 Field("Caminho", pathBox),
                 Field("Grupo", group),
                 Secao("Remoto"),
+                Field("Conta do GitHub", conta),
                 Label("Link do remoto"),
                 urlBox,
                 dicaUrl,
@@ -824,14 +851,22 @@ public sealed class SettingsWindow : DialogWindow
 
         // ---------------------------------------------------- autenticação
 
-        var usuario = new TextBox { Text = s.GithubUser, Watermark = "seu usuário no GitHub" };
+        // várias contas: cada uma com o próprio token no gerenciador de credenciais, que
+        // guarda por usuário. A principal vale para quem não escolhe outra.
+        var contas = main.Contas.ToList();
+        var principal = s.GithubUser;
+
+        var usuario = new TextBox
+        {
+            Text = contas.Count == 0 ? s.GithubUser : "",
+            Watermark = contas.Count == 0 ? "seu usuário no GitHub" : "conta a adicionar, ou uma da lista para trocar o token",
+        };
         var token = new TextBox
         {
             PasswordChar = '●',
-            Watermark = GitHubService.TemTokenGuardado(s.GithubUser)
-                ? "token já salvo — preencha só para trocar"
-                : "cole aqui o personal access token",
+            Watermark = "cole aqui o personal access token",
         };
+        var contasPanel = new StackPanel { Spacing = 2, Margin = new Thickness(0, 0, 0, 10) };
         var situacao = new TextBlock
         {
             FontSize = 11.5,
@@ -842,9 +877,8 @@ public sealed class SettingsWindow : DialogWindow
                    "Só o nome de usuário fica no arquivo de configuração.",
         };
 
-        var salvarToken = BtnDiscreto("Salvar token");
+        var salvarToken = BtnDiscreto("Salvar conta e token");
         var testar = BtnDiscreto("Testar");
-        var remover = BtnDiscreto("Remover", perigo: true);
 
         // o resultado precisa saltar aos olhos: antes ele virava mais uma linha
         // cinza no meio do texto de ajuda e passava despercebido
@@ -873,12 +907,94 @@ public sealed class SettingsWindow : DialogWindow
             }
         }
 
+        // uma linha por conta: situação do token, nome, e as ações dela
+        async void MontarContas()
+        {
+            contasPanel.Children.Clear();
+            if (contas.Count == 0)
+            {
+                contasPanel.Children.Add(new TextBlock
+                {
+                    Text = "Nenhuma conta ainda. Informe usuário e token abaixo.",
+                    FontSize = 11.5,
+                    Classes = { "faint" },
+                });
+                return;
+            }
+
+            foreach (var conta in contas.ToList())
+            {
+                var ehPrincipal = string.Equals(conta, principal, StringComparison.OrdinalIgnoreCase);
+                var linha = new Grid { ColumnDefinitions = new ColumnDefinitions("18,*,Auto,Auto"), Height = 26 };
+
+                var marca = new TextBlock { Text = "…", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+                var nome = new TextBlock
+                {
+                    Text = ehPrincipal ? conta + "  · principal" : conta,
+                    FontWeight = ehPrincipal ? FontWeight.SemiBold : FontWeight.Normal,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                };
+
+                var tornar = BtnDiscreto("Tornar principal");
+                tornar.Margin = new Thickness(0, 0, 6, 0);
+                tornar.IsVisible = !ehPrincipal;
+                tornar.Click += (_, _) => { principal = conta; MontarContas(); };
+
+                var tirar = BtnDiscreto("Remover", perigo: true);
+                tirar.Click += async (_, _) =>
+                {
+                    var ok = await main.Dialogos.ConfirmAsync("Remover conta",
+                        $"Remover a conta “{conta}” do GRepos e o token dela do Gerenciador de Credenciais?\n\n" +
+                        "Repositórios que usavam esta conta voltam para a automática.");
+                    if (!ok) return;
+
+                    ComAviso(async () =>
+                    {
+                        await GitHubService.RemoverCredencialAsync(conta);
+                        contas.RemoveAll(c => string.Equals(c, conta, StringComparison.OrdinalIgnoreCase));
+                        if (ehPrincipal) principal = contas.FirstOrDefault() ?? "";
+                        MontarContas();
+                        return $"Conta {conta} removida.";
+                    });
+                };
+
+                Grid.SetColumn(nome, 1);
+                Grid.SetColumn(tornar, 2);
+                Grid.SetColumn(tirar, 3);
+                linha.Children.Add(marca);
+                linha.Children.Add(nome);
+                linha.Children.Add(tornar);
+                linha.Children.Add(tirar);
+                contasPanel.Children.Add(linha);
+
+                // o token de cada conta é conferido no gerenciador, sem abrir janela de login
+                try
+                {
+                    var tem = await GitHubService.TemCredencialAsync(conta);
+                    marca.Text = tem ? "✓" : "✕";
+                    marca.Foreground = new SolidColorBrush(Color.Parse(tem ? "#3FB950" : "#E5534B"));
+                    ToolTip.SetTip(linha, tem ? "Token guardado no Gerenciador de Credenciais"
+                                              : "Sem token guardado — salve abaixo");
+                }
+                catch (Exception)
+                {
+                    marca.Text = "?";
+                }
+            }
+        }
+
         salvarToken.Click += (_, _) => ComAviso(async () =>
         {
-            await GitHubService.SalvarCredencialAsync(usuario.Text ?? "", token.Text ?? "");
+            var conta = (usuario.Text ?? "").Trim();
+            await GitHubService.SalvarCredencialAsync(conta, token.Text ?? "");
             token.Text = "";
-            token.Watermark = "token já salvo — preencha só para trocar";
-            return "Token salvo para " + usuario.Text;
+
+            if (!contas.Contains(conta, StringComparer.OrdinalIgnoreCase)) contas.Add(conta);
+            if (principal.Length == 0) principal = conta;
+            usuario.Text = "";
+            MontarContas();
+            return "Token salvo para " + conta;
         });
 
         testar.Click += (_, _) => ComAviso(async () =>
@@ -895,16 +1011,11 @@ public sealed class SettingsWindow : DialogWindow
             return "Conectado como " + conta;
         });
 
-        remover.Click += (_, _) => ComAviso(async () =>
-        {
-            await GitHubService.RemoverCredencialAsync(usuario.Text ?? "");
-            return "Token removido do gerenciador de credenciais.";
-        });
-
         var acoesToken = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         acoesToken.Children.Add(salvarToken);
         acoesToken.Children.Add(testar);
-        acoesToken.Children.Add(remover);
+
+        MontarContas();
 
         // ------------------------------------------ gerenciador de credenciais
 
@@ -922,7 +1033,7 @@ public sealed class SettingsWindow : DialogWindow
             try
             {
                 var atual = await GitHubService.HelperAsync();
-                var conta = (usuario.Text ?? "").Trim();
+                var conta = principal; // a principal é a que vale sem escolha
                 var temCred = conta.Length > 0 && await GitHubService.TemCredencialAsync(conta);
 
                 if (atual.Length == 0)
@@ -936,7 +1047,7 @@ public sealed class SettingsWindow : DialogWindow
                     helperTexto.Text = $"Gerenciador em uso: {atual}. " + (temCred
                         ? $"Credencial encontrada para {conta}: enviar não pede login."
                         : conta.Length == 0
-                            ? "Informe o usuário acima para o git achar a credencial certa."
+                            ? "Cadastre uma conta acima para o git achar a credencial certa."
                             : $"Nenhuma credencial guardada para {conta} ainda — salve o token acima.");
                     configurarHelper.IsEnabled = !atual.Contains(GitHubService.HelperPadrao, StringComparison.Ordinal);
                 }
@@ -968,7 +1079,13 @@ public sealed class SettingsWindow : DialogWindow
         close.Click += (_, _) => Close();
         save.Click += (_, _) =>
         {
-            main.SetGithubUser(usuario.Text ?? "");
+            // conta digitada e não salva também entra: o token dela pode já estar no
+            // gerenciador, guardado pelo próprio git
+            var digitada = (usuario.Text ?? "").Trim();
+            if (digitada.Length > 0 && !contas.Contains(digitada, StringComparer.OrdinalIgnoreCase))
+                contas.Add(digitada);
+            if (principal.Length == 0) principal = contas.FirstOrDefault() ?? "";
+            main.SetContas(contas, principal);
             main.SetAvisarAtualizacao(avisarAtualizacao.IsChecked == true);
             main.SetArvoreMinimalista(estiloArvore.SelectedIndex == 0);
             main.SetEsteirasVisiveis((int)(esteiras.Value ?? 6));
@@ -1003,7 +1120,9 @@ public sealed class SettingsWindow : DialogWindow
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
 
         body.Add(Secao("Autenticação"));
-        body.Add(Field("Usuário do GitHub", usuario));
+        body.Add(Label("Contas do GitHub. A principal vale para os repositórios que não escolhem outra em Configurar repositório."));
+        body.Add(contasPanel);
+        body.Add(Field("Usuário", usuario));
         body.Add(Field("Token de acesso pessoal", token));
         body.Add(acoesToken);
         body.Add(situacao);

@@ -191,22 +191,21 @@ public class PainelTests
     [Fact]
     public void Cartoes_dividem_a_largura_do_painel_por_igual()
     {
-        var painel = new PainelViewModel("Todos", "", Array.Empty<CartaoRepoViewModel>());
-
         // sem medida ainda, vale o mínimo em vez de zero
-        Assert.True(painel.LarguraDoCartao > 0);
+        Assert.True(GRepos.Controls.GradeCartoes.Dividir(double.PositiveInfinity, 250, 10).Largura > 0);
 
         // 3 colunas: a soma dos cartões mais os vãos fecha a largura, sem sobra à
         // direita — era o desalinho com o cartão de perfil, que ocupa a linha inteira
-        painel.LarguraDisponivel = 980;
-        Assert.Equal(980, painel.LarguraDoCartao * 3 + 10 * 2, 3);
+        var (tres, largura3) = GRepos.Controls.GradeCartoes.Dividir(980, 250, 10);
+        Assert.Equal(3, tres);
+        Assert.Equal(980, largura3 * 3 + 10 * 2, 3);
 
         // painel estreito não espreme: cai para menos colunas
-        painel.LarguraDisponivel = 420;
-        Assert.Equal(420, painel.LarguraDoCartao, 3);
+        Assert.Equal(420, GRepos.Controls.GradeCartoes.Dividir(420, 250, 10).Largura, 3);
 
-        painel.LarguraDisponivel = 700;
-        Assert.Equal(700, painel.LarguraDoCartao * 2 + 10, 3);
+        var (duas, largura2) = GRepos.Controls.GradeCartoes.Dividir(700, 250, 10);
+        Assert.Equal(2, duas);
+        Assert.Equal(700, largura2 * 2 + 10, 3);
     }
 
     [Fact]

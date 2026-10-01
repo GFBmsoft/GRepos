@@ -3,6 +3,7 @@ using Xunit;
 
 namespace GRepos.Tests;
 
+[Collection(WorkspaceGlobal.Nome)]
 public class WebUrlTests
 {
     [Theory]
@@ -27,6 +28,7 @@ public class WebUrlTests
     }
 }
 
+[Collection(WorkspaceGlobal.Nome)]
 public class GitHubSlugTests
 {
     [Theory]
@@ -55,6 +57,16 @@ public class GitHubSlugTests
     {
         // sem conta a chamada vai anônima, e a cota anônima acaba em minutos no painel
         Assert.Equal(GitService.CredentialUser, GitHubService.Usuario(remoto));
+    }
+
+    [Fact]
+    public void Conta_escolhida_no_repositorio_vence_a_da_url()
+    {
+        var url = "https://GFBmsoft@github.com/bmsoftsistemas/Financeiro.git";
+
+        Assert.Equal("bmsoftsistemas", GitHubService.ContaDoRepositorio("bmsoftsistemas", url));
+        Assert.Equal("GFBmsoft", GitHubService.ContaDoRepositorio(null, url));   // automática
+        Assert.Equal("GFBmsoft", GitHubService.ContaDoRepositorio("  ", url));
     }
 
     [Fact]

@@ -59,6 +59,9 @@ public sealed class Perfil
     public int Seguidores { get; init; }
     public int Seguindo { get; init; }
 
+    /// <summary>Endereço da foto da conta, como o GitHub devolve.</summary>
+    public string AvatarUrl { get; init; } = "";
+
     /// <summary>Somadas dos repositórios próprios; -1 enquanto não foi consultado.</summary>
     public int Estrelas { get; init; } = -1;
 
@@ -154,6 +157,13 @@ public static class GitHubService
             ? $"{partes[0]}/{partes[1]}"
             : null;
     }
+
+    /// <summary>
+    /// Conta de um repositório com várias contas cadastradas: a escolhida para ele, se
+    /// houver; senão a que a URL do remoto indica (ver <see cref="Usuario"/>).
+    /// </summary>
+    public static string ContaDoRepositorio(string? escolhida, string remoteUrl) =>
+        string.IsNullOrWhiteSpace(escolhida) ? Usuario(remoteUrl) : escolhida.Trim();
 
     /// <summary>
     /// Usuário embutido na URL do remoto (https://GFBmsoft@github.com/...). O credential
@@ -624,6 +634,7 @@ public static class GitHubService
                 RepositoriosPublicos = perfil.RepositoriosPublicos,
                 Seguidores = perfil.Seguidores,
                 Seguindo = perfil.Seguindo,
+                AvatarUrl = perfil.AvatarUrl,
                 Estrelas = estrelas,
                 Linguagens = linguagens,
             };
@@ -649,7 +660,33 @@ public static class GitHubService
             RepositoriosPublicos = Inteiro(r, "public_repos"),
             Seguidores = Inteiro(r, "followers"),
             Seguindo = Inteiro(r, "following"),
+            AvatarUrl = Texto(r, "avatar_url"),
         };
+    }
+
+    private static readonly ConcurrentDictionary<string, byte[]> CacheFotos = new();
+
+    /// <summary>
+    /// Foto da conta, já no tamanho do cartão. Fica em memória: o painel é remontado a
+    /// cada clique na árvore, e baixar a mesma imagem toda vez seria desperdício.
+    /// </summary>
+    public static async Task<byte[]?> FotoAsync(string avatarUrl, int tamanho = 96)
+    {
+        if (string.IsNullOrWhiteSpace(avatarUrl)) return null;
+
+        var url = avatarUrl + (avatarUrl.Contains('?') ? "&" : "?") + "s=" + tamanho;
+        if (CacheFotos.TryGetValue(url, out var guardada)) return guardada;
+
+        try
+        {
+            var bytes = await Http.GetByteArrayAsync(url);
+            CacheFotos[url] = bytes;
+            return bytes;
+        }
+        catch (Exception)
+        {
+            return null; // sem foto o cartão mostra a inicial
+        }
     }
 
     /// <summary>Estrelas somadas e linguagens por frequência, a partir da lista de repos.</summary>

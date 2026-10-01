@@ -152,7 +152,11 @@ public class ScreenshotTests
             main.CreateGroup("Manuais - BMSoft", "#DB4C9B");
             main.CreateGroup("Módulos", "#1F9D55");
 
-            ShotJanela(new SettingsWindow(main), "preferencias", 520, 700);
+            // duas contas: a lista de contas é o que a seção de autenticação desenha
+            var contaAntes = GitService.CredentialUser;
+            main.SetContas(new[] { "GFBmsoft", "bmsoftsistemas" }, "GFBmsoft");
+            try {             ShotJanela(new SettingsWindow(main), "preferencias", 520, 700); }
+            finally { GitService.CredentialUser = contaAntes; }
         }
         finally
         {
@@ -174,6 +178,10 @@ public class ScreenshotTests
             var dialogs = new FakeDialogs();
             var main = new MainViewModel(dialogs);
             var repo = new Repo { Id = "r1", Name = "Financeiro", Path = home, PairKey = "Financeiro", Role = "origem" };
+            var contaAntes = GitService.CredentialUser;
+            main.SetContas(new[] { "GFBmsoft", "bmsoftsistemas" }, "GFBmsoft");
+            repo.Conta = "bmsoftsistemas";
+            GitService.CredentialUser = contaAntes;
 
             ShotJanela(new RepoConfigWindow(main, repo, dialogs), "configurar-repositorio", 460, 700);
         }
@@ -209,7 +217,6 @@ public class ScreenshotTests
 
         var vm = new PainelViewModel("Todos os repositórios", "", cartoes, main);
         vm.Subtitulo = vm.Resumo;
-        vm.LarguraDisponivel = 954;
 
         // no painel geral cada grupo é uma seção, como o MainViewModel monta
         vm.Secoes = new System.Collections.ObjectModel.ObservableCollection<SecaoPainelViewModel>
@@ -244,7 +251,12 @@ public class ScreenshotTests
             LinhasAdicionadas = 46_835,
             LinhasRemovidas = 9_770,
             LinhasContadas = true,
+            OutrasContas = new[] { "bmsoftsistemas" },
         };
+
+        // a foto de verdade vem da API; aqui vale o ícone do app no lugar
+        var raiz = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", ".."));
+        vm.Perfil.Foto = new Avalonia.Media.Imaging.Bitmap(Path.Combine(raiz, "app", "Assets", "app.png"));
 
         Shot(new PainelView(), vm, "painel", 1000, 560);
     }

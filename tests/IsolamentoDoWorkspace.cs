@@ -36,7 +36,8 @@ internal static class IsolamentoDoWorkspace
 }
 
 /// <summary>
-/// Classes que mexem em GREPOS_HOME (ou nos desvios do WorkspaceStore). A variável é
+/// Classes que mexem em estado global: GREPOS_HOME, os desvios do WorkspaceStore e a
+/// conta do GitService (CredentialUser). A variável é
 /// global ao processo: com essas classes em paralelo, uma definia a pasta enquanto outra
 /// zerava e conferia o caminho padrão — o teste do modo portátil falhava ao acaso e
 /// derrubava o build da tag. Na mesma coleção, e sem paralelismo, elas rodam uma de cada vez.

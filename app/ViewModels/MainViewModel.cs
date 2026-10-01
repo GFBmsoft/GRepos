@@ -150,12 +150,32 @@ public sealed partial class MainViewModel : ObservableObject
 
         // o cartão de perfil é da conta inteira, não de um grupo
         if (grupoId is null && _ws.Settings.GithubUser.Length > 0)
-        {
-            Painel.Perfil = new PerfilViewModel(_ws.Settings.GithubUser, _ws.Repos.ToList());
-            _ = Painel.Perfil.CarregarAsync();
-        }
+            MostrarPerfil(_perfilEscolhido ?? _ws.Settings.GithubUser);
 
         _ = CarregarPainelAsync();
+    }
+
+    /// <summary>Conta que o cartão de perfil está mostrando; nula é a principal.</summary>
+    private string? _perfilEscolhido;
+
+    /// <summary>
+    /// Mostra no cartão de perfil a conta pedida. Com várias contas, as outras aparecem
+    /// no próprio cartão para trocar — o painel lembra a escolha enquanto o app está aberto.
+    /// </summary>
+    public void MostrarPerfil(string login)
+    {
+        if (Painel is null) return;
+
+        var contas = Contas;
+        if (!contas.Contains(login, StringComparer.OrdinalIgnoreCase)) login = _ws.Settings.GithubUser;
+        _perfilEscolhido = login;
+
+        Painel.Perfil = new PerfilViewModel(login, _ws.Repos.ToList())
+        {
+            OutrasContas = contas.Where(c => !string.Equals(c, login, StringComparison.OrdinalIgnoreCase)).ToList(),
+            Trocar = MostrarPerfil,
+        };
+        _ = Painel.Perfil.CarregarAsync();
     }
 
     private async Task CarregarPainelAsync()
@@ -347,8 +367,9 @@ public sealed partial class MainViewModel : ObservableObject
             var slug = GitHubService.Slug(remoto);
             if (slug is null) return;
 
-            // o usuário do remoto vem na frente; sem ele vale o das preferências
-            var usuario = GitHubService.Usuario(remoto);
+            // a conta escolhida para o repositório vem na frente; depois a da URL; sem
+            // nenhuma, a principal das preferências
+            var usuario = GitHubService.ContaDoRepositorio(repo.Conta, remoto);
             if (usuario.Length == 0) usuario = _ws.Settings.GithubUser;
             _ciSlug = slug;
             _ciUsuario = usuario;
@@ -502,6 +523,8 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _ws = WorkspaceStore.Load();
         GitService.CredentialUser = _ws.Settings.GithubUser;
+        MigrarContas();
+        AplicarContasDosRepositorios();
 
         // sobra da atualização anterior: o .exe antigo já não está em uso agora
         Atualizador.LimparAntigo();
@@ -985,9 +1008,11 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     public void UpdateRepository(Repo repo, string name, string? groupId, string? pairKey, string? role,
-        string? remoteTemplate = null)
+        string? remoteTemplate = null, string? conta = null)
     {
         repo.RemoteTemplate = string.IsNullOrWhiteSpace(remoteTemplate) ? null : remoteTemplate.Trim();
+        repo.Conta = string.IsNullOrWhiteSpace(conta) ? null : conta.Trim();
+        GitService.DefinirConta(repo.Path, repo.Conta);
         repo.Name = name;
         repo.GroupId = groupId;
         repo.PairKey = string.IsNullOrWhiteSpace(pairKey) ? null : pairKey.Trim();
@@ -1026,15 +1051,63 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Usuário do GitHub; o token correspondente fica no gerenciador do Windows.</summary>
-    public void SetGithubUser(string usuario)
+    public void SetGithubUser(string usuario) =>
+        SetContas(Contas.Append(usuario.Trim()), usuario.Trim());
+
+    /// <summary>Contas do GitHub cadastradas, a principal primeiro.</summary>
+    public IReadOnlyList<string> Contas
     {
-        _ws.Settings.GithubUser = usuario.Trim();
+        get
+        {
+            var principal = _ws.Settings.GithubUser;
+            return _ws.Settings.GithubContas
+                .OrderByDescending(c => string.Equals(c, principal, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    /// <summary>
+    /// Troca a lista de contas e a principal. A principal é a que o git e a API usam
+    /// quando o repositório não escolhe outra.
+    /// </summary>
+    public void SetContas(IEnumerable<string> contas, string principal)
+    {
+        var lista = contas.Select(c => c.Trim()).Where(c => c.Length > 0)
+                          .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        principal = principal.Trim();
+        if (principal.Length > 0 && !lista.Contains(principal, StringComparer.OrdinalIgnoreCase))
+            lista.Insert(0, principal);
+        if (principal.Length == 0 && lista.Count > 0) principal = lista[0];
+
+        _ws.Settings.GithubContas = lista;
+        _ws.Settings.GithubUser = principal;
+
+        // repositório preso a uma conta que saiu da lista volta para a automática
+        foreach (var r in _ws.Repos.Where(r => r.Conta is { Length: > 0 } c &&
+                                               !lista.Contains(c, StringComparer.OrdinalIgnoreCase)))
+            r.Conta = null;
 
         // sem repassar para o GitService o usuário só existia no arquivo: o git ia ao
         // credential manager sem conta, não achava o token e abria a janela de login
-        GitService.CredentialUser = _ws.Settings.GithubUser;
+        GitService.CredentialUser = principal;
+        AplicarContasDosRepositorios();
         GitHubService.EsquecerTokens();
         Persist();
+    }
+
+    /// <summary>Quem só tinha a conta única de antes passa a tê-la na lista.</summary>
+    private void MigrarContas()
+    {
+        var s = _ws.Settings;
+        if (s.GithubUser.Length > 0 &&
+            !s.GithubContas.Contains(s.GithubUser, StringComparer.OrdinalIgnoreCase))
+            s.GithubContas.Insert(0, s.GithubUser);
+    }
+
+    /// <summary>Repassa ao git a conta escolhida para cada repositório.</summary>
+    private void AplicarContasDosRepositorios()
+    {
+        foreach (var r in _ws.Repos) GitService.DefinirConta(r.Path, r.Conta);
     }
 
     // ------------------------------------------------------------ atualização

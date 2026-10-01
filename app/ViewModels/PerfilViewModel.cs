@@ -42,6 +42,33 @@ public sealed partial class PerfilViewModel : ObservableObject
     public bool TemPerfil => Perfil is not null;
     public bool TemErro => Erro.Length > 0;
 
+    /// <summary>Demais contas cadastradas, para trocar o perfil mostrado no cartão.</summary>
+    public IReadOnlyList<string> OutrasContas { get; init; } = Array.Empty<string>();
+
+    public bool TemOutrasContas => OutrasContas.Count > 0;
+
+    /// <summary>Quem sabe montar o perfil de outra conta (o MainViewModel).</summary>
+    public Action<string>? Trocar { get; init; }
+
+    [RelayCommand]
+    private void TrocarConta(string? login)
+    {
+        if (!string.IsNullOrWhiteSpace(login)) Trocar?.Invoke(login);
+    }
+
+    /// <summary>Foto da conta; até chegar (ou se não vier), o cartão mostra a inicial.</summary>
+    [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _foto;
+
+    public bool TemFoto => Foto is not null;
+    public bool SemFoto => Foto is null;
+    public string Inicial => _login.Length > 0 ? _login[..1].ToUpperInvariant() : "?";
+
+    partial void OnFotoChanged(Avalonia.Media.Imaging.Bitmap? value)
+    {
+        OnPropertyChanged(nameof(TemFoto));
+        OnPropertyChanged(nameof(SemFoto));
+    }
+
     public string Nome => Perfil?.Nome is { Length: > 0 } n ? n : Perfil?.Login ?? "";
     public string Bio => Perfil?.Bio ?? "";
     public bool TemBio => Bio.Length > 0;
@@ -96,6 +123,7 @@ public sealed partial class PerfilViewModel : ObservableObject
         try
         {
             Perfil = await GitHubService.PerfilAsync(_login);
+            await CarregarFotoAsync(Perfil.AvatarUrl);
         }
         catch (Exception e)
         {
@@ -104,6 +132,22 @@ public sealed partial class PerfilViewModel : ObservableObject
         finally
         {
             Carregando = false;
+        }
+    }
+
+    private async Task CarregarFotoAsync(string avatarUrl)
+    {
+        var bytes = await GitHubService.FotoAsync(avatarUrl);
+        if (bytes is null) return;
+
+        try
+        {
+            using var ms = new System.IO.MemoryStream(bytes);
+            Foto = new Avalonia.Media.Imaging.Bitmap(ms);
+        }
+        catch (Exception)
+        {
+            // imagem ilegível: fica a inicial
         }
     }
 

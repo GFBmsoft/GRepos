@@ -171,25 +171,17 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
     [ObservableProperty] private EsteiraViewModel? _esteira;
     private string _branchDaEsteira = "";
 
-    /// <summary>Larguras repassadas pelo painel: fechado divide a fileira, aberto a ocupa toda.</summary>
-    [ObservableProperty] private double _larguraBase = 250;
-    [ObservableProperty] private double _larguraTotal = 250;
-
-    public double Largura => Expandido ? Math.Max(LarguraBase, LarguraTotal) : LarguraBase;
-
     public string Seta => Expandido ? "" : "";
 
     public bool MostraEsteira => Expandido && Esteira is not null;
     public bool MostraSemEsteira => Expandido && SemCi;
     public bool MostraConsultando => Expandido && ConsultandoCi;
 
-    partial void OnLarguraBaseChanged(double value) => OnPropertyChanged(nameof(Largura));
-    partial void OnLarguraTotalChanged(double value) => OnPropertyChanged(nameof(Largura));
     partial void OnEsteiraChanged(EsteiraViewModel? value) => OnPropertyChanged(nameof(MostraEsteira));
 
     partial void OnExpandidoChanged(bool value)
     {
-        foreach (var p in new[] { nameof(Largura), nameof(Seta), nameof(MostraEsteira),
+        foreach (var p in new[] { nameof(Seta), nameof(MostraEsteira),
                                   nameof(MostraSemEsteira), nameof(MostraConsultando) })
             OnPropertyChanged(p);
 
@@ -299,7 +291,6 @@ public sealed partial class PainelViewModel : ObservableObject
         Titulo = titulo;
         Subtitulo = subtitulo;
         Cartoes = new ObservableCollection<CartaoRepoViewModel>(cartoes);
-        RepassarLarguras();
 
         // seção única por padrão; quem sabe os grupos (o MainViewModel) substitui depois.
         // Sem isto, um painel montado direto ficaria sem nada na tela.
@@ -327,51 +318,6 @@ public sealed partial class PainelViewModel : ObservableObject
     partial void OnPerfilChanged(PerfilViewModel? value) => OnPropertyChanged(nameof(TemPerfil));
 
     public bool Vazio => Cartoes.Count == 0;
-
-    /// <summary>Espaço entre cartões; entra na conta da largura.</summary>
-    private const double Vao = 10;
-
-    /// <summary>Abaixo disso o cartão fica ilegível, e é melhor ter menos colunas.</summary>
-    private const double LarguraMinima = 250;
-
-    /// <summary>Largura útil do painel, informada pela View a cada redimensionamento.</summary>
-    [ObservableProperty] private double _larguraDisponivel;
-
-    /// <summary>
-    /// Largura de cada cartão: as colunas que couberem, divididas por igual. Com largura
-    /// fixa sobrava um vão à direita e a fileira não alinhava com o cartão de perfil,
-    /// que ocupa a linha inteira.
-    /// </summary>
-    public double LarguraDoCartao
-    {
-        get
-        {
-            if (LarguraDisponivel <= 0) return LarguraMinima;
-
-            var colunas = Math.Max(1, (int)((LarguraDisponivel + Vao) / (LarguraMinima + Vao)));
-            return (LarguraDisponivel - (colunas - 1) * Vao) / colunas;
-        }
-    }
-
-    partial void OnLarguraDisponivelChanged(double value)
-    {
-        OnPropertyChanged(nameof(LarguraDoCartao));
-        RepassarLarguras();
-    }
-
-    /// <summary>
-    /// Cada cartão escolhe a própria largura: fechado, a de uma coluna; aberto, a fileira
-    /// inteira, para o passo a passo da esteira caber sem cortar o nome das etapas.
-    /// </summary>
-    private void RepassarLarguras()
-    {
-        var total = Math.Max(LarguraDisponivel, LarguraMinima);
-        foreach (var c in Cartoes)
-        {
-            c.LarguraBase = LarguraDoCartao;
-            c.LarguraTotal = total;
-        }
-    }
 
     /// <summary>Painel saiu de cena: nenhum cartão aberto continua consultando a API.</summary>
     public void PararEsteiras()
@@ -427,7 +373,7 @@ public sealed partial class PainelViewModel : ObservableObject
             }
 
             cartao.Slug = slug;
-            cartao.Usuario = GitHubService.Usuario(remoto);
+            cartao.Usuario = GitHubService.ContaDoRepositorio(cartao.Repo.Conta, remoto);
 
             var run = await GitHubService.UltimaExecucaoAsync(
                 slug, cartao.Status?.Branch ?? "", cartao.Usuario);

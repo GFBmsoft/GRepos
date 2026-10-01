@@ -1,3 +1,5 @@
+using System.Linq;
+using Avalonia.VisualTree;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -236,13 +238,63 @@ public class UiSmokeTests
         { CiSituacao = "nenhum" };
         semCi.Expandido = true;
 
-        var vm = new PainelViewModel("Módulos", "", new[] { aberto, semCi }, main) { LarguraDisponivel = 1100 };
+        var vm = new PainelViewModel("Módulos", "", new[] { aberto, semCi }, main);
 
         Assert.True(esteira.PodeCancelar);       // rodando: Parar disponível
         Assert.False(esteira.PodeReexecutar);    // e Reexecutar não
-        Assert.Equal(1100, aberto.Largura);      // aberto ocupa a fileira inteira
 
         Render(new PainelView(), vm);
+    }
+
+    /// <summary>
+    /// A grade divide a largura dentro do layout: as fileiras terminam na mesma borda do
+    /// cartão de perfil, e o cartão aberto fica sozinho na linha, de ponta a ponta.
+    /// </summary>
+    [AvaloniaFact]
+    public void PainelView_alinha_cartoes_com_o_perfil_e_abre_na_linha_inteira()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var cartoes = Enumerable.Range(1, 5).Select(i => new CartaoRepoViewModel(
+            new Repo { Id = "r" + i, Name = "Repo " + i }, new RepoStatus { Branch = "main" }, "#4F8CFF", main)
+        { CiSituacao = "nenhum" }).ToList();
+
+        var vm = new PainelViewModel("Todos", "", cartoes, main)
+        {
+            Perfil = new PerfilViewModel("GFBmsoft", new[] { cartoes[0].Repo }),
+        };
+
+        var window = new Window { Width = 1000, Height = 700, Content = new PainelView { DataContext = vm } };
+        window.Show();
+        window.UpdateLayout();
+
+        Border Moldura(CartaoRepoViewModel c) => window.GetVisualDescendants().OfType<Border>()
+            .First(b => b.Classes.Contains("cartaoMoldura") && ReferenceEquals(b.DataContext, c));
+
+        double Direita(Visual v) => v.TranslatePoint(new Point(v.Bounds.Width, 0), window)!.Value.X;
+
+        var perfil = window.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("card") && b.IsVisible);
+
+        // fileira cheia: o último cartão termina onde o perfil termina
+        var primeiraFileira = cartoes.Take(3).Select(Moldura).ToList();
+        Assert.Equal(Direita(perfil), Direita(primeiraFileira[^1]), 0);
+        Assert.Equal(primeiraFileira[0].Bounds.Width, primeiraFileira[1].Bounds.Width, 1);
+
+        // aberto: sozinho na fileira, encostado à esquerda e com teto de largura — em
+        // tela larga o passo a passo da esteira não estica junto com a janela
+        cartoes[1].Expandido = true;
+        window.UpdateLayout();
+        var aberto = Moldura(cartoes[1]);
+        double Esquerda(Visual v) => v.TranslatePoint(new Point(0, 0), window)!.Value.X;
+        Assert.Equal(Esquerda(perfil), Esquerda(aberto), 0);
+        Assert.Equal(System.Math.Min(perfil.Bounds.Width, 860), aberto.Bounds.Width, 0);
+
+        // e os vizinhos não dividem a linha com ele
+        var antes = Moldura(cartoes[0]);
+        var depois = Moldura(cartoes[2]);
+        Assert.True(aberto.TranslatePoint(new Point(0, 0), window)!.Value.Y > antes.TranslatePoint(new Point(0, 0), window)!.Value.Y);
+        Assert.True(depois.TranslatePoint(new Point(0, 0), window)!.Value.Y > aberto.TranslatePoint(new Point(0, 0), window)!.Value.Y);
+
+        window.Close();
     }
 
     [AvaloniaFact]

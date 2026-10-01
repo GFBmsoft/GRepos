@@ -46,7 +46,7 @@ public static class GitService
     {
         try
         {
-            return await ExecutarAsync(repo, ComCredencial(args), null, TempoLimiteRede,
+            return await ExecutarAsync(repo, ComCredencial(repo, args), null, TempoLimiteRede,
                 Array.Empty<(string, string)>());
         }
         catch (OperationCanceledException)
@@ -175,13 +175,35 @@ public static class GitService
     /// </summary>
     public static string CredentialUser { get; set; } = "";
 
-    private static string[] ComCredencial(params string[] args)
+    /// <summary>Conta escolhida para cada repositório (pela pasta), quando não é a principal.</summary>
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> ContasPorRepo =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private static string Chave(string repo)
     {
-        if (string.IsNullOrWhiteSpace(CredentialUser)) return args;
+        try { return Path.GetFullPath(repo).TrimEnd('\\', '/'); }
+        catch (Exception) { return repo.TrimEnd('\\', '/'); }
+    }
+
+    /// <summary>Define a conta de um repositório; vazio volta para a principal.</summary>
+    public static void DefinirConta(string repo, string? conta)
+    {
+        if (string.IsNullOrWhiteSpace(conta)) ContasPorRepo.TryRemove(Chave(repo), out _);
+        else ContasPorRepo[Chave(repo)] = conta.Trim();
+    }
+
+    /// <summary>Conta que o git usa neste repositório: a escolhida para ele ou a principal.</summary>
+    public static string ContaDe(string repo) =>
+        ContasPorRepo.TryGetValue(Chave(repo), out var conta) ? conta : CredentialUser;
+
+    private static string[] ComCredencial(string repo, string[] args)
+    {
+        var conta = ContaDe(repo);
+        if (string.IsNullOrWhiteSpace(conta)) return args;
 
         var completo = new string[args.Length + 2];
         completo[0] = "-c";
-        completo[1] = $"credential.https://github.com.username={CredentialUser.Trim()}";
+        completo[1] = $"credential.https://github.com.username={conta.Trim()}";
         args.CopyTo(completo, 2);
         return completo;
     }

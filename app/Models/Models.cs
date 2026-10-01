@@ -29,6 +29,12 @@ public sealed class Repo
     /// não o segredo: o token entra só na hora de aplicar no git.
     /// </summary>
     public string? RemoteTemplate { get; set; }
+
+    /// <summary>
+    /// Conta do GitHub deste repositório. Vazio é "automática": vale o usuário da URL do
+    /// remoto e, sem ele, a conta principal das preferências.
+    /// </summary>
+    public string? Conta { get; set; }
 }
 
 public sealed class Settings
@@ -55,8 +61,17 @@ public sealed class Settings
     /// <summary>Aba aberta ao selecionar um repositório: "alteracoes" ou "historico".</summary>
     public string DefaultTab { get; set; } = "alteracoes";
 
-    /// <summary>Usuário do GitHub. O token fica no gerenciador de credenciais, nunca aqui.</summary>
+    /// <summary>
+    /// Conta principal do GitHub: a que vale quando o repositório não diz outra. O token
+    /// fica no gerenciador de credenciais, nunca aqui.
+    /// </summary>
     public string GithubUser { get; set; } = "";
+
+    /// <summary>
+    /// Todas as contas cadastradas, a principal inclusive. Cada uma tem o próprio token
+    /// no gerenciador de credenciais, que guarda por usuário.
+    /// </summary>
+    public List<string> GithubContas { get; set; } = new();
 
     /// <summary>Avisar quando sair uma release nova do próprio GRepos.</summary>
     public bool AvisarAtualizacao { get; set; } = true;

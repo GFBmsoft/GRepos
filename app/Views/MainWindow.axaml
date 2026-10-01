@@ -168,17 +168,10 @@
                 <Grid Grid.Column="2" ColumnDefinitions="*,Auto">
                   <TextBlock Grid.Column="0" Text="{Binding Name}" VerticalAlignment="Center"
                              TextTrimming="CharacterEllipsis" />
-                  <!-- pílula da branch: clicar leva direto às branches deste repositório -->
-                  <Button Grid.Column="1" Classes="pilulaBranch" Margin="6,0,4,0"
-                          IsVisible="{Binding TemBranch}" ToolTip.Tip="{Binding BranchTooltip}"
-                          BorderBrush="{Binding BranchCor, Converter={x:Static local:Converters.ResourceBrush}}"
-                          Command="{Binding $parent[ListBox].DataContext.OpenBranchesForCommand}"
-                          CommandParameter="{Binding}">
-                    <TextBlock Text="{Binding BranchRotulo}" FontSize="10"
-                               Foreground="{Binding BranchCor, Converter={x:Static local:Converters.ResourceBrush}}" />
-                  </Button>
-                </Grid>
-                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <!-- contadores antes da pílula: com eles no fim, a largura que variava de
+                     linha para linha empurrava cada pílula para um ponto diferente -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"
+                            Margin="6,0,0,0">
                   <TextBlock Text="{Binding AheadText}" FontSize="10" IsVisible="{Binding ShowAhead}"
                              Foreground="{DynamicResource Green}" />
                   <TextBlock Text="{Binding BehindText}" FontSize="10" IsVisible="{Binding ShowBehind}"
@@ -190,6 +183,17 @@
                   <TextBlock Text="erro" FontSize="10" IsVisible="{Binding HasError}"
                              Foreground="{DynamicResource Red}" />
                 </StackPanel>
+                </Grid>
+                <!-- pílula da branch, encostada à direita: todas terminam na mesma borda.
+                     Clicar leva direto às branches deste repositório -->
+                <Button Grid.Column="3" Classes="pilulaBranch" Margin="6,0,0,0"
+                        IsVisible="{Binding TemBranch}" ToolTip.Tip="{Binding BranchTooltip}"
+                        BorderBrush="{Binding BranchCor, Converter={x:Static local:Converters.ResourceBrush}}"
+                        Command="{Binding $parent[ListBox].DataContext.OpenBranchesForCommand}"
+                        CommandParameter="{Binding}">
+                  <TextBlock Text="{Binding BranchRotulo}" FontSize="10"
+                             Foreground="{Binding BranchCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                </Button>
               </Grid>
               </Border>
             </DataTemplate>

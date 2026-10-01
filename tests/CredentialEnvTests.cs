@@ -11,6 +11,7 @@ namespace GRepos.Tests;
 /// Se essas variáveis vazarem para o processo do git, push e pull quebram com
 /// "terminal prompts disabled" e o credential manager nunca é chamado.
 /// </summary>
+[Collection(WorkspaceGlobal.Nome)]
 public class CredentialEnvTests
 {
     private static void Limpar(string dir)
@@ -104,8 +105,37 @@ public class CredentialEnvTests
         }
     }
 
-    private static string[] Chamar(params string[] args) =>
+    [Fact]
+    public void Repositorio_com_conta_propria_usa_ela_e_os_outros_a_principal()
+    {
+        var antes = GitService.CredentialUser;
+        var outro = Path.Combine(Path.GetTempPath(), "grepos-conta-" + Path.GetRandomFileName());
+        try
+        {
+            GitService.CredentialUser = "GFBmsoft";
+            GitService.DefinirConta(outro, "bmsoftsistemas");
+
+            Assert.Equal("credential.https://github.com.username=bmsoftsistemas", ChamarEm(outro, "push")[1]);
+            Assert.Equal("credential.https://github.com.username=GFBmsoft", Chamar("push")[1]);
+
+            // a mesma pasta escrita de outro jeito continua sendo o mesmo repositório
+            Assert.Equal("bmsoftsistemas", GitService.ContaDe(outro + Path.DirectorySeparatorChar));
+
+            // voltar para a automática devolve a principal
+            GitService.DefinirConta(outro, null);
+            Assert.Equal("GFBmsoft", GitService.ContaDe(outro));
+        }
+        finally
+        {
+            GitService.DefinirConta(outro, null);
+            GitService.CredentialUser = antes;
+        }
+    }
+
+    private static string[] Chamar(params string[] args) => ChamarEm(Path.GetTempPath(), args);
+
+    private static string[] ChamarEm(string repo, params string[] args) =>
         (string[])typeof(GitService)
             .GetMethod("ComCredencial", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
-            .Invoke(null, new object[] { args })!;
+            .Invoke(null, new object[] { repo, args })!;
 }
