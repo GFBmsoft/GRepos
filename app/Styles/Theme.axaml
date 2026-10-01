@@ -365,16 +365,23 @@
     <Setter Property="BorderBrush" Value="{DynamicResource TextFaint}" />
   </Style>
 
-  <!-- cartão do painel que expande: a moldura é um Border e só o topo é botão -->
-  <Style Selector="Border.cartaoMoldura">
+  <!-- cartão do painel que expande. Duas camadas: o fundo recorta o conteúdo no
+       retângulo arredondado, e o contorno vem por cima, sozinho. Com a borda no mesmo
+       Border do conteúdo, a faixa do grupo e o fundo do topo no hover cobriam a linha
+       nos cantos e ela parecia cortada (EV05) -->
+  <Style Selector="Border.cartaoFundo">
     <Setter Property="Background" Value="{DynamicResource BgPanel}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
-    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="8" />
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
 
-  <Style Selector="Border.cartaoMoldura:pointerover">
+  <Style Selector="Border.cartaoContorno">
+    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+  </Style>
+
+  <Style Selector="Panel.cartaoMoldura:pointerover > Border.cartaoContorno">
     <Setter Property="BorderBrush" Value="{DynamicResource TextFaint}" />
   </Style>
 

@@ -267,7 +267,7 @@ public class UiSmokeTests
         window.Show();
         window.UpdateLayout();
 
-        Border Moldura(CartaoRepoViewModel c) => window.GetVisualDescendants().OfType<Border>()
+        Panel Moldura(CartaoRepoViewModel c) => window.GetVisualDescendants().OfType<Panel>()
             .First(b => b.Classes.Contains("cartaoMoldura") && ReferenceEquals(b.DataContext, c));
 
         double Direita(Visual v) => v.TranslatePoint(new Point(v.Bounds.Width, 0), window)!.Value.X;

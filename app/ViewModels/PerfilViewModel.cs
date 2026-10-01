@@ -94,7 +94,7 @@ public sealed partial class PerfilViewModel : ObservableObject
 
     public string LinhasDetalhe => LinhasContadas
         ? $"{LinhasAdicionadas:N0}++, {LinhasRemovidas:N0}--"
-        : "nos repositórios desta máquina";
+        : "seus commits nos repositórios desta máquina";
 
     partial void OnPerfilChanged(Perfil? value)
     {
@@ -152,7 +152,7 @@ public sealed partial class PerfilViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Percorre o histórico de cada repositório local somando linhas. É caro — daí ser
+    /// Percorre o histórico de cada repositório local somando as linhas dos seus commits. É caro — daí ser
     /// um botão, e não algo que acontece ao abrir o painel — e mostra o progresso
     /// porque em repositório grande passa de alguns segundos.
     /// </summary>
@@ -165,14 +165,22 @@ public sealed partial class PerfilViewModel : ObservableObject
         long mais = 0, menos = 0;
         var feitos = 0;
 
+        // só os commits do usuário, e cada commit uma vez: o par Origem × Destino
+        // compartilha o histórico e somava tudo em dobro
+        var contados = new HashSet<string>(StringComparer.Ordinal);
+
         try
         {
+            ProgressoLinhas = "identificando seus commits…";
+            var autores = await GitService.IdentidadesAsync(
+                _repos.Select(r => r.Path), OutrasContas.Prepend(_login));
+
             foreach (var repo in _repos)
             {
                 ProgressoLinhas = $"{++feitos}/{_repos.Count} — {repo.Name}";
                 try
                 {
-                    var (a, r) = await GitService.ContarLinhasAsync(repo.Path);
+                    var (a, r) = await GitService.ContarLinhasAsync(repo.Path, autores, contados);
                     mais += a;
                     menos += r;
                 }

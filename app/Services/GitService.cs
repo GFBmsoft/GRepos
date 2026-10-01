@@ -532,26 +532,53 @@ public static class GitService
     public static Task<string> CheckoutAsync(string repo, string name) => Run(repo, "checkout", name);
 
     /// <summary>
-    /// Linhas adicionadas e removidas em todo o histórico. Merges ficam de fora: as
-    /// mudanças deles já foram contadas nos commits de origem, e incluí-los dobraria
-    /// o número. Arquivo binário vem como "-" e não entra na conta.
+    /// Linhas adicionadas e removidas pelos commits <b>do próprio usuário</b>. Merges ficam
+    /// de fora: as mudanças deles já foram contadas nos commits de origem. Arquivo
+    /// binário vem como "-" e não entra na conta.
     ///
-    /// É a operação mais cara do app num repositório grande — percorre o histórico
-    /// inteiro —, então roda sob demanda, nunca ao abrir uma tela.
+    /// Antes contava os commits de todo mundo: no Financeiro eram 1,4 milhão de linhas,
+    /// das quais 5 mil do usuário — e o saldo dos outros chegava a dar negativo.
+    ///
+    /// <paramref name="jaContados"/> é compartilhado entre os repositórios: o par Origem ×
+    /// Destino nasce do mesmo histórico, e sem isso cada commit comum contava duas vezes.
+    /// O filtro de autor vai para o próprio git, que nem calcula o diff de quem não é o
+    /// usuário — por isso também ficou muito mais rápido.
     /// </summary>
-    public static async Task<(long Adicionadas, long Removidas)> ContarLinhasAsync(string repo)
+    /// <param name="autores">Trechos que identificam o autor, como "&lt;email&gt;".</param>
+    public static async Task<(long Adicionadas, long Removidas)> ContarLinhasAsync(
+        string repo, IReadOnlyCollection<string> autores, ISet<string>? jaContados = null)
     {
-        var saida = await Run(repo, "log", "--numstat", "--pretty=tformat:", "--no-merges");
-        return SomarNumstat(saida);
+        if (autores.Count == 0) return (0, 0);
+
+        var args = new List<string>
+        {
+            "log", "--all", "--no-merges", "--numstat", "--format=%x01%H",
+            "--fixed-strings", "--regexp-ignore-case",
+        };
+        foreach (var a in autores) args.Add("--author=" + a);
+
+        return SomarNumstatPorCommit(await RunAsync(repo, args), jaContados ?? new HashSet<string>());
     }
 
-    /// <summary>Separado para poder ser testado sem montar um histórico de verdade.</summary>
-    internal static (long Adicionadas, long Removidas) SomarNumstat(string saida)
+    /// <summary>
+    /// Soma o numstat commit a commit, pulando os que já foram contados. Cada commit
+    /// começa com uma linha "\x01hash".
+    /// </summary>
+    internal static (long Adicionadas, long Removidas) SomarNumstatPorCommit(string saida, ISet<string> jaContados)
     {
         long mais = 0, menos = 0;
+        var contando = false;
 
-        foreach (var linha in saida.Split('\n'))
+        foreach (var bruta in saida.Split('\n'))
         {
+            var linha = bruta.TrimEnd('\r');
+            if (linha.StartsWith('\x01'))
+            {
+                contando = jaContados.Add(linha[1..].Trim());
+                continue;
+            }
+            if (!contando) continue;
+
             var partes = linha.Split('\t');
             if (partes.Length < 3) continue;
 
@@ -560,6 +587,35 @@ public static class GitService
         }
 
         return (mais, menos);
+    }
+
+    /// <summary>
+    /// Quem é o usuário nos commits: os e-mails do git (o global e o de cada
+    /// repositório) e o e-mail "noreply" que o GitHub usa nas contas cadastradas.
+    /// Entre &lt;&gt; o e-mail casa inteiro, e "outro.gabriel@..." não vira "gabriel@...".
+    /// </summary>
+    public static async Task<List<string>> IdentidadesAsync(IEnumerable<string> repos, IEnumerable<string> contas)
+    {
+        var emails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        async Task Ler(string pasta, params string[] args)
+        {
+            try
+            {
+                var e = (await RunAsync(pasta, args)).Trim();
+                if (e.Length > 0) emails.Add("<" + e + ">");
+            }
+            catch (GitException) { /* sem e-mail configurado */ }
+        }
+
+        await Ler(Path.GetTempPath(), "config", "--global", "user.email");
+        foreach (var r in repos) await Ler(r, "config", "user.email");
+
+        // "12345+login@users.noreply.github.com" e "login@users.noreply.github.com"
+        foreach (var c in contas.Where(c => !string.IsNullOrWhiteSpace(c)))
+            emails.Add(c.Trim() + "@users.noreply.github.com>");
+
+        return emails.ToList();
     }
 
     /// <summary>

@@ -105,7 +105,7 @@
               <Button Classes="tiny" Content="contar" VerticalAlignment="Center" Padding="5,0"
                       IsVisible="{Binding !LinhasContadas}" IsEnabled="{Binding !ContandoLinhas}"
                       Command="{Binding ContarLinhasCommand}"
-                      ToolTip.Tip="Percorre o histórico de cada repositório local; pode demorar" />
+                      ToolTip.Tip="Soma as linhas dos seus commits em cada repositório local, sem repetir o histórico do par Origem × Destino" />
               <TextBlock Text="{Binding LinhasDetalhe}" Classes="faint" FontSize="10"
                          VerticalAlignment="Center" IsVisible="{Binding LinhasContadas}" />
               <TextBlock Text="{Binding ProgressoLinhas}" Classes="faint" FontSize="10"
@@ -156,9 +156,10 @@
                   <DataTemplate DataType="vm:CartaoRepoViewModel">
             <!-- moldura do cartão. O topo é o botão que abre e fecha; o conteúdo aberto
                  fica fora dele, senão clicar num passo da esteira fecharia o cartão -->
-            <Border Classes="cartaoMoldura">
+            <Panel Classes="cartaoMoldura">
+            <Border Classes="cartaoFundo">
               <Grid ColumnDefinitions="3,*">
-                <Border Grid.Column="0" CornerRadius="7,0,0,7"
+                <Border Grid.Column="0"
                         Background="{Binding CorDoGrupo, Converter={x:Static local:Converters.StringToBrush}}" />
 
                <StackPanel Grid.Column="1">
@@ -337,6 +338,10 @@
                </StackPanel>
               </Grid>
             </Border>
+            <!-- contorno por cima de tudo: faixa do grupo e fundo do topo (no hover) ficam
+                 por baixo dele, e a linha não aparece mais cortada nos cantos -->
+            <Border Classes="cartaoContorno" IsHitTestVisible="False" />
+            </Panel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
