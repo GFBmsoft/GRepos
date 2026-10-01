@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -218,8 +219,17 @@ public sealed partial class BranchesViewModel : ObservableObject
         System.Collections.Generic.IEnumerable<BranchItemViewModel> itens,
         System.Collections.Generic.IEnumerable<BranchGrupoViewModel>? anteriores = null)
     {
-        var recolhidos = (anteriores ?? Array.Empty<BranchGrupoViewModel>())
-            .Where(g => g.Recolhido).Select(g => g.Chave).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // quem já estava na tela mantém o estado que o usuário deixou
+        var anteriorPorChave = (anteriores ?? Array.Empty<BranchGrupoViewModel>())
+            .GroupBy(g => g.Chave, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Recolhido, StringComparer.OrdinalIgnoreCase);
+
+        // grupo novo chega recolhido: com dezenas de feat/ e fix/, aberto era uma lista
+        // sem fim. Ficam abertas só as principais e a pasta da branch atual
+        bool Recolhido(string chave, IEnumerable<BranchItemViewModel> grupo) =>
+            anteriorPorChave.TryGetValue(chave, out var antes)
+                ? antes
+                : chave.Length > 0 && !grupo.Any(i => i.IsHead);
 
         string Chave(BranchItemViewModel i) =>
             GitFlow.Pasta(i.NomeLocal) is { Length: > 0 } p ? p
@@ -240,7 +250,7 @@ public sealed partial class BranchesViewModel : ObservableObject
                         g.OrderByDescending(i => i.IsHead)
                          .ThenBy(i => GitFlow.Ordem(i.Tipo))
                          .ThenBy(i => i.Curto, StringComparer.CurrentCultureIgnoreCase)),
-                    Recolhido = recolhidos.Contains(g.Key),
+                    Recolhido = Recolhido(g.Key, g),
                     Ordem = g.Key switch { "" => -1, "~" => 99, _ => GitFlow.Ordem(tipo) },
                 };
             })

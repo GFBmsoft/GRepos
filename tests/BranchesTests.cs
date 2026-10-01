@@ -257,15 +257,34 @@ public class BranchesViewModelTests
     }
 
     [Fact]
-    public void Grupo_recolhido_continua_recolhido_ao_filtrar()
+    public void Grupo_mantem_o_estado_que_o_usuario_deixou_ao_filtrar()
     {
         var antes = BranchesViewModel.Agrupar(new[] { Item("feat/a"), Item("fix/b") });
-        antes[0].AlternarCommand.Execute(null);
+        antes.Single(g => g.Titulo == "feat/").AlternarCommand.Execute(null); // abre
 
         var depois = BranchesViewModel.Agrupar(new[] { Item("feat/a"), Item("fix/b") }, antes);
 
-        Assert.True(depois.Single(g => g.Titulo == "feat/").Recolhido);
-        Assert.False(depois.Single(g => g.Titulo == "fix/").Recolhido);
+        Assert.False(depois.Single(g => g.Titulo == "feat/").Recolhido);
+        Assert.True(depois.Single(g => g.Titulo == "fix/").Recolhido);
+    }
+
+    [Fact]
+    public void Pastas_chegam_recolhidas_menos_as_principais_e_a_da_branch_atual()
+    {
+        var grupos = BranchesViewModel.Agrupar(new[]
+        {
+            Item("master"), Item("develop"), Item("feat/a"), Item("feat/b"),
+            Item("fix/c", head: true), Item("imp/d"), Item("avulsa"),
+            Item("origin/feat/a", remota: true),
+        });
+
+        bool Recolhido(string titulo) => grupos.Single(g => g.Titulo == titulo).Recolhido;
+
+        Assert.False(Recolhido("principais"));
+        Assert.False(Recolhido("fix/"));       // é onde você está
+        Assert.True(Recolhido("feat/"));
+        Assert.True(Recolhido("imp/"));
+        Assert.True(Recolhido("sem pasta"));
     }
 
     [Fact]
