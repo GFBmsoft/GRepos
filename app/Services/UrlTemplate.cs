@@ -8,6 +8,10 @@ namespace GRepos.Services;
 /// <summary>
 /// URL de remoto com variáveis no estilo Postman: {{user}} e {{token}}. O modelo é o
 /// que fica salvo; o valor real do token só aparece no momento de aplicar no git.
+///
+/// O caminho recomendado é só {{user}} ("https://{{user}}@github.com/..."): o git manda
+/// o usuário ao credential manager, que devolve o token daquela conta. {{token}} continua
+/// aceito, mas grava o segredo em texto puro no .git/config.
 /// </summary>
 public static class UrlTemplate
 {
@@ -48,24 +52,58 @@ public static class UrlTemplate
     }
 
     /// <summary>
-    /// Modelo a partir de uma URL comum: troca a credencial embutida pelas variáveis,
-    /// para o usuário não precisar montar na mão.
+    /// Modelo a partir de uma URL comum: troca a credencial embutida por {{user}}. O token
+    /// fica fora de propósito — quem entrega é o credential manager, pela conta do usuário.
     /// </summary>
     public static string Sugerir(string remoteUrl)
     {
         var url = (remoteUrl ?? "").Trim();
         if (url.Length == 0) return "";
 
+        var (esquema, _, resto) = Partes(url);
+        if (esquema.Length == 0) return url;
+
+        return $"{esquema}{{{{user}}}}@{resto}";
+    }
+
+    /// <summary>
+    /// Token ou senha gravado dentro da URL — "https://ghp_x@github.com/..." ou
+    /// "https://user:senha@...". É como o SourceTree deixa os remotos: o segredo fica em
+    /// texto puro no .git/config. Só o usuário ("https://GFBmsoft@...") não conta.
+    /// </summary>
+    public static string? SegredoEmbutido(string remoteUrl)
+    {
+        var (esquema, credencial, _) = Partes((remoteUrl ?? "").Trim());
+        if (esquema.Length == 0 || credencial.Length == 0) return null;
+
+        var doisPontos = credencial.IndexOf(':');
+        if (doisPontos >= 0) return credencial[(doisPontos + 1)..] is { Length: > 0 } s ? Uri.UnescapeDataString(s) : null;
+
+        // sem dois-pontos é só um nome; vira segredo quando tem cara de token do GitHub
+        return PareceToken(credencial) ? credencial : null;
+    }
+
+    private static bool PareceToken(string texto) =>
+        texto.StartsWith("ghp_", StringComparison.Ordinal) ||
+        texto.StartsWith("gho_", StringComparison.Ordinal) ||
+        texto.StartsWith("ghu_", StringComparison.Ordinal) ||
+        texto.StartsWith("ghs_", StringComparison.Ordinal) ||
+        texto.StartsWith("github_pat_", StringComparison.Ordinal);
+
+    /// <summary>"https://", o que vem antes do @ (vazio se nada) e o resto.</summary>
+    private static (string Esquema, string Credencial, string Resto) Partes(string url)
+    {
         var i = url.IndexOf("://", StringComparison.Ordinal);
-        if (i < 0) return url;
+        if (i < 0) return ("", "", url);
 
         var esquema = url[..(i + 3)];
         var resto = url[(i + 3)..];
 
         var arroba = resto.IndexOf('@');
         var barra = resto.IndexOf('/');
-        if (arroba > 0 && (barra < 0 || arroba < barra)) resto = resto[(arroba + 1)..];
+        if (arroba > 0 && (barra < 0 || arroba < barra))
+            return (esquema, resto[..arroba], resto[(arroba + 1)..]);
 
-        return $"{esquema}{{{{user}}}}:{{{{token}}}}@{resto}";
+        return (esquema, "", resto);
     }
 }

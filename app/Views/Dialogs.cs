@@ -411,19 +411,53 @@ public sealed class RepoConfigWindow : DialogWindow
 
         // ------------------------------------------- URL do remoto com variáveis
 
+        // o link leva só o usuário; o token fica no credential manager, na conta dele.
+        // {{token}} ainda funciona, mas grava o segredo em texto puro no .git/config
         var urlBox = new TextBox
         {
             Text = repo.RemoteTemplate ?? "",
-            Watermark = "https://{{user}}:{{token}}@github.com/owner/repo.git",
+            Watermark = "https://{{user}}@github.com/owner/repo.git",
         };
 
-        var urlAtual = new TextBlock
+        var usuarioConta = main.Settings.GithubUser ?? "";
+
+        var dicaUrl = new TextBlock
         {
             FontSize = 11,
             Margin = new Thickness(0, 4, 0, 0),
             TextWrapping = TextWrapping.Wrap,
             Classes = { "faint" },
-            Text = "Use {{user}} e {{token}}: o modelo é salvo assim, e o token entra só na hora de gravar no git.",
+            Text = "{{user}} vira " + (usuarioConta.Length > 0 ? $"“{usuarioConta}”" : "o usuário de Preferências → Autenticação") +
+                   ". O token não vai no link: o git pede ao Credential Manager o token dessa conta.",
+        };
+
+        var autenticacao = new TextBlock
+        {
+            FontSize = 11.5,
+            Margin = new Thickness(0, 8, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            Text = "Autenticação: verificando…",
+        };
+
+        // aviso para o remoto do jeito que o SourceTree deixa: token dentro da URL
+        var aviso = new TextBlock
+        {
+            FontSize = 11.5,
+            Margin = new Thickness(0, 6, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            IsVisible = false,
+            Text = "⚠ O remoto atual tem um token gravado na URL, em texto puro no .git/config. " +
+                   "“Usar o remoto atual” e “Aplicar no git” trocam pelo link sem token — e, se a sua " +
+                   "conta ainda não tiver token salvo, esse mesmo token vai para o Credential Manager.",
+        };
+        aviso.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("Orange"));
+
+        var urlAtual = new TextBlock
+        {
+            FontSize = 11,
+            Margin = new Thickness(0, 6, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            Classes = { "faint" },
         };
 
         var sugerir = Btn("Usar o remoto atual");
@@ -431,12 +465,24 @@ public sealed class RepoConfigWindow : DialogWindow
         sugerir.MinWidth = 140;
         aplicar.MinWidth = 120;
 
-        async void MostrarRemotoAtual()
+        async System.Threading.Tasks.Task MostrarRemotoAtualAsync()
         {
             var atual = await GitService.RemoteUrlAsync(repo.Path);
             urlAtual.Text = atual.Length > 0
                 ? "Remoto atual: " + GitService.WebUrl(atual)
                 : "Este repositório ainda não tem remoto configurado.";
+            aviso.IsVisible = UrlTemplate.SegredoEmbutido(atual) is not null;
+
+            if (usuarioConta.Length == 0)
+            {
+                autenticacao.Text = "Autenticação: nenhum usuário definido em Preferências → Autenticação.";
+                return;
+            }
+
+            var temToken = !string.IsNullOrEmpty(await GitHubService.TokenDoUsuarioAsync(usuarioConta));
+            autenticacao.Text = temToken
+                ? $"Autenticação: ✓ token da conta “{usuarioConta}” no Credential Manager."
+                : $"Autenticação: ✗ nenhum token salvo para “{usuarioConta}”. Salve em Preferências → Autenticação.";
         }
 
         sugerir.Click += async (_, _) =>
@@ -452,19 +498,37 @@ public sealed class RepoConfigWindow : DialogWindow
                 var modelo = (urlBox.Text ?? "").Trim();
                 if (modelo.Length == 0) return;
 
-                var usuario = main.Settings.GithubUser;
-                var token = UrlTemplate.UsaToken(modelo)
-                    ? await GitHubService.TokenDoUsuarioAsync(usuario)
-                    : null;
-
-                if (UrlTemplate.UsaToken(modelo) && string.IsNullOrEmpty(token))
+                if (modelo.Contains("{{user}}", StringComparison.OrdinalIgnoreCase) && usuarioConta.Length == 0)
                 {
-                    urlAtual.Text = $"Nenhum token salvo para “{usuario}”. Configure em Preferências → Autenticação.";
+                    urlAtual.Text = "Defina o usuário em Preferências → Autenticação antes de usar {{user}}.";
                     return;
                 }
 
-                await GitService.SetRemoteUrlAsync(repo.Path, UrlTemplate.Expandir(modelo, usuario, token));
-                urlAtual.Text = "Remoto atualizado: " + UrlTemplate.Mascarar(UrlTemplate.Expandir(modelo, usuario, token), token);
+                var guardado = usuarioConta.Length > 0 ? await GitHubService.TokenDoUsuarioAsync(usuarioConta) : null;
+
+                if (UrlTemplate.UsaToken(modelo) && string.IsNullOrEmpty(guardado))
+                {
+                    urlAtual.Text = $"Nenhum token salvo para “{usuarioConta}”. Configure em Preferências → Autenticação.";
+                    return;
+                }
+
+                // tirar o token da URL sem ter outro guardado deixaria o push sem senha:
+                // o que estava na URL vai para o credential manager antes
+                var migrou = false;
+                var segredo = UrlTemplate.SegredoEmbutido(await GitService.RemoteUrlAsync(repo.Path));
+                if (!UrlTemplate.UsaToken(modelo) && string.IsNullOrEmpty(guardado) && segredo is not null && usuarioConta.Length > 0)
+                {
+                    await GitHubService.SalvarCredencialAsync(usuarioConta, segredo);
+                    migrou = true;
+                }
+
+                var token = UrlTemplate.UsaToken(modelo) ? guardado : null;
+                var final = UrlTemplate.Expandir(modelo, usuarioConta, token);
+                await GitService.SetRemoteUrlAsync(repo.Path, final);
+
+                await MostrarRemotoAtualAsync();
+                urlAtual.Text = "Remoto atualizado: " + UrlTemplate.Mascarar(final, token) +
+                                (migrou ? "\nO token que estava na URL foi salvo no Credential Manager." : "");
             }
             catch (Exception ex)
             {
@@ -502,25 +566,35 @@ public sealed class RepoConfigWindow : DialogWindow
             Close();
         };
 
-        Opened += (_, _) => MostrarRemotoAtual();
+        Opened += async (_, _) => await MostrarRemotoAtualAsync();
+
+        acoesUrl.Margin = new Thickness(0, 8, 0, 0);
 
         Compose("Configurar Repositório",
             new Control[]
             {
+                Secao("Geral", primeira: true),
                 Field("Nome de exibição", name),
                 dicaNome,
                 Field("Caminho", pathBox),
                 Field("Grupo", group),
-                Field("URL do remoto (modelo)", urlBox),
+                Secao("Remoto"),
+                Label("Link do remoto"),
+                urlBox,
+                dicaUrl,
                 acoesUrl,
+                autenticacao,
+                aviso,
                 urlAtual,
-                Field("Par (mesmo módulo em outro banco) — use a mesma chave nos dois repositórios", pairKey),
+                Secao("Par Origem × Destino"),
+                Field("Chave do par (mesmo módulo em outro banco) — use a mesma nos dois repositórios", pairKey),
                 hint,
                 Field("Papel neste par", role),
                 explicacaoPapel,
             },
             new Control[] { remove, cancel, save },
-            rodapeCentralizado: true);
+            rodapeCentralizado: true,
+            corpoRolante: true);
     }
 }
 
@@ -1034,5 +1108,72 @@ public sealed class StashWindow : DialogWindow
         {
             _main.Notify(e.Message, true);
         }
+    }
+}
+
+// ------------------------------------------------------------------ git-flow
+
+/// <summary>
+/// Branches e prefixos do git-flow, no desenho do "Initialise repository for Git-flow"
+/// do SourceTree. Devolve null quando o usuário cancela.
+/// </summary>
+public sealed class GitFlowWindow : DialogWindow
+{
+    public GitFlowWindow(GitFlowConfig atual) : base(atual.Inicializado ? "Configurar git-flow" : "Inicializar git-flow", 440)
+    {
+        var master = new TextBox { Text = atual.Master };
+        var develop = new TextBox { Text = atual.Develop };
+        var feature = new TextBox { Text = atual.Feature };
+        var hotfix = new TextBox { Text = atual.Hotfix };
+        var release = new TextBox { Text = atual.Release };
+        var tag = new TextBox { Text = atual.VersionTag, Watermark = "vazio: a tag é só a versão" };
+
+        var padrao = BtnDiscreto("Usar padrão");
+        padrao.Click += (_, _) =>
+        {
+            var p = new GitFlowConfig();
+            master.Text = p.Master;
+            develop.Text = p.Develop;
+            feature.Text = p.Feature;
+            hotfix.Text = p.Hotfix;
+            release.Text = p.Release;
+            tag.Text = p.VersionTag;
+        };
+
+        var cancelar = Btn("Cancelar");
+        var ok = Btn("Salvar", true);
+        cancelar.Click += (_, _) => Close(null);
+        ok.Click += (_, _) => Close(new GitFlowConfig
+        {
+            Master = (master.Text ?? "").Trim(),
+            Develop = (develop.Text ?? "").Trim(),
+            Feature = Prefixo(feature.Text),
+            Hotfix = Prefixo(hotfix.Text),
+            Release = Prefixo(release.Text),
+            VersionTag = (tag.Text ?? "").Trim(),
+            Inicializado = true,
+        });
+
+        Compose(Title ?? "",
+            new Control[]
+            {
+                Secao("Branches", primeira: true),
+                Field("Produção", master),
+                Field("Desenvolvimento (criada a partir da produção, se não existir)", develop),
+                Secao("Prefixos"),
+                Field("Feature — sai da develop e volta para ela", feature),
+                Field("Fix (hotfix) — sai da produção e volta para as duas", hotfix),
+                Field("Release — sai da develop e entra na produção com tag", release),
+                Field("Prefixo da tag de versão", tag),
+                padrao,
+            },
+            new[] { cancelar, ok });
+    }
+
+    /// <summary>"feat" e "feat/" querem dizer a mesma coisa; a barra é garantida aqui.</summary>
+    private static string Prefixo(string? texto)
+    {
+        var t = (texto ?? "").Trim();
+        return t.Length == 0 || t.EndsWith('/') ? t : t + "/";
     }
 }

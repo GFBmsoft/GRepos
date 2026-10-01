@@ -224,4 +224,172 @@ public class BranchesViewModelTests
         Assert.True(vm.TemErro);
         Assert.False(vm.PodeConfiar);
     }
+
+    private static BranchItemViewModel Item(string nome, bool remota = false, bool head = false) => new()
+    {
+        Branch = new Branch { Name = nome, IsRemote = remota, IsHead = head },
+        Tipo = GitFlow.Classificar(GitFlow.SemRemoto(nome, remota)),
+    };
+
+    [Fact]
+    public void Agrupa_por_pasta_com_as_principais_no_topo()
+    {
+        var grupos = BranchesViewModel.Agrupar(new[]
+        {
+            Item("fix/CorrecaoTbEdit"), Item("feat/cartaopix"), Item("master"),
+            Item("develop", head: true), Item("feat/AjustaVisual"), Item("avulsa"),
+        });
+
+        Assert.Equal(new[] { "principais", "feat/", "fix/", "sem pasta" }, grupos.Select(g => g.Titulo));
+        Assert.Equal("develop", grupos[0].Itens[0].Name);          // a atual primeiro
+        Assert.Equal(new[] { "AjustaVisual", "cartaopix" }, grupos[1].Itens.Select(i => i.Curto));
+        Assert.Equal("Purple", grupos[1].Cor);
+        Assert.Equal("Orange", grupos[2].Cor);
+    }
+
+    [Fact]
+    public void Remota_agrupa_pela_pasta_sem_o_nome_do_remoto()
+    {
+        var grupos = BranchesViewModel.Agrupar(new[] { Item("origin/fix/6329_email", remota: true), Item("origin/develop", remota: true) });
+
+        Assert.Equal(new[] { "principais", "fix/" }, grupos.Select(g => g.Titulo));
+        Assert.Equal("6329_email", grupos[1].Itens.Single().Curto);
+    }
+
+    [Fact]
+    public void Grupo_recolhido_continua_recolhido_ao_filtrar()
+    {
+        var antes = BranchesViewModel.Agrupar(new[] { Item("feat/a"), Item("fix/b") });
+        antes[0].AlternarCommand.Execute(null);
+
+        var depois = BranchesViewModel.Agrupar(new[] { Item("feat/a"), Item("fix/b") }, antes);
+
+        Assert.True(depois.Single(g => g.Titulo == "feat/").Recolhido);
+        Assert.False(depois.Single(g => g.Titulo == "fix/").Recolhido);
+    }
+
+    [Fact]
+    public async Task Git_flow_le_a_configuracao_do_sourcetree_e_cria_feature_a_partir_da_develop()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            // o que o SourceTree grava ao inicializar (EV04): os prefixos dos projetos
+            await GitService.RunAsync(dir, new[] { "config", "gitflow.branch.master", "main" });
+            await GitService.RunAsync(dir, new[] { "config", "gitflow.branch.develop", "develop" });
+            await GitService.RunAsync(dir, new[] { "config", "gitflow.prefix.feature", "imp/" });
+            await GitService.RunAsync(dir, new[] { "config", "gitflow.prefix.hotfix", "defeito/" });
+            await GitService.RunAsync(dir, new[] { "branch", "develop" });
+
+            var vm = Vm(dir);
+            vm.PedirTexto = (_, _) => Task.FromResult<string?>("estoque novo");
+            await vm.CarregarAsync();
+
+            Assert.True(vm.Fluxo.Inicializado);
+            Assert.Equal("imp/", vm.Fluxo.Feature);
+
+            await vm.NovaFeatureCommand.ExecuteAsync(null);
+
+            Assert.Equal("imp/estoque-novo", vm.BranchAtual);
+            Assert.True(vm.PodeFinalizar);
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
+    public async Task Git_flow_inicializa_criando_a_develop_e_finaliza_a_feature()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            var vm = Vm(dir);
+            vm.EditarFluxo = atual => Task.FromResult<GitFlowConfig?>(atual with { Master = "main" });
+            vm.PedirTexto = (_, _) => Task.FromResult<string?>("relatorio");
+            vm.Confirmar = (_, _) => Task.FromResult(true);
+            await vm.CarregarAsync();
+            Assert.False(vm.Fluxo.Inicializado);
+
+            await vm.ConfigurarFluxoCommand.ExecuteAsync(null);
+            Assert.True(vm.Fluxo.Inicializado);
+            Assert.Contains(vm.Locais, b => b.Name == "develop");
+
+            await vm.NovaFeatureCommand.ExecuteAsync(null);
+            Assert.Equal("feat/relatorio", vm.BranchAtual);
+
+            File.WriteAllText(Path.Combine(dir, "b.txt"), "novo\n");
+            await GitService.RunAsync(dir, new[] { "add", "." });
+            await GitService.RunAsync(dir, new[] { "commit", "-qm", "relatório" });
+
+            await vm.FinalizarCommand.ExecuteAsync(null);
+
+            Assert.False(vm.TemErro, vm.Erro);
+            Assert.Equal("develop", vm.BranchAtual);
+            Assert.DoesNotContain(vm.Locais, b => b.Name == "feat/relatorio");
+            Assert.True(File.Exists(Path.Combine(dir, "b.txt")));
+        }
+        finally { Limpar(dir); }
+    }
+}
+
+public class GitFlowTests
+{
+    [Theory]
+    [InlineData("master", TipoBranch.Principal)]
+    [InlineData("main", TipoBranch.Principal)]
+    [InlineData("develop", TipoBranch.Develop)]
+    [InlineData("feat/cartaopix", TipoBranch.Feature)]
+    [InlineData("feature/6453-usar-boleto-online", TipoBranch.Feature)]
+    [InlineData("imp/x", TipoBranch.Feature)]
+    [InlineData("fix/FNOBS", TipoBranch.Fix)]
+    [InlineData("bugfix/5736", TipoBranch.Fix)]
+    [InlineData("defeito/x", TipoBranch.Fix)]
+    [InlineData("release/5.6.0.0", TipoBranch.Release)]
+    [InlineData("OFX", TipoBranch.Outra)]
+    public void Classifica_pelos_nomes_usados_nos_projetos(string nome, TipoBranch tipo) =>
+        Assert.Equal(tipo, GitFlow.Classificar(nome));
+
+    [Fact]
+    public void Prefixo_configurado_vale_mesmo_fora_da_lista_conhecida()
+    {
+        var cfg = new GitFlowConfig { Feature = "tarefa/", Master = "producao" };
+
+        Assert.Equal(TipoBranch.Feature, GitFlow.Classificar("tarefa/x", cfg));
+        Assert.Equal(TipoBranch.Principal, GitFlow.Classificar("producao", cfg));
+    }
+
+    [Fact]
+    public void Nome_completo_nao_duplica_o_prefixo()
+    {
+        var cfg = new GitFlowConfig();
+        Assert.Equal("feat/estoque", GitFlow.NomeCompleto(TipoBranch.Feature, "estoque", cfg));
+        Assert.Equal("feat/estoque", GitFlow.NomeCompleto(TipoBranch.Feature, "feat/estoque", cfg));
+        Assert.Equal("fix/tela-branca", GitFlow.NomeCompleto(TipoBranch.Fix, "tela branca", cfg));
+    }
+
+    [Fact]
+    public void Finalizar_fix_entra_na_principal_e_na_develop_e_so_apaga_no_fim()
+    {
+        var passos = GitFlow.PassosFinalizar("fix/FNOBS", new GitFlowConfig());
+        var texto = GitFlow.Descrever(passos).Split('\n');
+
+        Assert.StartsWith("git checkout master", texto[0]);
+        Assert.StartsWith("git merge --no-ff fix/FNOBS", texto[1]);
+        Assert.StartsWith("git checkout develop", texto[2]);
+        Assert.Equal("git branch -d fix/FNOBS", texto[^1]);
+        Assert.DoesNotContain(texto, l => l.StartsWith("git tag"));
+    }
+
+    [Fact]
+    public void Finalizar_release_cria_a_tag_da_versao()
+    {
+        var passos = GitFlow.PassosFinalizar("release/5.6.0.0", new GitFlowConfig { VersionTag = "v" });
+        Assert.Contains(passos, p => p[0] == "tag" && p.Contains("v5.6.0.0"));
+    }
+
+    [Fact]
+    public void Principal_e_develop_nao_se_finalizam()
+    {
+        Assert.Empty(GitFlow.PassosFinalizar("master", new GitFlowConfig()));
+        Assert.Empty(GitFlow.PassosFinalizar("develop", new GitFlowConfig()));
+    }
 }

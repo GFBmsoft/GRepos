@@ -290,6 +290,32 @@ public class UiSmokeTests
         window.Close();
     }
 
+    /// <summary>
+    /// Grupos por pasta com itens: o template do item mora dentro do template do grupo
+    /// e pega o comando da janela — binding errado ali só aparece com a lista montada.
+    /// </summary>
+    [AvaloniaFact]
+    public void BranchesWindow_monta_com_grupos_populados()
+    {
+        var window = new BranchesWindow(new MainViewModel(new FakeDialogs()), DemoRepo());
+        var vm = (BranchesViewModel)window.DataContext!;
+
+        BranchItemViewModel Item(string nome, bool remota = false, bool head = false) => new()
+        {
+            Branch = new Branch { Name = nome, IsRemote = remota, IsHead = head, Upstream = remota ? null : "origin/" + nome, Subject = "assunto" },
+            Tipo = GRepos.Services.GitFlow.Classificar(GRepos.Services.GitFlow.SemRemoto(nome, remota)),
+        };
+
+        vm.GruposLocais = BranchesViewModel.Agrupar(new[] { Item("develop", head: true), Item("master"), Item("feat/cartaopix"), Item("fix/FNOBS") });
+        vm.GruposRemotos = BranchesViewModel.Agrupar(new[] { Item("origin/develop", true), Item("origin/fix/6329_email", true) });
+        vm.GruposLocais[1].Recolhido = true;
+
+        window.Show();
+        window.Measure(new Size(780, 640));
+        window.Arrange(new Rect(0, 0, 780, 640));
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void MainWindow_abre_com_a_arvore_e_a_barra()
     {

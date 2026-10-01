@@ -50,8 +50,10 @@ public sealed class BlocoMd
 /// links — que é o que README e notas de release usam de fato. Lógica pura, sem UI:
 /// a View só sabe desenhar blocos e trechos.
 ///
-/// Não é um parser completo de CommonMark e não tenta ser: tabelas, HTML embutido e
-/// aninhamentos exóticos passam como texto, que é melhor que quebrar a tela.
+/// Não é um parser completo de CommonMark e não tenta ser: HTML fora do comum e
+/// aninhamentos exóticos passam como texto, que é melhor que quebrar a tela. O HTML
+/// comum de README (p, ul/li, br, b, a, img) vira markdown antes, em <see cref="HtmlEmbutido"/>,
+/// e ":hammer:" vira emoji em <see cref="Emojis"/>.
 /// </summary>
 public static class MarkdownParser
 {
@@ -60,7 +62,8 @@ public static class MarkdownParser
         var blocos = new List<BlocoMd>();
         if (string.IsNullOrWhiteSpace(markdown)) return blocos;
 
-        var linhas = markdown.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        markdown = HtmlEmbutido.ParaMarkdown(markdown.Replace("\r\n", "\n"));
+        var linhas = markdown.Replace('\r', '\n').Split('\n');
         var paragrafo = new StringBuilder();
 
         void FecharParagrafo()
@@ -281,7 +284,7 @@ public static class MarkdownParser
         void Descarregar()
         {
             if (texto.Length == 0) return;
-            saida.Add(new TrechoMd { Texto = texto.ToString() });
+            saida.Add(new TrechoMd { Texto = Emojis.Trocar(texto.ToString()) });
             texto.Clear();
         }
 
@@ -334,7 +337,7 @@ public static class MarkdownParser
                         var rotulo = linha[(i + 1)..fechaTexto];
                         saida.Add(new TrechoMd
                         {
-                            Texto = SoTexto(rotulo),
+                            Texto = Emojis.Trocar(SoTexto(rotulo)),
                             Link = linha[(fechaTexto + 2)..fechaUrl].Trim(),
                         });
                         i = fechaUrl + 1;
@@ -351,7 +354,7 @@ public static class MarkdownParser
                 if (fim > i + 1 && Delimita(linha, i + 2, fim))
                 {
                     Descarregar();
-                    saida.Add(new TrechoMd { Texto = linha[(i + 2)..fim], Negrito = true });
+                    saida.Add(new TrechoMd { Texto = Emojis.Trocar(linha[(i + 2)..fim]), Negrito = true });
                     i = fim + 2;
                     continue;
                 }
@@ -364,7 +367,7 @@ public static class MarkdownParser
                 if (fim > i + 1 && Delimita(linha, i + 1, fim))
                 {
                     Descarregar();
-                    saida.Add(new TrechoMd { Texto = linha[(i + 1)..fim], Italico = true });
+                    saida.Add(new TrechoMd { Texto = Emojis.Trocar(linha[(i + 1)..fim]), Italico = true });
                     i = fim + 1;
                     continue;
                 }

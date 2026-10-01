@@ -42,6 +42,28 @@ public class RepoNodeTests
     }
 
     [Fact]
+    public void Pilula_da_branch_pinta_pelo_tipo_do_git_flow()
+    {
+        Assert.Equal("Green", Node(new RepoStatus { Branch = "master" }).BranchCor);
+        Assert.Equal("Accent", Node(new RepoStatus { Branch = "develop" }).BranchCor);
+        Assert.Equal("Purple", Node(new RepoStatus { Branch = "feat/cartaopix" }).BranchCor);
+        Assert.Equal("Orange", Node(new RepoStatus { Branch = "fix/CorrecaoTbEdit" }).BranchCor);
+
+        // nome comprido vira o último segmento; o inteiro fica na dica
+        var longa = Node(new RepoStatus { Branch = "fix/correcaoInstrucoesAutomaticas" });
+        Assert.Equal("correcaoInstr…", longa.BranchRotulo);
+        Assert.Contains("fix/correcaoInstrucoesAutomaticas", longa.BranchTooltip);
+    }
+
+    [Fact]
+    public void Pilula_some_sem_status_e_com_erro()
+    {
+        Assert.False(Node().TemBranch);
+        Assert.False(Node(new RepoStatus { Branch = "main", Error = "falhou" }).TemBranch);
+        Assert.True(Node(new RepoStatus { Branch = "main" }).TemBranch);
+    }
+
+    [Fact]
     public void Badges_aparecem_conforme_o_status()
     {
         var limpo = Node(new RepoStatus { Branch = "main" });

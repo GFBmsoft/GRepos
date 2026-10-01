@@ -327,6 +327,10 @@ public class ScreenshotTests
                 await GitService.RunAsync(dir, new[] { "commit", "-qm", "inicial" });
                 if (nome == "BmIntegra") File.WriteAllText(Path.Combine(dir, "a.txt"), "dois\n");
 
+                // pílulas de branch em cores diferentes: principal, feature e develop
+                if (nome == "Financeiro") await GitService.RunAsync(dir, new[] { "checkout", "-q", "-b", "feat/cartaopix" });
+                if (nome == "Backup") await GitService.RunAsync(dir, new[] { "checkout", "-q", "-b", "develop" });
+
                 ws.Repos.Add(new Repo
                 {
                     Id = "r" + i,
@@ -341,8 +345,14 @@ public class ScreenshotTests
             WorkspaceStore.Save(ws);
 
             var janela = new MainWindow { Width = 300, Height = 420 };
-            await ((MainViewModel)janela.DataContext!).InitAsync();
+            var principal = (MainViewModel)janela.DataContext!;
+            await principal.InitAsync();
             janela.Show();
+
+            // a varredura de status roda no timer: sem ela a foto sai sem pílula de
+            // branch nem contadores
+            foreach (var no in principal.Tree.OfType<RepoNode>().ToList())
+                await principal.RefreshRepoAsync(no.Id);
             janela.Measure(new Size(300, 420));
             janela.Arrange(new Rect(0, 0, 300, 420));
 

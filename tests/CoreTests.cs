@@ -114,9 +114,62 @@ public class GraphBuilderTests
             C("base"),
         });
 
-        // a linha do merge abre dois segmentos: um para f1 (raia 0), outro para f2
+        // a linha do merge abre dois segmentos, os dois saindo do nó: um para f1, outro para f2
         Assert.Equal(2, rows[0].Edges.Count);
+        Assert.All(rows[0].Edges, e => Assert.Equal(rows[0].Lane, e.From));
         Assert.Contains(rows[0].Edges, e => e.To == rows[1].Lane);
-        Assert.Equal(rows[0].Edges, rows[1].EdgesUp);
+        Assert.Contains(rows[0].Edges, e => e.To == rows[2].Lane);
+        AssertContinuo(rows);
+    }
+
+    /// <summary>
+    /// Onde a metade de baixo de uma linha termina é onde a de cima da seguinte começa.
+    /// Antes as duas usavam a mesma lista, e a curva "pulava" de raia entre as linhas.
+    /// </summary>
+    private static void AssertContinuo(List<GraphRow> rows)
+    {
+        for (var i = 0; i < rows.Count - 1; i++)
+        {
+            var embaixo = rows[i].Edges.Select(e => e.To).Distinct().OrderBy(x => x);
+            var emCima = rows[i + 1].EdgesUp.Select(e => e.From).Distinct().OrderBy(x => x);
+            Assert.Equal(embaixo, emCima);
+        }
+    }
+
+    [Fact]
+    public void Build_liga_o_merge_ao_segundo_pai_que_ja_tinha_raia()
+    {
+        // develop recebe master duas vezes: no segundo merge, "b" já está numa raia aberta
+        // e o traço do nó até ela sumia — a linha do merge ficava cortada
+        var rows = GraphBuilder.Build(new List<Commit>
+        {
+            C("m2", "d1", "b"),
+            C("m1", "d0", "b"),
+            C("d1", "d0"),
+            C("b", "base"),
+            C("d0", "base"),
+            C("base"),
+        });
+
+        Assert.Contains(rows[1].Edges, e => e.From == rows[1].Lane && e.To != rows[1].Lane);
+        AssertContinuo(rows);
+    }
+
+    [Fact]
+    public void Build_nao_tem_degrau_em_historico_com_varias_branches()
+    {
+        var rows = GraphBuilder.Build(new List<Commit>
+        {
+            C("a", "b", "x"),
+            C("x", "y"),
+            C("b", "c"),
+            C("y", "c"),
+            C("z", "c"),
+            C("c", "d", "w"),
+            C("w", "d"),
+            C("d"),
+        });
+
+        AssertContinuo(rows);
     }
 }

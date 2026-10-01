@@ -203,4 +203,79 @@ public class MarkdownTests
         Assert.Equal(4, blocos.Count(b => b.Tipo == BlocoMdTipo.Item));
         Assert.Contains(blocos.SelectMany(b => b.Trechos), t => t.Link.Contains("dotnet.microsoft.com"));
     }
+
+    /// <summary>Começo do README do Financeiro, que era onde a tela quebrava.</summary>
+    private const string ReadmeFinanceiro = """
+        # :bookmark_tabs: Financeiro
+        <p>Módulo responsável pelo controle de contas a pagar, receber e arquivos de remessa e retorno.</p>
+
+        ## :hammer: Dependências:
+
+        <ul>
+          <li>FreeBoleto</li>
+          <li>DevExpress</li>
+          <li>DAM</li>
+        </ul>
+
+        ## Versionamento
+        """;
+
+    [Fact]
+    public void Codigo_de_emoji_vira_o_caractere()
+    {
+        var blocos = MarkdownParser.Blocos(ReadmeFinanceiro);
+
+        Assert.Equal("📑 Financeiro", blocos[0].Trechos.Single().Texto);
+        Assert.Contains(blocos, b => b.Tipo == BlocoMdTipo.Titulo && b.Trechos.Single().Texto == "🔨 Dependências:");
+    }
+
+    [Fact]
+    public void Html_de_paragrafo_e_lista_vira_markdown()
+    {
+        var blocos = MarkdownParser.Blocos(ReadmeFinanceiro);
+
+        var paragrafo = blocos.Single(b => b.Tipo == BlocoMdTipo.Paragrafo);
+        Assert.StartsWith("Módulo responsável", paragrafo.Trechos.Single().Texto);
+        Assert.DoesNotContain("<", paragrafo.Trechos.Single().Texto);
+
+        var itens = blocos.Where(b => b.Tipo == BlocoMdTipo.Item).Select(b => b.Trechos.Single().Texto);
+        Assert.Equal(new[] { "FreeBoleto", "DevExpress", "DAM" }, itens);
+        Assert.Equal(3, blocos.Count(b => b.Tipo == BlocoMdTipo.Titulo));
+    }
+
+    [Fact]
+    public void Html_inline_vira_enfase_e_link()
+    {
+        var trechos = MarkdownParser.Blocos("""Veja <b>isto</b> e <a href="https://x.com">o site</a> &amp; mais""")
+            .Single().Trechos;
+
+        Assert.Contains(trechos, t => t.Negrito && t.Texto == "isto");
+        Assert.Contains(trechos, t => t.Link == "https://x.com" && t.Texto == "o site");
+        Assert.Contains(trechos, t => t.Texto.Contains("& mais"));
+    }
+
+    [Fact]
+    public void Lista_numerada_em_html_conta_os_itens()
+    {
+        var blocos = MarkdownParser.Blocos("<ol><li>um</li><li>dois</li></ol>");
+
+        Assert.Equal(new[] { "1.", "2." }, blocos.Select(b => b.Marcador));
+    }
+
+    [Fact]
+    public void Html_dentro_de_codigo_fica_intacto()
+    {
+        var blocos = MarkdownParser.Blocos("Use `List<string>` aqui\n\n```\n<p>cru</p> :hammer:\n```");
+
+        Assert.Contains(blocos[0].Trechos, t => t.Codigo && t.Texto == "List<string>");
+        Assert.Equal("<p>cru</p> :hammer:", blocos[1].Texto);
+    }
+
+    [Fact]
+    public void Codigo_de_emoji_desconhecido_e_horario_ficam_como_estao()
+    {
+        var texto = MarkdownParser.Blocos("Às 10:30:00 rodou :nao_existe:").Single().Trechos.Single().Texto;
+
+        Assert.Equal("Às 10:30:00 rodou :nao_existe:", texto);
+    }
 }

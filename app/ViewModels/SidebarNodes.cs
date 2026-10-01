@@ -83,6 +83,16 @@ public sealed partial class RepoNode : SidebarNode
     public bool ShowConflict => Status is { Conflicted: > 0 };
     public bool ShowDirty => Status is { IsDirty: true, Conflicted: 0 };
 
+    /// <summary>
+    /// Pílula da branch atual, como as refs no histórico. A cor segue o tipo do git-flow
+    /// (principal, develop, feat, fix) — o mesmo código de cores da tela de branches.
+    /// </summary>
+    public string BranchNome => Status?.Branch ?? "";
+    public bool TemBranch => BranchNome.Length > 0 && !HasError;
+    public string BranchRotulo => Rotulos.Branch(BranchNome);
+    public string BranchCor => GitFlow.Cor(GitFlow.Classificar(BranchNome));
+    public string BranchTooltip => $"Branch {BranchNome} — clique para ver as branches e trocar";
+
     public string AheadText => $"↑{Status?.Ahead ?? 0}";
     public string BehindText => $"↓{Status?.Behind ?? 0}";
     public string ConflictText => $"!{Status?.Conflicted ?? 0}";

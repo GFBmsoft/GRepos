@@ -66,12 +66,35 @@ public class UrlTemplateTests
 
     [Theory]
     [InlineData("https://GFBmsoft@github.com/bmsoftsistemas/BM2Maga.git",
-                "https://{{user}}:{{token}}@github.com/bmsoftsistemas/BM2Maga.git")]
+                "https://{{user}}@github.com/bmsoftsistemas/BM2Maga.git")]
     [InlineData("https://github.com/GFBmsoft/WinDock.git",
-                "https://{{user}}:{{token}}@github.com/GFBmsoft/WinDock.git")]
+                "https://{{user}}@github.com/GFBmsoft/WinDock.git")]
     public void Sugere_o_modelo_a_partir_do_remoto_atual(string remoto, string esperado)
     {
         Assert.Equal(esperado, UrlTemplate.Sugerir(remoto));
+    }
+
+    [Fact]
+    public void Sugestao_tira_o_token_que_o_sourcetree_deixou_na_url()
+    {
+        // é assim que a maioria dos remotos está: o token no lugar do usuário
+        var sugestao = UrlTemplate.Sugerir("https://ghp_abc123XYZ@github.com/bmsoftsistemas/Financeiro.git");
+
+        Assert.Equal("https://{{user}}@github.com/bmsoftsistemas/Financeiro.git", sugestao);
+        Assert.False(UrlTemplate.UsaToken(sugestao));
+    }
+
+    [Theory]
+    [InlineData("https://ghp_abc123XYZ@github.com/o/r.git", "ghp_abc123XYZ")]
+    [InlineData("https://github_pat_11AB@github.com/o/r.git", "github_pat_11AB")]
+    [InlineData("https://GFBmsoft:ghp_xyz@github.com/o/r.git", "ghp_xyz")]
+    [InlineData("https://GFBmsoft@github.com/o/r.git", null)]
+    [InlineData("https://github.com/o/r.git", null)]
+    [InlineData("git@github.com:o/r.git", null)]
+    [InlineData("", null)]
+    public void Detecta_segredo_gravado_na_url(string url, string? segredo)
+    {
+        Assert.Equal(segredo, UrlTemplate.SegredoEmbutido(url));
     }
 
     [Fact]

@@ -43,6 +43,9 @@ public static class GraphBuilder
 
         foreach (var commit in commits)
         {
+            // raias que já atravessavam esta linha antes do commit: viram linha reta
+            var antes = new List<string?>(lanes);
+
             var lane = lanes.IndexOf(commit.Hash);
             if (lane == -1)
             {
@@ -68,19 +71,36 @@ public static class GraphBuilder
 
             while (lanes.Count > 0 && lanes[^1] is null) lanes.RemoveAt(lanes.Count - 1);
 
-            rows.Add(new GraphRow { Commit = commit, Lane = lane, LanesAfter = new List<string?>(lanes) });
+            var row = new GraphRow { Commit = commit, Lane = lane, LanesAfter = new List<string?>(lanes) };
+
+            // metade de baixo: quem já passava segue reto; os pais saem do nó. Um pai que
+            // já tinha raia (merge de branch que continua aberta) ganha os dois traços.
+            for (var i = 0; i < lanes.Count; i++)
+                if (lanes[i] is not null && i != lane && i < antes.Count && antes[i] == lanes[i])
+                    row.Edges.Add((i, i));
+
+            for (var p = 0; p < commit.Parents.Count; p++)
+            {
+                var destino = p == 0 ? lane : lanes.IndexOf(commit.Parents[p]);
+                if (destino >= 0 && !row.Edges.Contains((lane, destino))) row.Edges.Add((lane, destino));
+            }
+
+            rows.Add(row);
         }
 
+        // metade de cima: cada raia chega reta e só converge no nó quando é o commit esperado.
+        // Começa onde a metade de baixo da linha anterior terminou, então não há degrau.
         for (var i = 0; i < rows.Count - 1; i++)
         {
             var next = rows[i + 1];
+            var up = new List<(int From, int To)>();
             for (var lane = 0; lane < rows[i].LanesAfter.Count; lane++)
             {
                 var hash = rows[i].LanesAfter[lane];
                 if (hash is null) continue;
-                rows[i].Edges.Add((lane, hash == next.Commit.Hash ? next.Lane : lane));
+                up.Add((lane, hash == next.Commit.Hash ? next.Lane : lane));
             }
-            next.EdgesUp = rows[i].Edges;
+            next.EdgesUp = up;
         }
 
         return rows;

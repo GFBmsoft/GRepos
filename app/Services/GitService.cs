@@ -144,6 +144,31 @@ public static class GitService
     private static Task<string> Run(string repo, params string[] args) => RunAsync(repo, args);
 
     /// <summary>
+    /// Chaves de config do repositório que casam com o padrão. Sem nenhuma, o git sai
+    /// com código 1 — aqui isso é só um dicionário vazio.
+    /// </summary>
+    public static async Task<Dictionary<string, string>> ConfigListAsync(string repo, string padrao)
+    {
+        var saida = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string bruto;
+        try { bruto = await Run(repo, "config", "--local", "--get-regexp", padrao); }
+        catch (GitException) { return saida; }
+
+        foreach (var linha in bruto.Split('\n'))
+        {
+            var l = linha.TrimEnd('\r');
+            if (l.Length == 0) continue;
+            var espaco = l.IndexOf(' ');
+            if (espaco < 0) saida[l] = "";
+            else saida[l[..espaco]] = l[(espaco + 1)..];
+        }
+        return saida;
+    }
+
+    public static Task<string> ConfigSetAsync(string repo, string chave, string valor) =>
+        Run(repo, "config", "--local", chave, valor);
+
+    /// <summary>
     /// Usuário do GitHub configurado nas preferências. Informá-lo ao credential manager
     /// é o que faz o token salvo ser encontrado: sem isso, o git procura a credencial
     /// de "https://github.com" sem conta e acaba abrindo a janela de login.

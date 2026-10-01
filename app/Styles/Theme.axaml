@@ -171,6 +171,22 @@
     <Setter Property="BorderThickness" Value="0" />
   </Style>
 
+  <!-- pílula da branch na árvore: o contorno é a cor do tipo de branch e precisa
+       sobreviver ao hover, que no botão comum troca a borda pela cinza -->
+  <Style Selector="Button.pilulaBranch">
+    <Setter Property="Height" Value="17" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.pilulaBranch:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BgActive}" />
+    <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+  </Style>
+
   <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
     <Setter Property="TextBlock.Foreground" Value="{DynamicResource Red}" />
   </Style>

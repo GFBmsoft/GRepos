@@ -860,6 +860,19 @@ public sealed partial class MainViewModel : ObservableObject
         await LoadTabAsync();
     }
 
+    /// <summary>
+    /// Pílula da branch na árvore: abre as branches daquele repositório sem precisar
+    /// selecioná-lo antes nem passar pelo botão da barra.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenBranchesFor(RepoNode? node)
+    {
+        if (node is null) return;
+        await _dialogs.ShowBranchesAsync(this, node.Repo);
+        await RefreshRepoAsync(node.Repo.Id);
+        if (CurrentRepo?.Id == node.Repo.Id) await LoadTabAsync();
+    }
+
     [RelayCommand]
     private async Task OpenStash()
     {

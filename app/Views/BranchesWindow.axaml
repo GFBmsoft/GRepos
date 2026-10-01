@@ -4,23 +4,93 @@
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.BranchesWindow"
         x:DataType="vm:BranchesViewModel"
-        Title="Branches" Width="760" Height="600" MinWidth="560" MinHeight="400"
+        Title="Branches" Width="780" Height="640" MinWidth="560" MinHeight="400"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Bg}">
 
-  <!-- as duas listas repetem as mesmas colunas de propósito: é o que mantém
-       nome, upstream e assunto alinhados entre locais e remotas -->
+  <Window.Resources>
+    <!-- item de branch: o mesmo desenho nas locais e nas remotas, para alinhar as colunas.
+         O comando vem da janela: dentro do grupo, o DataContext do ListBox é o grupo. -->
+    <DataTemplate x:Key="ItemBranch" DataType="vm:BranchItemViewModel">
+      <Grid ColumnDefinitions="30,3*,1.7*,3*,76" Height="28" Margin="8,0"
+            ToolTip.Tip="{Binding Tooltip}">
+        <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center" HorizontalAlignment="Right"
+                 Margin="0,0,6,0" IsVisible="{Binding IsHead}"
+                 Fill="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+        <TextBlock Grid.Column="1" Text="{Binding Curto}" VerticalAlignment="Center"
+                   Margin="4,0,8,0" TextTrimming="CharacterEllipsis"
+                   FontWeight="{Binding NameWeight}"
+                   Foreground="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+        <Border Grid.Column="2" Classes="chip" IsVisible="{Binding HasUpstream}"
+                BorderBrush="{DynamicResource Border}" VerticalAlignment="Center"
+                HorizontalAlignment="Left">
+          <TextBlock Text="{Binding UpstreamText}" FontSize="10" Classes="faint"
+                     TextTrimming="CharacterEllipsis" />
+        </Border>
+        <TextBlock Grid.Column="2" Text="só local" FontSize="10" VerticalAlignment="Center"
+                   IsVisible="{Binding SoLocal}"
+                   Foreground="{DynamicResource Yellow}" />
+        <TextBlock Grid.Column="3" Text="{Binding Subject}" Classes="faint" FontSize="11.5"
+                   VerticalAlignment="Center" Margin="10,0"
+                   TextTrimming="CharacterEllipsis" />
+        <Button Grid.Column="4" Content="Trocar" Classes="tiny" VerticalAlignment="Center"
+                HorizontalAlignment="Right" BorderThickness="1"
+                BorderBrush="{DynamicResource Border}"
+                IsVisible="{Binding CanCheckout}"
+                Command="{Binding $parent[Window].DataContext.TrocarCommand}"
+                CommandParameter="{Binding}" />
+      </Grid>
+    </DataTemplate>
+
+    <!-- grupo: cabeçalho clicável (recolhe) com a cor do tipo de branch, e os itens -->
+    <DataTemplate x:Key="GrupoBranch" DataType="vm:BranchGrupoViewModel">
+      <StackPanel>
+        <Button Classes="ghost" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                Padding="10,4" Command="{Binding AlternarCommand}">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <TextBlock Text="{Binding Chevron}" FontSize="8" Classes="faint" Width="10"
+                       FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
+                       VerticalAlignment="Center" />
+            <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                     Fill="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+            <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="12"
+                       Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+            <TextBlock Text="{Binding Total}" Classes="faint" FontSize="10" VerticalAlignment="Center" />
+          </StackPanel>
+        </Button>
+        <ListBox ItemsSource="{Binding Itens}" IsVisible="{Binding Aberto}" Background="Transparent"
+                 ItemTemplate="{StaticResource ItemBranch}" />
+      </StackPanel>
+    </DataTemplate>
+  </Window.Resources>
+
   <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="14">
 
     <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
                Margin="0,0,0,12" />
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,10">
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
       <TextBox Grid.Column="0" Watermark="Nova branch a partir do HEAD (ex.: feat/estoque)"
                Text="{Binding NovaBranch}" />
       <Button Grid.Column="1" Classes="primary" Content="Criar e trocar" Margin="6,0,0,0"
               IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}" />
-      <TextBox Grid.Column="2" Width="190" Margin="12,0,0,0" Watermark="Filtrar branches..."
+      <!-- git-flow: começar e terminar feature/fix/release sem lembrar a ordem dos merges -->
+      <Button Grid.Column="2" Content="Git-flow ▾" Margin="6,0,0,0" IsEnabled="{Binding !Busy}"
+              ToolTip.Tip="Nova feature, fix ou release; finalizar a branch atual">
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedRight">
+            <MenuItem Header="{Binding NovaFeatureRotulo}" Command="{Binding NovaFeatureCommand}" />
+            <MenuItem Header="{Binding NovoFixRotulo}" Command="{Binding NovoFixCommand}" />
+            <MenuItem Header="{Binding NovaReleaseRotulo}" Command="{Binding NovaReleaseCommand}" />
+            <Separator />
+            <MenuItem Header="{Binding FinalizarRotulo}" Command="{Binding FinalizarCommand}"
+                      IsEnabled="{Binding PodeFinalizar}" />
+            <Separator />
+            <MenuItem Header="{Binding ConfigurarRotulo}" Command="{Binding ConfigurarFluxoCommand}" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+      <TextBox Grid.Column="3" Width="180" Margin="12,0,0,0" Watermark="Filtrar branches..."
                Text="{Binding Filtro}" />
     </Grid>
 
@@ -36,96 +106,37 @@
       </Grid>
     </Border>
 
-    <!-- cada seção cresce conforme o conteúdo; a rolagem é uma só, da janela -->
-    <ScrollViewer Grid.Row="3" Padding="0,0,4,0">
+    <!-- cada seção cresce conforme o conteúdo; a rolagem é uma só, da janela.
+         O padding à direita reserva o espaço da barra, que passava por cima do Trocar -->
+    <ScrollViewer Grid.Row="3" Padding="0,0,12,0">
      <StackPanel Spacing="10">
 
-      <Border Classes="card" Padding="0" ClipToBounds="True">
-        <Grid RowDefinitions="Auto,Auto">
-          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+      <Border Classes="card" Padding="0,0,0,4" ClipToBounds="True">
+        <StackPanel>
+          <Border Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <TextBlock Classes="sectionTitle" Text="LOCAIS" />
               <TextBlock Classes="faint" FontSize="10" VerticalAlignment="Center" Text="{Binding TotalLocais}" />
             </StackPanel>
           </Border>
-          <TextBlock Grid.Row="1" Text="Nenhuma branch local encontrada." Classes="faint" Margin="12,10"
+          <TextBlock Text="Nenhuma branch local encontrada." Classes="faint" Margin="12,10"
                      IsVisible="{Binding SemLocais}" />
-          <!-- padding à direita reserva o espaço da barra de rolagem, que antes
-               passava por cima do botão Trocar -->
-          <ListBox Grid.Row="1" ItemsSource="{Binding Locais}" IsVisible="{Binding !SemLocais}"
-                   Padding="0,0,12,0" Background="Transparent">
-            <ListBox.ItemTemplate>
-              <DataTemplate DataType="vm:BranchItemViewModel">
-                <Grid ColumnDefinitions="18,3*,1.7*,3*,76" Height="30" Margin="8,0"
-                      ToolTip.Tip="{Binding Tooltip}">
-                  <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center"
-                           IsVisible="{Binding IsHead}"
-                           Fill="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
-                  <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center"
-                             Margin="4,0,8,0" TextTrimming="CharacterEllipsis"
-                             FontWeight="{Binding NameWeight}"
-                             Foreground="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
-                  <Border Grid.Column="2" Classes="chip" IsVisible="{Binding HasUpstream}"
-                          BorderBrush="{DynamicResource Border}" VerticalAlignment="Center"
-                          HorizontalAlignment="Left">
-                    <TextBlock Text="{Binding UpstreamText}" FontSize="10" Classes="faint"
-                               TextTrimming="CharacterEllipsis" />
-                  </Border>
-                  <TextBlock Grid.Column="2" Text="só local" FontSize="10" VerticalAlignment="Center"
-                             IsVisible="{Binding SoLocal}"
-                             Foreground="{DynamicResource Yellow}" />
-                  <TextBlock Grid.Column="3" Text="{Binding Subject}" Classes="faint" FontSize="11.5"
-                             VerticalAlignment="Center" Margin="10,0"
-                             TextTrimming="CharacterEllipsis" />
-                  <Button Grid.Column="4" Content="Trocar" Classes="tiny" VerticalAlignment="Center"
-                          HorizontalAlignment="Right" BorderThickness="1"
-                          BorderBrush="{DynamicResource Border}"
-                          IsVisible="{Binding CanCheckout}"
-                          Command="{Binding $parent[ListBox].DataContext.TrocarCommand}"
-                          CommandParameter="{Binding}" />
-                </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </Grid>
+          <ItemsControl ItemsSource="{Binding GruposLocais}" ItemTemplate="{StaticResource GrupoBranch}" />
+        </StackPanel>
       </Border>
 
-      <Border Classes="card" Padding="0" ClipToBounds="True">
-        <Grid RowDefinitions="Auto,Auto">
-          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+      <Border Classes="card" Padding="0,0,0,4" ClipToBounds="True">
+        <StackPanel>
+          <Border Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
             <StackPanel Orientation="Horizontal" Spacing="6">
               <TextBlock Classes="sectionTitle" Text="REMOTAS" />
               <TextBlock Classes="faint" FontSize="10" VerticalAlignment="Center" Text="{Binding TotalRemotas}" />
             </StackPanel>
           </Border>
-          <TextBlock Grid.Row="1" Text="Nenhuma branch remota encontrada." Classes="faint" Margin="12,10"
+          <TextBlock Text="Nenhuma branch remota encontrada." Classes="faint" Margin="12,10"
                      IsVisible="{Binding SemRemotas}" />
-          <ListBox Grid.Row="1" ItemsSource="{Binding Remotas}" IsVisible="{Binding !SemRemotas}"
-                   Padding="0,0,12,0" Background="Transparent">
-            <ListBox.ItemTemplate>
-              <DataTemplate DataType="vm:BranchItemViewModel">
-                <Grid ColumnDefinitions="18,3*,1.7*,3*,76" Height="30" Margin="8,0"
-                      ToolTip.Tip="{Binding Tooltip}">
-                  <TextBlock Grid.Column="0" Text="&#xE753;" FontSize="11" Classes="faint"
-                             FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
-                             VerticalAlignment="Center" />
-                  <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Name}"
-                             VerticalAlignment="Center" Margin="4,0,8,0"
-                             TextTrimming="CharacterEllipsis"
-                             Foreground="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
-                  <TextBlock Grid.Column="3" Text="{Binding Subject}" Classes="faint" FontSize="11.5"
-                             VerticalAlignment="Center" Margin="10,0"
-                             TextTrimming="CharacterEllipsis" />
-                  <Button Grid.Column="4" Content="Trocar" Classes="tiny" VerticalAlignment="Center"
-                          HorizontalAlignment="Right" BorderThickness="1"
-                          BorderBrush="{DynamicResource Border}"
-                          Command="{Binding $parent[ListBox].DataContext.TrocarCommand}"
-                          CommandParameter="{Binding}" />
-                </Grid>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </Grid>
+          <ItemsControl ItemsSource="{Binding GruposRemotos}" ItemTemplate="{StaticResource GrupoBranch}" />
+        </StackPanel>
       </Border>
      </StackPanel>
     </ScrollViewer>
