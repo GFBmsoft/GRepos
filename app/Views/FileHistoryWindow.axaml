@@ -1,0 +1,89 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:views="using:GRepos.Views"
+        x:Class="GRepos.Views.FileHistoryWindow"
+        x:DataType="vm:FileHistoryViewModel"
+        Title="{Binding Caminho, StringFormat='Histórico de {0}'}"
+        Width="1180" Height="760" MinWidth="700" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Window.Styles>
+    <Style Selector="Grid.par">
+      <Setter Property="Background" Value="{DynamicResource BgPanel}" />
+    </Style>
+  </Window.Styles>
+
+  <TabControl SelectedIndex="{Binding AbaSelecionada}" Padding="0">
+
+    <TabItem Header="Commits">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="380" MinWidth="220" />
+          <ColumnDefinition Width="4" />
+          <ColumnDefinition Width="*" MinWidth="300" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+          <Grid RowDefinitions="Auto,*">
+            <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+              <TextBlock Classes="faint" FontSize="11" Text="{Binding Aviso}" TextWrapping="Wrap" />
+            </Border>
+            <ListBox Grid.Row="1" ItemsSource="{Binding Commits}" SelectedItem="{Binding Selecionado}">
+              <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:FileCommitViewModel">
+                  <StackPanel Margin="0,3" ToolTip.Tip="{Binding Subject}">
+                    <TextBlock Text="{Binding Subject}" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Classes="mono faint" FontSize="11" Text="{Binding Short}" />
+                      <TextBlock Classes="faint" FontSize="11" Text="{Binding Author}" MaxWidth="150"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="faint" FontSize="11" Text="{Binding DateText}" />
+                      <TextBlock Classes="faint" FontSize="11" Text="{Binding CaminhoTexto}"
+                                 IsVisible="{Binding Renomeado}" Foreground="{DynamicResource Purple}" />
+                    </StackPanel>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+        <views:DiffView Grid.Column="2" DataContext="{Binding Diff}" />
+      </Grid>
+    </TabItem>
+
+    <TabItem Header="Autoria (blame)">
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+          <TextBlock Classes="faint" FontSize="11" TextWrapping="Wrap"
+                     Text="Quem deixou cada linha como está. Duplo clique numa linha abre o commit dela." />
+        </Border>
+        <TextBlock Grid.Row="1" Classes="faint" Text="{Binding AvisoBlame}" Margin="24"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <ListBox Grid.Row="1" Name="ListaBlame" ItemsSource="{Binding Blame}" Padding="0">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="vm:BlameLineViewModel">
+              <Grid ColumnDefinitions="64,150,80,46,*" Classes.par="{Binding Par}"
+                    ToolTip.Tip="{Binding Dica}">
+                <TextBlock Grid.Column="0" Classes="mono faint" FontSize="11" Text="{Binding Hash}"
+                           VerticalAlignment="Center" Margin="8,0,0,0" />
+                <TextBlock Grid.Column="1" FontSize="11.5" Text="{Binding Autor}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="2" Classes="faint" FontSize="11" Text="{Binding Data}"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Classes="mono faint" FontSize="11.5" Text="{Binding Numero}"
+                           TextAlignment="Right" Margin="0,0,8,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Classes="mono" FontSize="12" Text="{Binding Texto}"
+                           FontFamily="{DynamicResource MonoFont}" VerticalAlignment="Center" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </TabItem>
+  </TabControl>
+</Window>

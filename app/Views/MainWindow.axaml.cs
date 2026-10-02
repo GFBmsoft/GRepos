@@ -234,4 +234,10 @@ public partial class MainWindow : Window, IDialogService
 
     public Task ShowStashAsync(MainViewModel main, Repo repo) =>
         new StashWindow(main, repo).ShowDialog(this);
+
+    public Task ShowFileHistoryAsync(Repo repo, string caminho, bool blame, bool split) =>
+        new FileHistoryWindow(repo, caminho, blame, split).ShowDialog(this);
+
+    public Task ShowRebaseAsync(MainViewModel main, Repo repo, string hash) =>
+        new RebaseWindow(main, repo, hash).ShowDialog(this);
 }

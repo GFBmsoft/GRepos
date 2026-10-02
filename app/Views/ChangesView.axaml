@@ -10,10 +10,25 @@
     <local:IndexEqualsConverter x:Key="IndexEquals" />
   </UserControl.Resources>
 
-  <Grid ColumnDefinitions="300,4,*">
+  <Grid ColumnDefinitions="320,4,*">
 
     <!-- arquivos + caixa de commit -->
     <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+     <DockPanel>
+      <!-- merge/rebase/cherry-pick parado: diz o que falta e como sair dele -->
+      <Border DockPanel.Dock="Top" Padding="10,8" IsVisible="{Binding TemOperacao}"
+              Background="{DynamicResource BgRaised}" BorderBrush="{DynamicResource Orange}"
+              BorderThickness="0,0,0,2">
+        <StackPanel Spacing="6">
+          <TextBlock Text="{Binding OperacaoTexto}" TextWrapping="Wrap" FontSize="12" />
+          <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+            <Button Classes="tiny danger" Content="Abortar" Command="{Binding AbortarOperacaoCommand}"
+                    ToolTip.Tip="Desiste e volta ao estado de antes da operação" />
+            <Button Classes="tiny" Content="{Binding ContinuarRotulo}" Command="{Binding ContinuarOperacaoCommand}"
+                    ToolTip.Tip="Com todos os conflitos resolvidos, conclui a operação" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
       <Grid RowDefinitions="Auto,*,Auto,*,Auto">
 
         <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
@@ -21,12 +36,21 @@
             <TextBlock Grid.Column="0" Classes="sectionTitle" Text="PREPARADO PARA COMMIT" />
             <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
                        VerticalAlignment="Center" Text="{Binding Staged.Count}" />
-            <Button Grid.Column="3" Classes="tiny" Content="Remover tudo"
+            <Button Grid.Column="3" Classes="tiny" Content="{Binding RemoverRotulo}"
+                    ToolTip.Tip="Tira do commit. Ctrl ou Shift + clique marcam vários arquivos."
                     Command="{Binding UnstageAllCommand}" />
           </Grid>
         </Border>
 
-        <ListBox Grid.Row="1" ItemsSource="{Binding Staged}" SelectedItem="{Binding SelectedStaged}">
+        <!-- Multiple: clique simples seleciona um; Ctrl ou Shift + clique marcam vários -->
+        <ListBox Grid.Row="1" Name="ListaStaged" SelectionMode="Multiple"
+                 ItemsSource="{Binding Staged}" SelectedItem="{Binding SelectedStaged}">
+          <ListBox.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
+              <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
+            </ContextMenu>
+          </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
             <DataTemplate DataType="vm:FileItemViewModel">
               <Grid ColumnDefinitions="18,*,Auto" Height="26" ToolTip.Tip="{Binding Tooltip}">
@@ -44,16 +68,31 @@
         </ListBox>
 
         <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,1,0,1">
-          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+          <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto,*">
             <TextBlock Grid.Column="0" Classes="sectionTitle" Text="ALTERAÇÕES LOCAIS" />
             <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
                        VerticalAlignment="Center" Text="{Binding Unstaged.Count}" />
-            <Button Grid.Column="3" Classes="tiny" Content="Preparar tudo"
-                    Command="{Binding StageAllCommand}" />
+            <!-- botões numa segunda linha: com "selecionados (N)" não cabem ao lado do título -->
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6"
+                        HorizontalAlignment="Right" Margin="0,6,0,0">
+              <Button Classes="tiny danger" Content="{Binding DescartarRotulo}"
+                      ToolTip.Tip="Desfaz as alterações locais (o que está preparado fica). Pede confirmação."
+                      Command="{Binding DiscardAllCommand}" />
+              <Button Classes="tiny" Content="{Binding PrepararRotulo}"
+                      ToolTip.Tip="Prepara para commit. Ctrl ou Shift + clique marcam vários arquivos."
+                      Command="{Binding StageAllCommand}" />
+            </StackPanel>
           </Grid>
         </Border>
 
-        <ListBox Grid.Row="3" ItemsSource="{Binding Unstaged}" SelectedItem="{Binding SelectedUnstaged}">
+        <ListBox Grid.Row="3" Name="ListaUnstaged" SelectionMode="Multiple"
+                 ItemsSource="{Binding Unstaged}" SelectedItem="{Binding SelectedUnstaged}">
+          <ListBox.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
+              <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
+            </ContextMenu>
+          </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
             <DataTemplate DataType="vm:FileItemViewModel">
               <Grid ColumnDefinitions="18,*,Auto,Auto" Height="26" ToolTip.Tip="{Binding Tooltip}">
@@ -61,14 +100,31 @@
                            FontWeight="Bold" FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
                            Foreground="{Binding CodeColor, Converter={x:Static local:Converters.ResourceBrush}}" />
                 <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center"
-                           FontSize="12" Margin="6,0" />
+                           FontSize="12" Margin="6,0" TextTrimming="CharacterEllipsis" />
                 <Button Grid.Column="2" Classes="tiny danger" Content="&#x21BA;" ToolTip.Tip="Descartar alterações"
                         IsVisible="{Binding CanDiscard}"
                         Command="{Binding $parent[ListBox].DataContext.DiscardCommand}"
                         CommandParameter="{Binding}" />
                 <Button Grid.Column="3" Classes="tiny" Content="+" ToolTip.Tip="Preparar para commit"
+                        IsVisible="{Binding PodePreparar}"
                         Command="{Binding $parent[ListBox].DataContext.StageCommand}"
                         CommandParameter="{Binding}" />
+                <!-- conflito: fica inteiro com um dos lados, ou marca o que foi acertado no editor -->
+                <StackPanel Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal"
+                            IsVisible="{Binding IsConflito}">
+                  <Button Classes="tiny" Content="Meu"
+                          ToolTip.Tip="Fica com a versão da sua branch (descarta a que está chegando)"
+                          Command="{Binding $parent[ListBox].DataContext.ManterMeuCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Classes="tiny" Content="Deles"
+                          ToolTip.Tip="Fica com a versão que está chegando (descarta a sua)"
+                          Command="{Binding $parent[ListBox].DataContext.ManterDelesCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Classes="tiny" Content="&#x2713;"
+                          ToolTip.Tip="Já resolvi no editor: marcar como resolvido"
+                          Command="{Binding $parent[ListBox].DataContext.MarcarResolvidoCommand}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -76,16 +132,30 @@
 
         <Border Grid.Row="4" Padding="8" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
           <StackPanel Spacing="7">
-            <TextBox Watermark="Mensagem de commit" AcceptsReturn="True" MinHeight="64"
+            <TextBox Name="Mensagem" Watermark="Mensagem de commit (Ctrl+Enter faz o commit)"
+                     AcceptsReturn="True" MinHeight="64"
                      TextWrapping="Wrap" Text="{Binding CommitMessage}" />
-            <Grid ColumnDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
               <CheckBox Grid.Column="0" Content="Emendar último" IsChecked="{Binding Amend}" />
-              <Button Grid.Column="2" Classes="primary" Content="{Binding CommitCaption}"
+              <!-- reverter o repositório inteiro fica junto do commit: também vale para tudo -->
+              <Button Grid.Column="2" Classes="danger" Content="Reverter ▾" Margin="0,0,6,0"
+                      ToolTip.Tip="Volta o repositório ao estado da branch, descartando tudo">
+                <Button.Flyout>
+                  <MenuFlyout Placement="TopEdgeAlignedRight">
+                    <MenuItem Header="Voltar ao último commit (descarta preparados e locais)"
+                              Command="{Binding VoltarAoUltimoCommitCommand}" />
+                    <MenuItem Header="{Binding VoltarAoRemotoRotulo}" IsEnabled="{Binding TemRemoto}"
+                              Command="{Binding VoltarAoRemotoCommand}" />
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+              <Button Grid.Column="3" Classes="primary" Content="{Binding CommitCaption}"
                       IsEnabled="{Binding CanCommit}" Command="{Binding CommitCommand}" />
             </Grid>
           </StackPanel>
         </Border>
       </Grid>
+     </DockPanel>
     </Border>
 
     <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />

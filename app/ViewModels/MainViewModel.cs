@@ -32,6 +32,12 @@ public interface IDialogService
     /// <summary>Changelog do aplicativo, lido das releases publicadas.</summary>
     Task ShowNovidadesAsync();
     Task ShowStashAsync(MainViewModel main, Repo repo);
+
+    /// <summary>Commits que mexeram no arquivo e autoria por linha (blame).</summary>
+    Task ShowFileHistoryAsync(Repo repo, string caminho, bool blame, bool split) => Task.CompletedTask;
+
+    /// <summary>Rebase interativo dos commits desde <paramref name="hash"/> até o HEAD.</summary>
+    Task ShowRebaseAsync(MainViewModel main, Repo repo, string hash) => Task.CompletedTask;
 }
 
 public sealed partial class MainViewModel : ObservableObject
@@ -690,6 +696,20 @@ public sealed partial class MainViewModel : ObservableObject
 
     public Task<bool> ConfirmAsync(string title, string message) => _dialogs.ConfirmAsync(title, message);
 
+    public Task<string?> PromptAsync(string title, string label, string initial = "") =>
+        _dialogs.PromptAsync(title, label, initial);
+
+    public Task MostrarHistoricoDoArquivoAsync(Repo repo, string caminho, bool blame) =>
+        _dialogs.ShowFileHistoryAsync(repo, caminho, blame, SplitDiff);
+
+    /// <summary>Depois do rebase a branch mudou: barra e aba visível são recarregadas.</summary>
+    public async Task MostrarRebaseAsync(Repo repo, string hash)
+    {
+        await _dialogs.ShowRebaseAsync(this, repo, hash);
+        await RefreshRepoAsync(repo.Id);
+        await LoadTabAsync();
+    }
+
     [RelayCommand]
     private void DismissStatus() => HasStatusMessage = false;
 
@@ -1027,13 +1047,99 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task Fetch() => RunAsync(GitService.FetchAsync, "Fetch");
+    private Task Fetch() => RunAsync(p => ComSincronizacaoAsync(p, GitService.FetchAsync(p, BuscarTodasAsTags)), "Fetch");
 
     [RelayCommand]
-    private Task Pull() => RunAsync(p => GitService.PullAsync(p, false), "Pull");
+    private Task Pull() => RunAsync(p => ComSincronizacaoAsync(p, PullComTagsAsync(p)), "Pull");
+
+    private async Task<string> PullComTagsAsync(string repo)
+    {
+        if (BuscarTodasAsTags) await GitService.FetchAsync(repo, todasAsTags: true);
+        return await GitService.PullAsync(repo, false);
+    }
+
+    /// <summary>Roda a operação e, com a opção ligada, deixa as branches locais em dia com as remotas.</summary>
+    private async Task<string> ComSincronizacaoAsync(string repo, Task<string> operacao)
+    {
+        var saida = await operacao;
+        if (!SincronizarTodasAsBranches) return saida;
+
+        var (criadas, atualizadas) = await GitService.SincronizarBranchesLocaisAsync(repo);
+        if (criadas + atualizadas == 0) return saida;
+        var partes = new List<string>();
+        if (criadas > 0) partes.Add($"{criadas} branch(es) local(is) criada(s)");
+        if (atualizadas > 0) partes.Add($"{atualizadas} atualizada(s)");
+        return saida.TrimEnd() + "\n" + string.Join(", ", partes) + ".";
+    }
+
+    /// <summary>Obter traz todas as tags do remoto (opção também no clique direito de Obter/Puxar).</summary>
+    public bool BuscarTodasAsTags
+    {
+        get => _ws.Settings.BuscarTodasAsTags;
+        set
+        {
+            if (_ws.Settings.BuscarTodasAsTags == value) return;
+            _ws.Settings.BuscarTodasAsTags = value;
+            Persist();
+            OnPropertyChanged();
+        }
+    }
+
+    // o item do menu só mostra a marca; quem alterna é o comando — não depende de o
+    // MenuItem alternar sozinho (o que muda entre versões do Avalonia)
+    [RelayCommand]
+    private void AlternarTodasAsTags() => BuscarTodasAsTags = !BuscarTodasAsTags;
+
+    [RelayCommand]
+    private void AlternarTodasAsBranches() => SincronizarTodasAsBranches = !SincronizarTodasAsBranches;
+
+    /// <summary>Obter e Puxar criam e avançam as branches locais de todas as remotas.</summary>
+    public bool SincronizarTodasAsBranches
+    {
+        get => _ws.Settings.SincronizarTodasAsBranches;
+        set
+        {
+            if (_ws.Settings.SincronizarTodasAsBranches == value) return;
+            _ws.Settings.SincronizarTodasAsBranches = value;
+            Persist();
+            OnPropertyChanged();
+        }
+    }
 
     [RelayCommand]
     private Task Push() => RunAsync(p => GitService.PushAsync(p, string.IsNullOrEmpty(CurrentStatus?.Upstream)), "Push");
+
+    /// <summary>Desfaz a última ação do repositório (commit, reset, merge, checkout…), lida do reflog.</summary>
+    [RelayCommand]
+    private async Task Desfazer()
+    {
+        if (CurrentRepo is not { } repo) return;
+        PlanoDesfazer? plano;
+        try
+        {
+            plano = await Services.Desfazer.PlanejarAsync(repo.Path);
+        }
+        catch (Exception)
+        {
+            plano = null;
+        }
+        if (plano is null)
+        {
+            Notify("Nada a desfazer neste repositório.");
+            return;
+        }
+
+        var ok = await ConfirmAsync("Desfazer",
+            plano.Descricao +
+            (plano.JaEnviado
+                ? "\n\nAtenção: isso já foi enviado ao remoto. Depois de desfazer, o próximo envio vai exigir push forçado."
+                : "") +
+            "\n\nClicar em Desfazer de novo refaz o que foi desfeito.");
+        if (!ok) return;
+
+        await RunAsync(p => GitService.RunAsync(p, plano.Args), "Desfazer");
+        await LoadTabAsync();
+    }
 
     [RelayCommand]
     private async Task OpenBranches()

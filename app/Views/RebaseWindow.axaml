@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        x:Class="GRepos.Views.RebaseWindow"
+        x:DataType="vm:RebaseViewModel"
+        Title="Reorganizar commits"
+        Width="860" Height="620" MinWidth="620" MinHeight="380"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
+
+    <TextBlock Grid.Row="0" TextWrapping="Wrap" Classes="dim" Margin="0,0,0,10"
+               Text="Do mais novo (em cima) para o mais antigo. Escolha o que fazer com cada commit; as setas mudam a ordem. &quot;Juntar com o anterior&quot; junta no commit de baixo." />
+
+    <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,10">
+      <Border Padding="10,7" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource Orange}"
+              Background="{DynamicResource BgRaised}" IsVisible="{Binding Aviso, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Text="{Binding Aviso}" TextWrapping="Wrap" FontSize="12" />
+      </Border>
+      <Border Padding="10,7" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource Red}"
+              Background="{DynamicResource BgRaised}" IsVisible="{Binding TemErro}">
+        <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" FontSize="12" />
+      </Border>
+    </StackPanel>
+
+    <ListBox Grid.Row="2" ItemsSource="{Binding Itens}" Classes="panel">
+      <ListBox.ItemTemplate>
+        <DataTemplate DataType="vm:RebaseItemViewModel">
+          <Grid ColumnDefinitions="230,64,*,Auto" Margin="0,3">
+            <ComboBox Grid.Column="0" ItemsSource="{x:Static vm:RebaseItemViewModel.Acoes}"
+                      SelectedIndex="{Binding Acao}" HorizontalAlignment="Stretch" />
+            <TextBlock Grid.Column="1" Classes="mono faint" FontSize="11.5" Text="{Binding Short}"
+                       VerticalAlignment="Center" Margin="10,0,0,0" />
+            <TextBlock Grid.Column="2" Text="{Binding Item.Assunto}" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" IsVisible="{Binding !Renomeando}"
+                       Classes.faint="{Binding Apagado}" />
+            <TextBox Grid.Column="2" Text="{Binding Mensagem}" IsVisible="{Binding Renomeando}"
+                     AcceptsReturn="True" TextWrapping="Wrap" MinHeight="30" />
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"
+                        VerticalAlignment="Center">
+              <Button Classes="tiny" Content="&#x25B2;" ToolTip.Tip="Mais para cima (mais novo)"
+                      Command="{Binding $parent[ListBox].DataContext.SubirCommand}" CommandParameter="{Binding}" />
+              <Button Classes="tiny" Content="&#x25BC;" ToolTip.Tip="Mais para baixo (mais antigo)"
+                      Command="{Binding $parent[ListBox].DataContext.DescerCommand}" CommandParameter="{Binding}" />
+            </StackPanel>
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Cancelar" Click="Cancelar" />
+      <Button Classes="primary" Content="Reorganizar" IsEnabled="{Binding PodeAplicar}"
+              Command="{Binding AplicarCommand}" />
+    </StackPanel>
+  </Grid>
+</Window>

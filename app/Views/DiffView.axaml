@@ -31,6 +31,15 @@
     <Style Selector="Border.empty">
       <Setter Property="Background" Value="{DynamicResource GutterBg}" />
     </Style>
+    <!-- linha escolhida para preparar sozinha: faixa na cor de destaque à esquerda.
+         Toda linha reserva a faixa (transparente), para o texto não pular ao marcar -->
+    <Style Selector="Border.linha">
+      <Setter Property="BorderThickness" Value="3,0,0,0" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.linha.sel">
+      <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    </Style>
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*">
@@ -47,7 +56,7 @@
 
     <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="{Binding RolagemHorizontal}"
                   IsVisible="{Binding HasContent}">
-      <ItemsControl ItemsSource="{Binding Rows}">
+      <ItemsControl Name="Linhas" ItemsSource="{Binding Rows}">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
             <VirtualizingStackPanel />
@@ -66,6 +75,13 @@
                         Command="{Binding ApplyCommand}"
                         IsVisible="{Binding CanApply}"
                         BorderThickness="1" BorderBrush="{DynamicResource Border}" />
+                <Button Classes="tiny" Content="{Binding LinhasRotulo}"
+                        Command="{Binding ApplyLinhasCommand}"
+                        IsVisible="{Binding TemLinhas}"
+                        BorderThickness="1" BorderBrush="{DynamicResource Accent}" />
+                <TextBlock Classes="faint" FontSize="11" VerticalAlignment="Center"
+                           IsVisible="{Binding MostrarDica}"
+                           Text="ou clique nas linhas + e − para escolher só algumas" />
               </StackPanel>
             </Border>
           </DataTemplate>
@@ -74,7 +90,8 @@
             <StackPanel Orientation="Horizontal">
               <TextBlock Classes="gutter" Text="{Binding OldNo}" />
               <TextBlock Classes="gutter" Text="{Binding NewNo}" />
-              <Border Classes.add="{Binding IsAdd}" Classes.del="{Binding IsDel}"
+              <Border Classes="linha" Tag="U" Classes.sel="{Binding Escolhida}"
+                      Classes.add="{Binding IsAdd}" Classes.del="{Binding IsDel}"
                       Width="{Binding $parent[ItemsControl].DataContext.UnifiedWidth}">
                 <TextBlock Classes="code" Text="{Binding Text}"
                            TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
@@ -85,13 +102,15 @@
           <DataTemplate DataType="vm:DiffSplitRow">
             <StackPanel Orientation="Horizontal">
               <TextBlock Classes="gutter" Width="44" Text="{Binding LeftNo}" />
-              <Border Classes.del="{Binding LeftIsDel}" Classes.empty="{Binding LeftEmpty}"
+              <Border Classes="linha" Tag="L" Classes.sel="{Binding LeftEscolhida}"
+                      Classes.del="{Binding LeftIsDel}" Classes.empty="{Binding LeftEmpty}"
                       Width="{Binding $parent[ItemsControl].DataContext.LeftWidth}">
                 <TextBlock Classes="code" Text="{Binding LeftText}"
                            TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
               </Border>
               <TextBlock Classes="gutter" Width="44" Text="{Binding RightNo}" />
-              <Border Classes.add="{Binding RightIsAdd}" Classes.empty="{Binding RightEmpty}"
+              <Border Classes="linha" Tag="R" Classes.sel="{Binding RightEscolhida}"
+                      Classes.add="{Binding RightIsAdd}" Classes.empty="{Binding RightEmpty}"
                       Width="{Binding $parent[ItemsControl].DataContext.RightWidth}">
                 <TextBlock Classes="code" Text="{Binding RightText}"
                            TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />

@@ -157,6 +157,202 @@ public class UiSmokeTests
         Render(new HistoryView(), vm);
     }
 
+    /// <summary>Menu de contexto e flyouts só constroem os bindings quando abrem.</summary>
+    [AvaloniaFact]
+    public void HistoryView_abre_o_menu_de_acoes_do_commit()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new HistoryViewModel(DemoRepo(), main, 50, split: true);
+        vm.Commits.Add(new CommitRowViewModel
+        {
+            Commit = new Commit { Hash = "abc1234567", Subject = "Commit de teste", Date = "2026-01-01T10:00:00Z" },
+            Row = new GRepos.Services.GraphRow(),
+            MaxLanes = 1,
+        });
+        vm.HasDetail = true;
+
+        var view = new HistoryView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+
+        var lista = view.GetVisualDescendants().OfType<ListBox>().First();
+        lista.ContextMenu!.Open(lista);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var itens = lista.ContextMenu.Items.OfType<MenuItem>().Select(m => m.Header as string).ToList();
+        Assert.Contains("Cherry-pick na branch atual", itens);
+        lista.ContextMenu.Close();
+
+        var resetar = view.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == "Resetar para cá ▾");
+        resetar.Flyout!.ShowAt(resetar);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        resetar.Flyout.Hide();
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void ChangesView_com_varios_marcados_troca_os_rotulos()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new ChangesViewModel(DemoRepo(), main, split: true);
+        foreach (var nome in new[] { "a.pas", "b.pas", "c.pas" })
+            vm.Unstaged.Add(new FileItemViewModel
+            {
+                Change = new FileChange { Path = nome, Index = ".", Worktree = "M", Kind = ChangeKind.Tracked },
+            });
+
+        var view = new ChangesView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+
+        var lista = view.FindControl<ListBox>("ListaUnstaged")!;
+        lista.SelectedItems!.Add(vm.Unstaged[0]);
+        lista.SelectedItems.Add(vm.Unstaged[2]);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("Preparar selecionados (2)", vm.PrepararRotulo);
+        Assert.Equal("Descartar selecionados (2)", vm.DescartarRotulo);
+        Assert.Contains(view.GetVisualDescendants().OfType<Button>(), b => b.Content as string == "Preparar selecionados (2)");
+
+        var reverter = view.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == "Reverter ▾");
+        reverter.Flyout!.ShowAt(reverter);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        reverter.Flyout.Hide();
+        window.Close();
+    }
+
+    /// <summary>Arquivo em conflito com os botões Meu/Deles e a faixa do merge em andamento.</summary>
+    [AvaloniaFact]
+    public void ChangesView_monta_com_conflito_e_operacao_em_andamento()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new ChangesViewModel(DemoRepo(), main, split: true)
+        {
+            Operacao = GRepos.Services.GitService.Operacao.Merge,
+        };
+        vm.Unstaged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "a.pas", Index = "U", Worktree = "U", Kind = ChangeKind.Conflict, Conflito = "UU" },
+        });
+
+        var view = new ChangesView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var botoes = view.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible)
+            .Select(b => b.Content as string).ToList();
+        Assert.Contains("Meu", botoes);
+        Assert.Contains("Deles", botoes);
+        Assert.Contains("Concluir merge", botoes);
+        Assert.DoesNotContain("+", botoes); // conflito não se prepara pelo "+"
+
+        var lista = view.FindControl<ListBox>("ListaUnstaged")!;
+        lista.ContextMenu!.Open(lista);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        lista.ContextMenu.Close();
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void DiffView_marca_linhas_escolhidas_nos_dois_modos()
+    {
+        foreach (var split in new[] { true, false })
+        {
+            var vm = new DiffViewModel { Split = split };
+            vm.Load("diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1,2 +1,2 @@\n um\n-dois\n+DOIS\n",
+                "Preparar bloco", _ => Task.CompletedTask);
+
+            var view = new DiffView { DataContext = vm };
+            var window = new Window { Width = 1000, Height = 600, Content = view };
+            window.Show();
+
+            DiffRowBase linha = split
+                ? vm.Rows.OfType<DiffSplitRow>().First(r => r.RightIsAdd)
+                : vm.Rows.OfType<DiffTextRow>().First(r => r.IsAdd);
+            vm.AlternarLinha(linha, direita: true);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(view.GetVisualDescendants().OfType<Button>(),
+                b => b.Content as string == "Preparar 1 linha(s)" && b.IsEffectivelyVisible);
+            Assert.Contains(view.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("sel"));
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Historico_do_arquivo_monta_as_duas_abas()
+    {
+        var vm = new FileHistoryViewModel(DemoRepo(), "src/Unit1.pas", blame: false, split: true);
+        vm.Commits.Add(new FileCommitViewModel
+        {
+            Commit = new Commit { Hash = "abc1234567", Subject = "Ajusta juros", Author = "Ana", Date = "2026-01-01T10:00:00Z" },
+            Caminho = "Unit1.pas", CaminhoAtual = "src/Unit1.pas",
+        });
+        vm.Blame.Add(new BlameLineViewModel
+        {
+            Linha = new BlameLine { Hash = new string('a', 40), Linha = 1, Autor = "Ana", Quando = 1767261600, Assunto = "x", Texto = "unit Unit1;" },
+            InicioDeBloco = true, Par = true,
+        });
+        vm.Blame.Add(new BlameLineViewModel
+        {
+            Linha = new BlameLine { Hash = new string('0', 40), Linha = 2, Texto = "\tinterface" },
+            InicioDeBloco = true,
+        });
+
+        var janela = new FileHistoryWindow { DataContext = vm };
+        janela.Show();
+        vm.AbaSelecionada = 1;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Contains(janela.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Não commitado");
+        janela.Close();
+    }
+
+    [AvaloniaFact]
+    public void Rebase_interativo_monta_com_itens()
+    {
+        var vm = new RebaseViewModel(DemoRepo(), "abc");
+        foreach (var (h, s) in new[] { ("c", "terceiro"), ("b", "segundo"), ("a", "primeiro") })
+            vm.Itens.Add(new RebaseItemViewModel(
+                new GRepos.Services.ItemRebase { Hash = new string(h[0], 40), Assunto = s, Mensagem = s }, vm));
+        vm.Itens[0].Acao = 1; // renomear mostra a caixa de texto
+        vm.Itens[1].Acao = 4; // apagado
+
+        var janela = new RebaseWindow { DataContext = vm };
+        janela.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Contains(janela.GetVisualDescendants().OfType<TextBox>(), t => t.Text == "terceiro");
+        Assert.True(vm.PodeAplicar);
+        janela.Close();
+    }
+
+    /// <summary>Item marcável do clique direito de Obter: um clique alterna a opção uma vez só.</summary>
+    [AvaloniaFact]
+    public void Opcao_de_tags_no_menu_alterna_com_um_clique()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var antes = main.BuscarTodasAsTags;
+        // mesma montagem do MainWindow.axaml: marca OneWay, comando alterna
+        var item = new MenuItem
+        {
+            ToggleType = MenuItemToggleType.CheckBox,
+            DataContext = main,
+            Command = main.AlternarTodasAsTagsCommand,
+        };
+        item.Bind(MenuItem.IsCheckedProperty, new Avalonia.Data.Binding(nameof(MainViewModel.BuscarTodasAsTags))
+        {
+            Mode = Avalonia.Data.BindingMode.OneWay,
+        });
+        var janela = new Window { Content = new Menu { Items = { item } } };
+        janela.Show();
+
+        item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Equal(!antes, main.BuscarTodasAsTags);
+        Assert.Equal(!antes, item.IsChecked);
+        main.BuscarTodasAsTags = antes;
+        janela.Close();
+    }
+
     [AvaloniaFact]
     public void PairView_monta_com_os_dois_lados()
     {

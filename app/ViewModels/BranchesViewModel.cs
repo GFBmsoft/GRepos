@@ -306,8 +306,18 @@ public sealed partial class BranchesViewModel : ObservableObject
         var novo = await EditarFluxo(Fluxo);
         if (novo is null) return;
 
-        var locais = _todas.Where(b => !b.IsRemote).Select(b => b.Name).ToList();
-        await ExecutarAsync(() => GitFlow.InicializarAsync(_repo.Path, novo, locais));
+        var soLocal = false;
+        var temRemoto = _todas.Any(b => b.IsRemote);
+        await ExecutarAsync(async () => soLocal = await GitFlow.InicializarAsync(_repo.Path, novo, _todas.ToList()));
+
+        // develop nova, só neste computador: sem enviar, a equipe não a vê e o Puxar
+        // dela não tem de onde puxar
+        if (!soLocal || !temRemoto || !_todas.Any(b => !b.IsRemote && b.Name == novo.Develop)) return;
+        if (!await ConfirmarAsync("Enviar a develop",
+                $"A branch \"{novo.Develop}\" não existia no remoto e foi criada só no seu computador.\n\n" +
+                "Enviar agora, para a equipe vê-la e o Puxar funcionar nela?"))
+            return;
+        await ExecutarAsync(() => GitService.PushBranchAsync(_repo.Path, novo.Develop));
     }
 
     private async Task ExecutarAsync(Func<Task> acao)
@@ -333,7 +343,9 @@ public sealed partial class BranchesViewModel : ObservableObject
     // ficar indisponível durante a execução, a lista inteira acinzenta (piscada)
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task Trocar(BranchItemViewModel item) =>
-        ExecutarAsync(() => GitService.CheckoutAsync(_repo.Path, item.Name));
+        ExecutarAsync(() => item.IsRemote
+            ? GitService.CheckoutRemotaAsync(_repo.Path, item.Name)
+            : GitService.CheckoutAsync(_repo.Path, item.Name));
 
     [RelayCommand]
     private Task Criar() => ExecutarAsync(async () =>

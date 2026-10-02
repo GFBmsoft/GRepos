@@ -292,17 +292,7 @@ public static class GitService
     {
         try
         {
-            var gitDir = Path.Combine(repo, ".git");
-            if (File.Exists(gitDir))
-            {
-                // worktree ou submódulo: ".git" é um arquivo apontando para o diretório real
-                var line = File.ReadAllText(gitDir).Trim();
-                const string prefix = "gitdir:";
-                if (!line.StartsWith(prefix)) return 0;
-                gitDir = line[prefix.Length..].Trim();
-                if (!Path.IsPathRooted(gitDir)) gitDir = Path.GetFullPath(Path.Combine(repo, gitDir));
-            }
-
+            if (GitDir(repo) is not { } gitDir) return 0;
             var reflog = Path.Combine(gitDir, "logs", "refs", "stash");
             if (!File.Exists(reflog)) return 0;
 
@@ -316,6 +306,99 @@ public static class GitService
             return 0; // contador de badge não justifica propagar erro de leitura
         }
     }
+
+    /// <summary>Pasta interna do git, sem chamar processo; null quando não há.</summary>
+    public static string? GitDir(string repo)
+    {
+        var gitDir = Path.Combine(repo, ".git");
+        if (Directory.Exists(gitDir)) return gitDir;
+        if (!File.Exists(gitDir)) return null;
+
+        // worktree ou submódulo: ".git" é um arquivo apontando para o diretório real
+        var line = File.ReadAllText(gitDir).Trim();
+        const string prefix = "gitdir:";
+        if (!line.StartsWith(prefix)) return null;
+        gitDir = line[prefix.Length..].Trim();
+        return Path.IsPathRooted(gitDir) ? gitDir : Path.GetFullPath(Path.Combine(repo, gitDir));
+    }
+
+    // ------------------------------------------------- operação em andamento
+
+    public enum Operacao { Nenhuma, Merge, Rebase, CherryPick, Revert }
+
+    /// <summary>
+    /// Merge, rebase, cherry-pick ou revert parado (em geral por conflito). Sai dos
+    /// marcadores em disco, como o próprio git faz — sem custo de processo na recarga.
+    /// </summary>
+    public static Operacao OperacaoEmAndamento(string repo)
+    {
+        try
+        {
+            if (GitDir(repo) is not { } d) return Operacao.Nenhuma;
+            if (Directory.Exists(Path.Combine(d, "rebase-merge")) || Directory.Exists(Path.Combine(d, "rebase-apply")))
+                return Operacao.Rebase;
+            if (File.Exists(Path.Combine(d, "CHERRY_PICK_HEAD"))) return Operacao.CherryPick;
+            if (File.Exists(Path.Combine(d, "REVERT_HEAD"))) return Operacao.Revert;
+            if (File.Exists(Path.Combine(d, "MERGE_HEAD"))) return Operacao.Merge;
+        }
+        catch (Exception) { /* leitura de marcador não justifica erro na tela */ }
+        return Operacao.Nenhuma;
+    }
+
+    /// <summary>GIT_EDITOR=true: aceita a mensagem sugerida sem abrir editor nenhum.</summary>
+    private static readonly (string, string)[] SemEditor = { ("GIT_EDITOR", "true") };
+
+    public static Task<string> ContinuarOperacaoAsync(string repo, Operacao op) => op switch
+    {
+        // merge parado termina com um commit comum, com a mensagem que o git preparou
+        Operacao.Merge => RunWithEnvAsync(repo, new[] { "commit", "--no-edit" }, null, SemEditor),
+        Operacao.Rebase => RunWithEnvAsync(repo, new[] { "rebase", "--continue" }, null, SemEditor),
+        Operacao.CherryPick => RunWithEnvAsync(repo, new[] { "cherry-pick", "--continue" }, null, SemEditor),
+        Operacao.Revert => RunWithEnvAsync(repo, new[] { "revert", "--continue" }, null, SemEditor),
+        _ => Task.FromResult(""),
+    };
+
+    public static Task<string> AbortarOperacaoAsync(string repo, Operacao op) => op switch
+    {
+        Operacao.Merge => Run(repo, "merge", "--abort"),
+        Operacao.Rebase => Run(repo, "rebase", "--abort"),
+        Operacao.CherryPick => Run(repo, "cherry-pick", "--abort"),
+        Operacao.Revert => Run(repo, "revert", "--abort"),
+        _ => Task.FromResult(""),
+    };
+
+    /// <summary>
+    /// Resolve o conflito ficando inteiro com um dos lados. No rebase o git inverte os
+    /// nomes — "ours" é a base onde se reaplica e "theirs" é o seu commit —, então
+    /// "manter o meu" vira --theirs ali. Se o lado escolhido apagou o arquivo, resolver
+    /// é apagá-lo também.
+    /// </summary>
+    public static async Task ResolverConflitoAsync(string repo, FileChange arquivo, bool manterMeu)
+    {
+        var ours = manterMeu != (OperacaoEmAndamento(repo) == Operacao.Rebase);
+        var xy = arquivo.Conflito.Length == 2 ? arquivo.Conflito : "UU";
+        var apagou = (ours ? xy[0] : xy[1]) == 'D';
+
+        if (apagou)
+        {
+            await Run(repo, "rm", "--quiet", "--", arquivo.Path);
+            return;
+        }
+        try
+        {
+            await Run(repo, "checkout", ours ? "--ours" : "--theirs", "--", arquivo.Path);
+        }
+        catch (GitException e) when (e.Message.Contains("does not have"))
+        {
+            // AU/UA: o arquivo nasceu só de um lado; ficar com o outro é não tê-lo
+            await Run(repo, "rm", "--quiet", "--", arquivo.Path);
+            return;
+        }
+        await Run(repo, "add", "--", arquivo.Path);
+    }
+
+    /// <summary>Marca como resolvido o que o usuário já acertou no editor.</summary>
+    public static Task<string> MarcarResolvidoAsync(string repo, string path) => Run(repo, "add", "--", path);
 
     // ----------------------------------------------------- arquivos alterados
 
@@ -343,7 +426,11 @@ public static class GitService
                 // u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path> — 9 campos antes do caminho
                 var parts = line[2..].Split(' ', 10);
                 if (parts.Length == 10)
-                    list.Add(new FileChange { Path = TextoGit.Caminho(parts[9].Trim('\r')), Index = "U", Worktree = "U", Kind = ChangeKind.Conflict });
+                    list.Add(new FileChange
+                    {
+                        Path = TextoGit.Caminho(parts[9].Trim('\r')), Index = "U", Worktree = "U",
+                        Kind = ChangeKind.Conflict, Conflito = parts[0],
+                    });
             }
             else if ((line.StartsWith("1 ") || line.StartsWith("2 ")) && line.Length > 4)
             {
@@ -389,6 +476,13 @@ public static class GitService
 
         return await RunConteudoAsync(repo, args);
     }
+
+    /// <summary>
+    /// Arquivo em conflito contra o HEAD. O "git diff" normal devolve o formato combinado
+    /// (@@@), que o parser não lê; contra o HEAD os marcadores aparecem como linhas novas.
+    /// </summary>
+    public static Task<string> DiffConflitoAsync(string repo, string file) =>
+        RunConteudoAsync(repo, new[] { "diff", "--no-color", "--no-ext-diff", "HEAD", "--", file });
 
     /// <summary>Tamanho a partir do qual o arquivo novo não é exibido inteiro.</summary>
     private const long MaxNewFileBytes = 2 * 1024 * 1024;
@@ -476,6 +570,37 @@ public static class GitService
         }
     }
 
+    /// <summary>
+    /// Volta o repositório inteiro a <paramref name="alvo"/> (HEAD ou o upstream): descarta
+    /// preparados, alterações locais e arquivos novos. Ignorados ficam — sem <c>-x</c>, o
+    /// <c>clean</c> não apaga build nem configuração local. Destrutivo: confirmação na UI.
+    /// </summary>
+    public static async Task ReverterTudoAsync(string repo, string alvo)
+    {
+        await Run(repo, "reset", "--hard", alvo);
+        await Run(repo, "clean", "-fd");
+    }
+
+    public enum ModoReset { Soft, Mixed, Hard }
+
+    /// <summary>Move a branch atual para <paramref name="hash"/>.</summary>
+    public static Task<string> ResetAsync(string repo, string hash, ModoReset modo) =>
+        Run(repo, "reset", "--" + modo.ToString().ToLowerInvariant(), hash);
+
+    /// <summary>Aplica o commit na branch atual. Em merge, toma o primeiro pai como base.</summary>
+    public static Task<string> CherryPickAsync(string repo, string hash, bool merge) =>
+        merge ? Run(repo, "cherry-pick", "-m", "1", hash) : Run(repo, "cherry-pick", hash);
+
+    /// <summary>Cria um commit que desfaz <paramref name="hash"/>, sem abrir editor.</summary>
+    public static Task<string> RevertCommitAsync(string repo, string hash, bool merge) =>
+        merge ? Run(repo, "revert", "--no-edit", "-m", "1", hash) : Run(repo, "revert", "--no-edit", hash);
+
+    public static Task<string> CreateBranchAtAsync(string repo, string name, string hash) =>
+        Run(repo, "branch", name, hash);
+
+    public static Task<string> CreateTagAsync(string repo, string name, string hash) =>
+        Run(repo, "tag", name, hash);
+
     /// <summary>Aplica um patch (bloco isolado) no index.</summary>
     public static Task ApplyPatchAsync(string repo, string patch, bool cached, bool reverse)
     {
@@ -506,6 +631,10 @@ public static class GitService
         return rel is null ? "" : Path.Combine(repo, rel.Replace('/', Path.DirectorySeparatorChar));
     }
 
+    /// <summary>Mensagem completa do último commit (assunto e corpo), sem a quebra final.</summary>
+    public static async Task<string> UltimaMensagemAsync(string repo) =>
+        (await RunConteudoAsync(repo, new[] { "log", "-1", "--format=%B" })).TrimEnd('\r', '\n');
+
     public static Task<string> CommitAsync(string repo, string message, bool amend)
     {
         if (string.IsNullOrWhiteSpace(message)) throw new GitException("mensagem de commit vazia");
@@ -519,10 +648,130 @@ public static class GitService
     // rede sempre por RedeAsync: é o que aplica o prazo e informa o usuário ao
     // credential manager
 
-    public static Task<string> FetchAsync(string repo) => RedeAsync(repo, "fetch", "--all", "--prune");
+    /// <param name="todasAsTags">
+    /// Traz todas as tags do remoto, não só as que apontam para commits trazidos. Com
+    /// --prune junto não há risco: o git não poda tag que veio por --tags.
+    /// </param>
+    public static Task<string> FetchAsync(string repo, bool todasAsTags = false) =>
+        todasAsTags
+            ? RedeAsync(repo, "fetch", "--all", "--prune", "--tags")
+            : RedeAsync(repo, "fetch", "--all", "--prune");
 
-    public static Task<string> PullAsync(string repo, bool rebase) =>
-        rebase ? RedeAsync(repo, "pull", "--rebase") : RedeAsync(repo, "pull");
+    /// <summary>
+    /// Pull que resolve a branch sem vínculo: se o remoto tem uma de mesmo nome, vincula e
+    /// puxa (é o caso da develop criada aqui quando já existia lá); se não tem, explica em
+    /// vez de devolver o "no tracking information" do git.
+    /// </summary>
+    public static async Task<string> PullAsync(string repo, bool rebase)
+    {
+        var branch = (await Run(repo, "branch", "--show-current")).Trim();
+        if (branch.Length > 0 && !await TemUpstreamAsync(repo))
+        {
+            await RedeAsync(repo, "fetch", "origin");
+            if (!await RefExisteAsync(repo, "refs/remotes/origin/" + branch))
+                throw new GitException(
+                    $"A branch \"{branch}\" só existe no seu computador, então não há o que puxar. " +
+                    "Use Enviar para criá-la no remoto; depois disso Puxar e Enviar funcionam normalmente.");
+            await Run(repo, "branch", "--set-upstream-to=origin/" + branch);
+        }
+        return rebase ? await RedeAsync(repo, "pull", "--rebase") : await RedeAsync(repo, "pull");
+    }
+
+    public static async Task<bool> TemUpstreamAsync(string repo)
+    {
+        try
+        {
+            await Run(repo, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}");
+            return true;
+        }
+        catch (GitException)
+        {
+            return false;
+        }
+    }
+
+    public static async Task<bool> RefExisteAsync(string repo, string refCompleta)
+    {
+        try
+        {
+            await Run(repo, "rev-parse", "--verify", "--quiet", refCompleta);
+            return true;
+        }
+        catch (GitException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Envia uma branch que não é a atual, já criando o vínculo com o remoto.</summary>
+    public static Task<string> PushBranchAsync(string repo, string branch) =>
+        RedeAsync(repo, "push", "--set-upstream", "origin", branch);
+
+    /// <summary>
+    /// "Trocar" numa remota (origin/x): vai para a branch local x, criando-a vinculada se
+    /// não existir. Fazer checkout de "origin/x" direto deixaria o HEAD solto (detached),
+    /// e um commit ali se perderia.
+    /// </summary>
+    public static async Task<string> CheckoutRemotaAsync(string repo, string remota)
+    {
+        var barra = remota.IndexOf('/');
+        var local = barra > 0 ? remota[(barra + 1)..] : remota;
+        if (!await RefExisteAsync(repo, "refs/heads/" + local))
+            return await Run(repo, "checkout", "--track", remota);
+
+        var saida = await Run(repo, "checkout", local);
+        if (!await TemUpstreamAsync(repo)) await Run(repo, "branch", "--set-upstream-to=" + remota);
+        return saida;
+    }
+
+    /// <summary>
+    /// Deixa uma branch local para cada remota: cria as que faltam (vinculadas) e avança as
+    /// que só estão atrás. Nunca mexe na branch atual nem em branch com commit próprio —
+    /// só avanço rápido, conferido pelo update-ref com o valor antigo.
+    /// </summary>
+    public static async Task<(int Criadas, int Atualizadas)> SincronizarBranchesLocaisAsync(string repo)
+    {
+        var raw = await Run(repo, "for-each-ref", "--format=%(refname)%1f%(objectname)%1f%(upstream)%1f%(HEAD)",
+            "refs/heads", "refs/remotes");
+        var refs = raw.Split('\n').Select(l => l.TrimEnd('\r').Split(US)).Where(f => f.Length >= 4).ToList();
+
+        var locais = refs.Where(f => f[0].StartsWith("refs/heads/"))
+            .ToDictionary(f => f[0]["refs/heads/".Length..], f => f, StringComparer.Ordinal);
+        var remotas = refs.Where(f => f[0].StartsWith("refs/remotes/") && !f[0].EndsWith("/HEAD"))
+            .ToDictionary(f => f[0], f => f[1], StringComparer.Ordinal);
+
+        var criadas = 0;
+        var atualizadas = 0;
+        // origin primeiro: com dois remotos tendo a mesma branch, ela vale
+        foreach (var (remota, hash) in remotas.OrderBy(r => r.Key.StartsWith("refs/remotes/origin/") ? 0 : 1))
+        {
+            var curta = remota["refs/remotes/".Length..];
+            var nome = curta[(curta.IndexOf('/') + 1)..];
+
+            if (!locais.TryGetValue(nome, out var local))
+            {
+                try
+                {
+                    await Run(repo, "branch", "--track", nome, curta);
+                    locais[nome] = new[] { "refs/heads/" + nome, hash, remota, " " };
+                    criadas++;
+                }
+                catch (GitException) { /* nome inválido como branch local: segue */ }
+                continue;
+            }
+
+            var ehAtual = local[3].Trim() == "*";
+            if (ehAtual || local[2] != remota || local[1] == hash) continue;
+            try
+            {
+                await Run(repo, "merge-base", "--is-ancestor", local[1], hash);
+                await Run(repo, "update-ref", "refs/heads/" + nome, hash, local[1]);
+                atualizadas++;
+            }
+            catch (GitException) { /* tem commit só local: não é avanço rápido, fica como está */ }
+        }
+        return (criadas, atualizadas);
+    }
 
     public static async Task<string> PushAsync(string repo, bool setUpstream)
     {
@@ -742,6 +991,51 @@ public static class GitService
             .ToList();
     }
 
+    /// <summary>
+    /// Busca por mensagem ou autor (nome/e-mail), sem diferenciar maiúsculas; um termo
+    /// que pareça hash também acha o commit pelo prefixo. São duas consultas: --grep e
+    /// --author juntos valem como "e" no git, e numa caixa de busca só se espera "ou".
+    /// </summary>
+    public static async Task<List<Commit>> SearchLogAsync(string repo, string termo, int limit, bool allBranches)
+    {
+        termo = termo.Trim();
+
+        async Task<List<Commit>> Consulta(string filtro)
+        {
+            var args = new List<string>
+            {
+                "log", $"-{limit}", "--date-order", LogFormat, "-i", "--fixed-strings", filtro + termo,
+            };
+            if (allBranches) args.Add("--all");
+            return (await RunAsync(repo, args)).Split(RS)
+                .Where(r => r.Trim().Length > 0)
+                .Select(ParseCommit)
+                .Where(c => c is not null)
+                .Select(c => c!)
+                .ToList();
+        }
+
+        var porMensagem = await Consulta("--grep=");
+        var porAutor = await Consulta("--author=");
+        var lista = porMensagem.Concat(porAutor)
+            .GroupBy(c => c.Hash).Select(g => g.First())
+            .OrderByDescending(c => DateTimeOffset.TryParse(c.Date, out var d) ? d : DateTimeOffset.MinValue)
+            .Take(limit)
+            .ToList();
+
+        if (termo.Length >= 4 && termo.All(Uri.IsHexDigit))
+        {
+            try
+            {
+                var porHash = (await RunAsync(repo, new[] { "log", "-1", LogFormat, termo + "^{commit}", "--" }))
+                    .Split(RS).Where(r => r.Trim().Length > 0).Select(ParseCommit).FirstOrDefault();
+                if (porHash is not null && lista.All(c => c.Hash != porHash.Hash)) lista.Insert(0, porHash);
+            }
+            catch (GitException) { /* não era hash de nenhum commit */ }
+        }
+        return lista;
+    }
+
     private static Commit? ParseCommit(string record)
     {
         var f = record.TrimStart('\n', '\r').Split(US);
@@ -792,6 +1086,70 @@ public static class GitService
             .ToList();
 
         return new CommitDetail { Commit = commit, Body = f[7].Trim(), Files = files };
+    }
+
+    // ------------------------------------------------- histórico do arquivo
+
+    /// <summary>
+    /// Commits que mexeram no arquivo, seguindo renomeações. Cada um vem com o caminho
+    /// que o arquivo tinha naquele commit — é por ele que se pede o diff.
+    /// </summary>
+    public static async Task<List<(Commit Commit, string Caminho)>> FileLogAsync(string repo, string file, int limit)
+    {
+        var raw = await RunAsync(repo, new[]
+        {
+            "-c", "core.quotePath=false", "log", "--follow", $"-{limit}", "--name-only",
+            "--pretty=format:%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%aI%x1f%D%x1f%s", "--", file,
+        });
+        return ParseFileLog(raw, file);
+    }
+
+    public static List<(Commit Commit, string Caminho)> ParseFileLog(string raw, string file)
+    {
+        var lista = new List<(Commit, string)>();
+        foreach (var registro in raw.Split(RS))
+        {
+            var linhas = registro.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToList();
+            if (linhas.Count == 0) continue;
+            if (ParseCommit(linhas[0]) is not { } c) continue;
+            lista.Add((c, linhas.Count > 1 ? TextoGit.Caminho(linhas[^1]) : file));
+        }
+        return lista;
+    }
+
+    /// <summary>Autoria linha a linha da versão em disco (inclui o que não foi commitado).</summary>
+    public static async Task<List<BlameLine>> BlameAsync(string repo, string file) =>
+        ParseBlame(await RunConteudoAsync(repo, new[] { "blame", "--line-porcelain", "--", file }));
+
+    /// <summary>
+    /// "--line-porcelain": cabeçalho "hash linhaOrig linhaFinal [n]", pares chave-valor
+    /// (author, author-time, summary…) e o conteúdo numa linha começada por TAB.
+    /// </summary>
+    public static List<BlameLine> ParseBlame(string raw)
+    {
+        var lista = new List<BlameLine>();
+        BlameLine? atual = null;
+        foreach (var bruta in raw.Split('\n'))
+        {
+            var l = bruta.TrimEnd('\r');
+            if (atual is null)
+            {
+                var p = l.Split(' ');
+                if (p.Length >= 3 && p[0].Length == 40 && int.TryParse(p[2], out var n))
+                    atual = new BlameLine { Hash = p[0], Linha = n };
+                continue;
+            }
+            if (l.StartsWith('\t'))
+            {
+                atual.Texto = l[1..];
+                lista.Add(atual);
+                atual = null;
+            }
+            else if (l.StartsWith("author ")) atual.Autor = l[7..];
+            else if (l.StartsWith("author-time ") && long.TryParse(l[12..], out var t)) atual.Quando = t;
+            else if (l.StartsWith("summary ")) atual.Assunto = l[8..];
+        }
+        return lista;
     }
 
     public static Task<string> CommitFileDiffAsync(string repo, string hash, string file) =>

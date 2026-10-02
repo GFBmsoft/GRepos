@@ -138,6 +138,53 @@ public static class DiffParser
         return string.Join('\n', diff.Head) + "\n" + header + "\n" + sb.ToString();
     }
 
+    /// <summary>
+    /// Patch de um bloco só com as linhas escolhidas, como faz o git-gui. Indo para o
+    /// índice (<paramref name="reverso"/> falso), "+" não escolhido some e "−" não escolhido
+    /// vira contexto — a linha continua lá. Saindo do índice (aplicado com --reverse), é
+    /// o espelho: "+" não escolhido vira contexto e "−" não escolhido some.
+    /// </summary>
+    public static string BuildLinesPatch(ParsedDiff diff, Hunk hunk, ISet<DiffLine> escolhidas, bool reverso)
+    {
+        var m = HunkRe.Match(hunk.Header);
+        if (!m.Success) return "";
+
+        var sb = new StringBuilder();
+        var oldCount = 0;
+        var newCount = 0;
+        var anteriorFicou = false;
+
+        foreach (var l in hunk.Lines)
+        {
+            char marca;
+            switch (l.Kind)
+            {
+                case DiffLineKind.NoNewline:
+                    // o aviso pertence à linha anterior: só vai se ela foi
+                    if (anteriorFicou) sb.Append("\\ ").Append(l.Text).Append('\n');
+                    continue;
+                case DiffLineKind.Add:
+                    marca = escolhidas.Contains(l) ? '+' : reverso ? ' ' : '\0';
+                    break;
+                case DiffLineKind.Del:
+                    marca = escolhidas.Contains(l) ? '-' : reverso ? '\0' : ' ';
+                    break;
+                default:
+                    marca = ' ';
+                    break;
+            }
+
+            anteriorFicou = marca != '\0';
+            if (!anteriorFicou) continue;
+            if (marca != '+') oldCount++;
+            if (marca != '-') newCount++;
+            sb.Append(marca).Append(l.Text).Append('\n');
+        }
+
+        var header = $"@@ -{m.Groups[1].Value},{oldCount} +{m.Groups[3].Value},{newCount} @@";
+        return string.Join('\n', diff.Head) + "\n" + header + "\n" + sb.ToString();
+    }
+
     /// <summary>Agrupa as linhas de um bloco em pares esquerda/direita para a visão lado a lado.</summary>
     public static List<SideRow> SideBySide(Hunk hunk)
     {

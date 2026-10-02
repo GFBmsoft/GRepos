@@ -767,6 +767,16 @@ public sealed class SettingsWindow : DialogWindow
         };
         var refresh = new NumericUpDown { Minimum = 0, Maximum = 3600, Value = s.AutoRefreshSeconds, Increment = 10 };
         var esteiras = new NumericUpDown { Minimum = 1, Maximum = 50, Value = s.EsteirasVisiveis, Increment = 1 };
+        var todasAsTags = new CheckBox
+        {
+            Content = "Trazer todas as tags do remoto",
+            IsChecked = s.BuscarTodasAsTags,
+        };
+        var todasAsBranches = new CheckBox
+        {
+            Content = "Criar e atualizar as branches locais de todas as remotas",
+            IsChecked = s.SincronizarTodasAsBranches,
+        };
         var avisarAtualizacao = new CheckBox
         {
             Content = "Avisar quando sair uma versão nova",
@@ -1226,6 +1236,8 @@ public sealed class SettingsWindow : DialogWindow
             if (principal.Length == 0) principal = contas.FirstOrDefault() ?? "";
             main.SetContas(contas, principal);
             main.SetAvisarAtualizacao(avisarAtualizacao.IsChecked == true);
+            main.BuscarTodasAsTags = todasAsTags.IsChecked == true;
+            main.SincronizarTodasAsBranches = todasAsBranches.IsChecked == true;
             main.SetArvoreMinimalista(estiloArvore.SelectedIndex == 0);
             main.SetEsteirasVisiveis((int)(esteiras.Value ?? 6));
             main.SetGitBashPath(gitBash.Text ?? "");
@@ -1258,6 +1270,11 @@ public sealed class SettingsWindow : DialogWindow
             erroPortatil,
         };
         if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
+
+        body.Add(Secao("Obter e puxar"));
+        body.Add(todasAsTags);
+        body.Add(todasAsBranches);
+        body.Add(Label("A branch atual e as que têm commit só seu nunca são mexidas: as locais só avançam quando estão apenas atrás da remota. As mesmas opções ficam no clique direito de Obter e Puxar."));
 
         body.Add(Secao("Terminal"));
         body.Add(Field("Git Bash (pasta do Git ou caminho do git-bash.exe)", linhaGitBash));

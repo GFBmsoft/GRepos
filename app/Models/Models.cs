@@ -96,6 +96,15 @@ public sealed class Settings
     /// Vazio procura sozinho no PATH e nas pastas padrão do instalador.
     /// </summary>
     public string GitBashPath { get; set; } = "";
+
+    /// <summary>Obter traz todas as tags do remoto, não só as dos commits trazidos.</summary>
+    public bool BuscarTodasAsTags { get; set; } = true;
+
+    /// <summary>
+    /// Depois de obter ou puxar, cria uma branch local para cada remota e avança as
+    /// locais que só estão atrás — como o "todas as branches" do Sourcetree.
+    /// </summary>
+    public bool SincronizarTodasAsBranches { get; set; }
 }
 
 public sealed class ContagemDeLinhas
@@ -151,6 +160,28 @@ public sealed class FileChange
     public string Index { get; set; } = ".";
     public string Worktree { get; set; } = ".";
     public ChangeKind Kind { get; set; }
+
+    /// <summary>
+    /// Só em conflito: o XY do git (UU, AA, DU, UD…). X é o lado "ours", Y o "theirs";
+    /// D diz que aquele lado apagou o arquivo.
+    /// </summary>
+    public string Conflito { get; set; } = "";
+}
+
+/// <summary>Uma linha do blame: quem a deixou como está, quando e em que commit.</summary>
+public sealed class BlameLine
+{
+    public string Hash { get; set; } = "";
+    public int Linha { get; set; }
+    public string Autor { get; set; } = "";
+
+    /// <summary>Data do autor em segundos Unix.</summary>
+    public long Quando { get; set; }
+    public string Assunto { get; set; } = "";
+    public string Texto { get; set; } = "";
+
+    /// <summary>Linha alterada e ainda não commitada: o git usa um hash de zeros.</summary>
+    public bool NaoCommitada => Hash.Length > 0 && Hash.Trim('0').Length == 0;
 }
 
 public sealed class Commit

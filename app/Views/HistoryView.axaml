@@ -18,15 +18,42 @@
     <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
       <Grid RowDefinitions="Auto,*">
         <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
-          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-            <TextBlock Grid.Column="0" Classes="sectionTitle" Text="HISTÓRICO" />
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto" RowDefinitions="Auto,Auto">
+            <TextBlock Grid.Column="0" Classes="sectionTitle" Text="HISTÓRICO" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
-                       VerticalAlignment="Center" Text="{Binding Count}" />
+                       VerticalAlignment="Center" Text="{Binding ContagemTexto}" />
             <CheckBox Grid.Column="3" Content="todas as branches" IsChecked="{Binding AllBranches}" />
+            <!-- busca no git, não só no que está carregado: acha commit antigo fora do limite -->
+            <TextBox Grid.Row="1" Grid.ColumnSpan="4" Margin="0,6,0,0"
+                     Watermark="Buscar por mensagem, autor ou hash..." Text="{Binding Busca}">
+              <TextBox.InnerRightContent>
+                <Button Classes="tiny" Content="&#x2715;" ToolTip.Tip="Limpar a busca"
+                        IsVisible="{Binding Buscando}" Command="{Binding LimparBuscaCommand}" />
+              </TextBox.InnerRightContent>
+            </TextBox>
           </Grid>
         </Border>
 
+        <!-- o clique direito já seleciona a linha: o menu age sobre o commit selecionado -->
         <ListBox Grid.Row="1" ItemsSource="{Binding Commits}" SelectedItem="{Binding SelectedCommit}">
+          <ListBox.ContextMenu>
+            <ContextMenu>
+              <MenuItem Header="Copiar hash" Click="CopiarHash_Click" />
+              <Separator />
+              <MenuItem Header="Criar branch aqui..." Command="{Binding CriarBranchAquiCommand}" />
+              <MenuItem Header="Criar tag aqui..." Command="{Binding CriarTagAquiCommand}" />
+              <Separator />
+              <MenuItem Header="Cherry-pick na branch atual" Command="{Binding CherryPickCommand}" />
+              <MenuItem Header="Reverter este commit" Command="{Binding ReverterCommitCommand}" />
+              <MenuItem Header="Reorganizar commits daqui até o HEAD..." Command="{Binding ReorganizarCommand}" />
+              <Separator />
+              <MenuItem Header="Resetar branch atual para cá">
+                <MenuItem Header="Soft: mantém as alterações preparadas" Command="{Binding ResetSoftCommand}" />
+                <MenuItem Header="Mixed: mantém as alterações como locais" Command="{Binding ResetMixedCommand}" />
+                <MenuItem Header="Hard: descarta tudo" Command="{Binding ResetHardCommand}" />
+              </MenuItem>
+            </ContextMenu>
+          </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
             <DataTemplate DataType="vm:CommitRowViewModel">
               <Grid ColumnDefinitions="Auto,*,Auto" Height="26" ToolTip.Tip="{Binding Subject}">
@@ -110,6 +137,34 @@
             <TextBlock Text="{Binding DetailBody}" Classes="dim" FontSize="12" TextWrapping="Wrap"
                        TextTrimming="None" MaxHeight="90" Margin="0,4,0,0"
                        IsVisible="{Binding HasBody}" />
+
+            <!-- as mesmas ações do clique direito na lista, para quem não sabe que ele existe -->
+            <WrapPanel Margin="0,6,0,0" IsEnabled="{Binding !Busy}">
+              <Button Classes="tiny" Content="Copiar hash" Margin="0,0,6,4" Click="CopiarHash_Click" />
+              <Button Classes="tiny" Content="Criar branch aqui" Margin="0,0,6,4"
+                      Command="{Binding CriarBranchAquiCommand}" />
+              <Button Classes="tiny" Content="Criar tag" Margin="0,0,6,4"
+                      Command="{Binding CriarTagAquiCommand}" />
+              <Button Classes="tiny" Content="Cherry-pick" Margin="0,0,6,4"
+                      ToolTip.Tip="Aplica este commit na branch atual"
+                      Command="{Binding CherryPickCommand}" />
+              <Button Classes="tiny" Content="Reverter commit" Margin="0,0,6,4"
+                      ToolTip.Tip="Cria um commit que desfaz este, sem reescrever o histórico"
+                      Command="{Binding ReverterCommitCommand}" />
+              <Button Classes="tiny" Content="Reorganizar daqui..." Margin="0,0,6,4"
+                      ToolTip.Tip="Rebase interativo: juntar, renomear, apagar ou reordenar os commits daqui até o HEAD"
+                      Command="{Binding ReorganizarCommand}" />
+              <Button Classes="tiny danger" Content="Resetar para cá ▾" Margin="0,0,6,4"
+                      ToolTip.Tip="Move a branch atual para este commit">
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                    <MenuItem Header="Soft: mantém as alterações preparadas" Command="{Binding ResetSoftCommand}" />
+                    <MenuItem Header="Mixed: mantém as alterações como locais" Command="{Binding ResetMixedCommand}" />
+                    <MenuItem Header="Hard: descarta tudo" Command="{Binding ResetHardCommand}" />
+                  </MenuFlyout>
+                </Button.Flyout>
+              </Button>
+            </WrapPanel>
           </StackPanel>
         </Border>
 
@@ -131,6 +186,12 @@
                 </StackPanel>
               </Border>
               <ListBox Grid.Row="1" ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}">
+                <ListBox.ContextMenu>
+                  <ContextMenu>
+                    <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
+                    <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
+                  </ContextMenu>
+                </ListBox.ContextMenu>
                 <ListBox.ItemTemplate>
                   <DataTemplate DataType="vm:CommitFileViewModel">
                     <Grid ColumnDefinitions="18,*,Auto" Height="26" ToolTip.Tip="{Binding Path}">

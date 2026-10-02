@@ -219,13 +219,36 @@
             <TextBlock Text="{Binding RepoPath}" Classes="faint" FontSize="10.5" MaxWidth="300" />
           </StackPanel>
 
+          <!-- clique direito em Obter/Puxar: o que mais vem junto (tags, branches) -->
           <controls:ToolButton Grid.Column="1" Label="Obter" Icon="{StaticResource IconFetch}"
-                               ToolTip.Tip="Buscar novidades do remoto (fetch)"
-                               IsEnabled="{Binding !Busy}" Command="{Binding FetchCommand}" />
+                               ToolTip.Tip="Buscar novidades do remoto (fetch). Clique direito: opções"
+                               IsEnabled="{Binding !Busy}" Command="{Binding FetchCommand}">
+            <controls:ToolButton.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Trazer todas as tags" ToggleType="CheckBox"
+                          IsChecked="{Binding BuscarTodasAsTags, Mode=OneWay}"
+                          Command="{Binding AlternarTodasAsTagsCommand}" />
+                <MenuItem Header="Criar e atualizar as branches locais de todas as remotas" ToggleType="CheckBox"
+                          IsChecked="{Binding SincronizarTodasAsBranches, Mode=OneWay}"
+                          Command="{Binding AlternarTodasAsBranchesCommand}" />
+              </ContextMenu>
+            </controls:ToolButton.ContextMenu>
+          </controls:ToolButton>
           <controls:ToolButton Grid.Column="2" Label="Puxar" Icon="{StaticResource IconPull}"
                                Badge="{Binding BehindBadge}"
-                               ToolTip.Tip="Trazer os commits do remoto (pull)"
-                               IsEnabled="{Binding !Busy}" Command="{Binding PullCommand}" />
+                               ToolTip.Tip="Trazer os commits do remoto (pull). Clique direito: opções"
+                               IsEnabled="{Binding !Busy}" Command="{Binding PullCommand}">
+            <controls:ToolButton.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Trazer todas as tags" ToggleType="CheckBox"
+                          IsChecked="{Binding BuscarTodasAsTags, Mode=OneWay}"
+                          Command="{Binding AlternarTodasAsTagsCommand}" />
+                <MenuItem Header="Criar e atualizar as branches locais de todas as remotas" ToggleType="CheckBox"
+                          IsChecked="{Binding SincronizarTodasAsBranches, Mode=OneWay}"
+                          Command="{Binding AlternarTodasAsBranchesCommand}" />
+              </ContextMenu>
+            </controls:ToolButton.ContextMenu>
+          </controls:ToolButton>
           <controls:ToolButton Grid.Column="3" Label="Enviar" Icon="{StaticResource IconPush}"
                                Badge="{Binding AheadBadge}"
                                ToolTip.Tip="Enviar os commits locais (push)"
@@ -236,10 +259,15 @@
                                Classes.destacado="{Binding ForaDaPrincipal}"
                                ToolTip.Tip="{Binding BranchTooltip}"
                                IsEnabled="{Binding !Busy}" Command="{Binding OpenBranchesCommand}" />
-          <controls:ToolButton Grid.Column="5" Label="Esconder" Icon="{StaticResource IconStash}"
-                               Badge="{Binding StashBadge}"
-                               ToolTip.Tip="Guardar ou recuperar alterações (stash)"
-                               IsEnabled="{Binding !Busy}" Command="{Binding OpenStashCommand}" />
+          <StackPanel Grid.Column="5" Orientation="Horizontal">
+            <controls:ToolButton Label="Esconder" Icon="{StaticResource IconStash}"
+                                 Badge="{Binding StashBadge}"
+                                 ToolTip.Tip="Guardar ou recuperar alterações (stash)"
+                                 IsEnabled="{Binding !Busy}" Command="{Binding OpenStashCommand}" />
+            <controls:ToolButton Label="Desfazer" Icon="{StaticResource IconDesfazer}"
+                                 ToolTip.Tip="Desfazer a última ação: commit, emenda, reset, merge, pull, cherry-pick, troca de branch"
+                                 IsEnabled="{Binding !Busy}" Command="{Binding DesfazerCommand}" />
+          </StackPanel>
 
           <!-- esteira: só aparece quando o repositório tem GitHub Actions -->
           <controls:ToolButton Grid.Column="7" Label="{Binding CiRotulo}" Icon="{StaticResource IconEsteira}"

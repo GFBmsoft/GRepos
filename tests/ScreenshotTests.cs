@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.IO;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -346,6 +347,84 @@ public class ScreenshotTests
         };
 
         Shot(view, new object(), "leiame", 900, 700);
+    }
+
+    [AvaloniaFact]
+    public void Alteracoes_com_dois_arquivos_marcados()
+    {
+        var vm = new ChangesViewModel(new Repo { Id = "r1", Name = "Financeiro", Path = "." },
+            new MainViewModel(new FakeDialogs()), split: true);
+        vm.Staged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "src/Unit1.pas", Index = "M", Worktree = ".", Kind = ChangeKind.Tracked },
+            Staged = true,
+        });
+        foreach (var nome in new[] { "src/Juros.pas", "src/Juros.dfm", "src/Parametros.pas" })
+            vm.Unstaged.Add(new FileItemViewModel
+            {
+                Change = new FileChange { Path = nome, Index = ".", Worktree = "M", Kind = ChangeKind.Tracked },
+            });
+
+        var view = new ChangesView();
+        view.Loaded += (_, _) =>
+        {
+            var lista = view.FindControl<ListBox>("ListaUnstaged")!;
+            lista.SelectedItems!.Add(vm.Unstaged[0]);
+            lista.SelectedItems.Add(vm.Unstaged[1]);
+        };
+        Shot(view, vm, "alteracoes-marcados");
+    }
+
+    [AvaloniaFact]
+    public void Alteracoes_em_conflito_com_linhas_escolhidas()
+    {
+        var vm = new ChangesViewModel(new Repo { Id = "r1", Name = "Financeiro", Path = "." },
+            new MainViewModel(new FakeDialogs()), split: true) { Operacao = GitService.Operacao.Merge };
+        vm.Unstaged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "src/Juros.pas", Index = "U", Worktree = "U", Kind = ChangeKind.Conflict, Conflito = "UU" },
+        });
+        vm.Unstaged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "src/Parametros.pas", Index = ".", Worktree = "M", Kind = ChangeKind.Tracked },
+        });
+        vm.Diff.Title = "src/Parametros.pas  (local)";
+        vm.Diff.Load("diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1,4 +1,5 @@\n unit Parametros;\n-const Taxa = 1;\n+const Taxa = 2;\n+const Multa = 3;\n interface\n",
+            "Preparar bloco", _ => Task.CompletedTask);
+        vm.Diff.AlternarLinha(vm.Diff.Rows.OfType<DiffSplitRow>().First(r => r.RightIsAdd), direita: true);
+        Shot(new ChangesView(), vm, "alteracoes-conflito");
+    }
+
+    [AvaloniaFact]
+    public void Historico_do_arquivo_na_aba_de_autoria()
+    {
+        var vm = new FileHistoryViewModel(new Repo { Path = "." }, "src/Juros.pas", blame: true, split: true);
+        var linhas = new[] { "unit Juros;", "", "interface", "", "function Calcular(Valor: Currency): Currency;" };
+        for (var i = 0; i < linhas.Length; i++)
+            vm.Blame.Add(new BlameLineViewModel
+            {
+                Linha = new BlameLine
+                {
+                    Hash = i < 3 ? new string('a', 40) : i == 3 ? new string('b', 40) : new string('0', 40),
+                    Linha = i + 1, Autor = i < 3 ? "Gabriel Ferreira" : "Ana Souza",
+                    Quando = 1767261600, Assunto = "Estrutura inicial", Texto = linhas[i],
+                },
+                InicioDeBloco = i is 0 or 3 or 4,
+                Par = i < 3 || i == 4,
+            });
+        ShotJanela(new FileHistoryWindow { DataContext = vm }, "historico-arquivo-blame", 1000, 400);
+    }
+
+    [AvaloniaFact]
+    public void Rebase_interativo_com_acoes()
+    {
+        var vm = new RebaseViewModel(new Repo { Path = "." }, "abc") { Aviso = "Alguns destes commits já estão no remoto: depois de reorganizar, o envio vai exigir push forçado." };
+        foreach (var (h, s) in new[] { ("d", "Corrige typo"), ("c", "Ajusta juros"), ("b", "WIP"), ("a", "Cálculo de juros compostos") })
+            vm.Itens.Add(new RebaseItemViewModel(new ItemRebase { Hash = new string(h[0], 40), Assunto = s, Mensagem = s }, vm));
+        vm.Itens[0].Acao = 3;
+        vm.Itens[1].Acao = 1;
+        vm.Itens[2].Acao = 4;
+        ShotJanela(new RebaseWindow { DataContext = vm }, "rebase", 860, 480);
     }
 
     [AvaloniaFact]

@@ -34,6 +34,8 @@ public sealed partial class FileItemViewModel : ObservableObject
     };
 
     public bool CanDiscard => Change.Kind != ChangeKind.Conflict;
+    public bool IsConflito => Change.Kind == ChangeKind.Conflict;
+    public bool PodePreparar => !IsConflito;
 }
 
 public sealed partial class ChangesViewModel : ObservableObject
@@ -62,7 +64,40 @@ public sealed partial class ChangesViewModel : ObservableObject
     public string CommitCaption => Staged.Count > 0 ? $"Commit ({Staged.Count})" : "Commit";
 
     partial void OnCommitMessageChanged(string value) => OnPropertyChanged(nameof(CanCommit));
-    partial void OnAmendChanged(bool value) => OnPropertyChanged(nameof(CanCommit));
+    partial void OnAmendChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanCommit));
+        _ = CarregarMensagemDoUltimoAsync(value);
+    }
+
+    /// <summary>Mensagem posta pelo "Emendar último", para saber se o usuário mexeu nela.</summary>
+    private string? _mensagemDoUltimo;
+
+    /// <summary>
+    /// Emendar é quase sempre para corrigir a mensagem: ela vem preenchida com a do último
+    /// commit. Ao desmarcar, sai — a menos que já tenha sido editada.
+    /// </summary>
+    private async Task CarregarMensagemDoUltimoAsync(bool emendar)
+    {
+        if (!emendar)
+        {
+            if (_mensagemDoUltimo is not null && CommitMessage == _mensagemDoUltimo) CommitMessage = "";
+            _mensagemDoUltimo = null;
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(CommitMessage)) return;
+        try
+        {
+            var msg = await GitService.UltimaMensagemAsync(_repo.Path);
+            if (!Amend || !string.IsNullOrWhiteSpace(CommitMessage)) return;
+            _mensagemDoUltimo = msg;
+            CommitMessage = msg;
+        }
+        catch (Exception)
+        {
+            // repositório sem commits: não há o que emendar, e o git avisa no commit
+        }
+    }
     partial void OnBusyChanged(bool value) => OnPropertyChanged(nameof(CanCommit));
 
     partial void OnSelectedStagedChanged(FileItemViewModel? value)
@@ -118,6 +153,9 @@ public sealed partial class ChangesViewModel : ObservableObject
 
             // o status saiu da mesma chamada: aplicar direto evita um segundo "git status"
             _main.ApplyStatus(_repo.Id, status);
+            GuardarRemoto(status);
+            Operacao = GitService.OperacaoEmAndamento(_repo.Path);
+            OnPropertyChanged(nameof(OperacaoTexto));
         }
         catch (Exception e)
         {
@@ -136,8 +174,10 @@ public sealed partial class ChangesViewModel : ObservableObject
     {
         try
         {
-            var raw = await GitService.DiffFileAsync(
-                _repo.Path, item.Path, item.Staged, item.Change.Kind == ChangeKind.Untracked);
+            var raw = item.IsConflito
+                ? await GitService.DiffConflitoAsync(_repo.Path, item.Path)
+                : await GitService.DiffFileAsync(
+                    _repo.Path, item.Path, item.Staged, item.Change.Kind == ChangeKind.Untracked);
             var key = $"{item.Staged}|{item.Path}";
 
             // diff igual ao que já está na tela não é remontado: evita piscar e
@@ -146,11 +186,20 @@ public sealed partial class ChangesViewModel : ObservableObject
             _lastDiffKey = key;
             _lastDiffRaw = raw;
 
+            if (item.IsConflito)
+            {
+                // somente leitura: preparar bloco de arquivo em conflito não faz sentido
+                Diff.Title = item.Path + "  (em conflito: marcadores <<<<<<< e >>>>>>> mostram os dois lados)";
+                Diff.Load(raw);
+                return;
+            }
+
             Diff.Title = item.Path + (item.Staged ? "  (preparado)" : "  (local)");
             Diff.Load(
                 raw,
                 item.Staged ? "Remover bloco" : "Preparar bloco",
-                patch => RunAsync(() => GitService.ApplyPatchAsync(_repo.Path, patch, true, item.Staged)));
+                patch => RunAsync(() => GitService.ApplyPatchAsync(_repo.Path, patch, true, item.Staged)),
+                reverso: item.Staged);
         }
         catch (Exception e)
         {
@@ -180,11 +229,196 @@ public sealed partial class ChangesViewModel : ObservableObject
     // Como os botões de TODAS as linhas apontam para o mesmo comando, a lista inteira
     // acinzentava e voltava a cada clique — era a piscada do grid.
 
-    [RelayCommand(AllowConcurrentExecutions = true)]
-    private Task StageAll() => RunAsync(() => GitService.StageAsync(_repo.Path, Unstaged.Select(f => f.Path)));
+    // ------------------------------------------- histórico do arquivo
+
+    private string? ArquivoAtual => (SelectedStaged ?? SelectedUnstaged)?.Path;
+
+    [RelayCommand]
+    private Task HistoricoDoArquivo() =>
+        ArquivoAtual is { } p ? _main.MostrarHistoricoDoArquivoAsync(_repo, p, blame: false) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task AutoriaDoArquivo() =>
+        ArquivoAtual is { } p ? _main.MostrarHistoricoDoArquivoAsync(_repo, p, blame: true) : Task.CompletedTask;
+
+    // ---------------------------------------------------------- conflitos
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemOperacao), nameof(OperacaoTexto), nameof(ContinuarRotulo))]
+    private GitService.Operacao _operacao;
+
+    public bool TemOperacao => Operacao != GitService.Operacao.Nenhuma;
+
+    public string OperacaoTexto
+    {
+        get
+        {
+            var nome = Operacao switch
+            {
+                GitService.Operacao.Merge => "Merge",
+                GitService.Operacao.Rebase => "Rebase",
+                GitService.Operacao.CherryPick => "Cherry-pick",
+                GitService.Operacao.Revert => "Revert",
+                _ => "",
+            };
+            var conflitos = Unstaged.Count(f => f.IsConflito);
+            return conflitos > 0
+                ? $"{nome} em andamento: {conflitos} arquivo(s) em conflito. Escolha o lado em cada um (Meu / Deles) ou edite e marque como resolvido."
+                : $"{nome} em andamento, sem conflitos pendentes. Continue para concluir.";
+        }
+    }
+
+    public string ContinuarRotulo => Operacao == GitService.Operacao.Merge ? "Concluir merge" : "Continuar";
 
     [RelayCommand(AllowConcurrentExecutions = true)]
-    private Task UnstageAll() => RunAsync(() => GitService.UnstageAsync(_repo.Path, Staged.Select(f => f.Path)));
+    private Task ManterMeu(FileItemViewModel item) =>
+        RunAsync(() => GitService.ResolverConflitoAsync(_repo.Path, item.Change, manterMeu: true));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task ManterDeles(FileItemViewModel item) =>
+        RunAsync(() => GitService.ResolverConflitoAsync(_repo.Path, item.Change, manterMeu: false));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task MarcarResolvido(FileItemViewModel item) =>
+        RunAsync(() => GitService.MarcarResolvidoAsync(_repo.Path, item.Path));
+
+    [RelayCommand]
+    private Task ContinuarOperacao() =>
+        RunAsync(() => GitService.ContinuarOperacaoAsync(_repo.Path, Operacao));
+
+    [RelayCommand]
+    private async Task AbortarOperacao()
+    {
+        var ok = await _main.ConfirmAsync("Abortar",
+            "Desistir da operação e voltar o repositório ao estado de antes dela?\n\n" +
+            "As resoluções de conflito feitas até aqui serão perdidas.");
+        if (!ok) return;
+        await RunAsync(() => GitService.AbortarOperacaoAsync(_repo.Path, Operacao));
+    }
+
+    // ---------------------------------------------------- seleção múltipla
+    // Ctrl/Shift+clique marcam vários arquivos; com dois ou mais marcados, os botões do
+    // cabeçalho passam a agir só sobre eles. Com um só, continuam valendo para a lista
+    // inteira: um item está sempre selecionado (é o que mostra o diff), e "Preparar tudo"
+    // não pode virar "preparar este" sem o usuário perceber.
+
+    private List<FileItemViewModel> _marcadosStaged = new();
+    private List<FileItemViewModel> _marcadosUnstaged = new();
+
+    /// <summary>Chamado pela view a cada mudança de seleção de uma das listas.</summary>
+    public void DefinirSelecao(bool staged, IEnumerable<FileItemViewModel> itens)
+    {
+        if (staged) _marcadosStaged = itens.ToList();
+        else _marcadosUnstaged = itens.ToList();
+        OnPropertyChanged(nameof(PrepararRotulo));
+        OnPropertyChanged(nameof(RemoverRotulo));
+        OnPropertyChanged(nameof(DescartarRotulo));
+    }
+
+    /// <summary>Alvo dos botões do cabeçalho: os marcados (se 2+) ou a lista toda.</summary>
+    private static List<FileItemViewModel> Alvo(List<FileItemViewModel> marcados, IEnumerable<FileItemViewModel> todos) =>
+        (marcados.Count >= 2 ? marcados : todos).ToList();
+
+    public string PrepararRotulo => _marcadosUnstaged.Count >= 2 ? $"Preparar selecionados ({_marcadosUnstaged.Count})" : "Preparar tudo";
+    public string RemoverRotulo => _marcadosStaged.Count >= 2 ? $"Remover selecionados ({_marcadosStaged.Count})" : "Remover tudo";
+    public string DescartarRotulo => _marcadosUnstaged.Count >= 2 ? $"Descartar selecionados ({_marcadosUnstaged.Count})" : "Descartar tudo";
+
+    // ------------------------------------------------------------ reverter
+
+    private string? _upstream;
+    private int _ahead;
+
+    public bool TemRemoto => _upstream is not null;
+    public string VoltarAoRemotoRotulo => _upstream is null ? "Voltar ao remoto" : $"Voltar ao remoto ({_upstream})";
+
+    private void GuardarRemoto(RepoStatus status)
+    {
+        _upstream = string.IsNullOrEmpty(status.Upstream) ? null : status.Upstream;
+        _ahead = status.Ahead;
+        OnPropertyChanged(nameof(TemRemoto));
+        OnPropertyChanged(nameof(VoltarAoRemotoRotulo));
+    }
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task StageAll() =>
+        // conflito fica de fora: "git add" nele marcaria como resolvido, com os marcadores dentro
+        RunAsync(() => GitService.StageAsync(_repo.Path,
+            Alvo(_marcadosUnstaged, Unstaged).Where(f => f.PodePreparar).Select(f => f.Path)));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task UnstageAll() =>
+        RunAsync(() => GitService.UnstageAsync(_repo.Path, Alvo(_marcadosStaged, Staged).Select(f => f.Path)));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task DiscardAll()
+    {
+        // conflito não se descarta daqui: resolve-se no arquivo
+        var alvo = Alvo(_marcadosUnstaged, Unstaged).Where(f => f.CanDiscard).ToList();
+        if (alvo.Count == 0) return;
+
+        var novos = alvo.Count(f => f.Change.Kind == ChangeKind.Untracked);
+        var ok = await _main.ConfirmAsync(
+            "Descartar alterações",
+            $"Descartar as alterações locais de {alvo.Count} arquivo(s)?\n\n" +
+            ListaCurta(alvo) +
+            (novos > 0 ? $"\n\n{novos} arquivo(s) novo(s) serão apagados do disco." : "") +
+            "\n\nO que já está preparado para commit fica. Esta ação não pode ser desfeita.");
+        if (!ok) return;
+
+        await RunAsync(() => GitService.DiscardAsync(
+            _repo.Path,
+            alvo.Where(f => f.Change.Kind != ChangeKind.Untracked).Select(f => f.Path),
+            alvo.Where(f => f.Change.Kind == ChangeKind.Untracked).Select(f => f.Path)));
+    }
+
+    private static string ListaCurta(List<FileItemViewModel> itens)
+    {
+        const int max = 8;
+        var linhas = itens.Take(max).Select(f => "  " + f.Path).ToList();
+        if (itens.Count > max) linhas.Add($"  … e mais {itens.Count - max}");
+        return string.Join("\n", linhas);
+    }
+
+    [RelayCommand]
+    private async Task VoltarAoUltimoCommit()
+    {
+        if (Staged.Count == 0 && Unstaged.Count == 0)
+        {
+            _main.Notify("Nada a reverter: não há alterações pendentes.");
+            return;
+        }
+        var ok = await _main.ConfirmAsync(
+            "Voltar ao último commit",
+            "Deixar o repositório exatamente como está no último commit da branch?\n\n" +
+            "Tudo o que estiver preparado ou alterado será descartado, e os arquivos novos " +
+            "(não rastreados) serão apagados. Arquivos ignorados pelo .gitignore ficam.\n\n" +
+            "Esta ação não pode ser desfeita.");
+        if (!ok) return;
+
+        await RunAsync(() => GitService.ReverterTudoAsync(_repo.Path, "HEAD"));
+    }
+
+    [RelayCommand]
+    private async Task VoltarAoRemoto()
+    {
+        if (_upstream is null)
+        {
+            _main.Notify("Esta branch não tem remoto configurado.", true);
+            return;
+        }
+        var perdidos = _ahead > 0
+            ? $"Os {_ahead} commit(s) locais ainda não enviados também serão descartados.\n\n"
+            : "";
+        var ok = await _main.ConfirmAsync(
+            "Voltar ao remoto",
+            $"Deixar a branch igual a {_upstream}, como estava na última busca?\n\n" +
+            "Tudo o que estiver preparado ou alterado será descartado, e os arquivos novos " +
+            "(não rastreados) serão apagados. Arquivos ignorados pelo .gitignore ficam.\n\n" +
+            perdidos + "Esta ação não pode ser desfeita.");
+        if (!ok) return;
+
+        await RunAsync(() => GitService.ReverterTudoAsync(_repo.Path, "@{upstream}"));
+    }
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task Stage(FileItemViewModel item) => RunAsync(() => GitService.StageAsync(_repo.Path, new[] { item.Path }));

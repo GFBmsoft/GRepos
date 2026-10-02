@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using GRepos.Models;
 
 namespace GRepos.Services;
 
@@ -122,8 +123,13 @@ public static class GitFlow
         };
     }
 
-    /// <summary>Grava as chaves e cria a develop a partir da principal, se ainda não existir.</summary>
-    public static async Task InicializarAsync(string repo, GitFlowConfig cfg, IReadOnlyCollection<string> locais)
+    /// <summary>
+    /// Grava as chaves e garante a develop local. Se o remoto já tem uma, a local nasce
+    /// dela e vinculada — antes nascia da principal, só local, e o Puxar falhava. Só sem
+    /// develop no remoto ela sai da principal.
+    /// </summary>
+    /// <returns>true quando a develop ficou só no computador (vale oferecer o envio).</returns>
+    public static async Task<bool> InicializarAsync(string repo, GitFlowConfig cfg, IReadOnlyCollection<Branch> branches)
     {
         await GitService.ConfigSetAsync(repo, "gitflow.branch.master", cfg.Master);
         await GitService.ConfigSetAsync(repo, "gitflow.branch.develop", cfg.Develop);
@@ -132,8 +138,31 @@ public static class GitFlow
         await GitService.ConfigSetAsync(repo, "gitflow.prefix.hotfix", cfg.Hotfix);
         await GitService.ConfigSetAsync(repo, "gitflow.prefix.versiontag", cfg.VersionTag);
 
-        if (!locais.Contains(cfg.Develop, StringComparer.OrdinalIgnoreCase))
-            await GitService.RunAsync(repo, new[] { "branch", cfg.Develop, cfg.Master });
+        var remota = branches
+            .Where(b => b.IsRemote && string.Equals(SemRemoto(b.Name, true), cfg.Develop, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(b => b.Name.StartsWith("origin/") ? 0 : 1)
+            .FirstOrDefault()?.Name;
+        var local = branches.FirstOrDefault(b => !b.IsRemote &&
+            string.Equals(b.Name, cfg.Develop, StringComparison.OrdinalIgnoreCase));
+
+        if (local is null)
+        {
+            if (remota is not null)
+                await GitService.RunAsync(repo, new[] { "branch", "--track", cfg.Develop, remota });
+            else
+            {
+                // --no-track: se a principal só existir como origin/main, a develop não
+                // pode ficar vinculada a ela
+                var principal = branches.Any(b => !b.IsRemote && b.Name == cfg.Master) ? cfg.Master : "origin/" + cfg.Master;
+                await GitService.RunAsync(repo, new[] { "branch", "--no-track", cfg.Develop, principal });
+            }
+        }
+        else if (local.Upstream is null && remota is not null)
+        {
+            await GitService.RunAsync(repo, new[] { "branch", "--set-upstream-to=" + remota, local.Name });
+        }
+
+        return remota is null;
     }
 
     // ------------------------------------------------------------------ ações

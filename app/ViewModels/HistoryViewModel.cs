@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using GRepos.Models;
 using GRepos.Services;
 
@@ -176,16 +177,53 @@ public sealed partial class HistoryViewModel : ObservableObject
 
     partial void OnSelectedFileChanged(CommitFileViewModel? value) => _ = LoadFileDiffAsync(value);
 
+    // ---------------------------------------------------------------- busca
+
+    /// <summary>Texto da busca: mensagem, autor ou hash. Vazio volta ao histórico normal.</summary>
+    [ObservableProperty] private string _busca = "";
+
+    public bool Buscando => !string.IsNullOrWhiteSpace(Busca);
+    public string ContagemTexto => Buscando ? $"{Count} encontrado(s)" : Count.ToString();
+
+    private System.Threading.CancellationTokenSource? _esperaBusca;
+
+    partial void OnBuscaChanged(string value)
+    {
+        OnPropertyChanged(nameof(Buscando));
+        // espera a digitação parar: um git log por tecla deixaria a lista pulando
+        _esperaBusca?.Cancel();
+        var cts = _esperaBusca = new System.Threading.CancellationTokenSource();
+        _ = Task.Delay(300, cts.Token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled) Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = LoadAsync());
+        }, TaskScheduler.Default);
+    }
+
+    [RelayCommand]
+    private void LimparBusca() => Busca = "";
+
     public async Task LoadAsync()
     {
         try
         {
-            var commits = await GitService.LogAsync(_repo.Path, _limit, AllBranches);
-            var rows = GraphBuilder.Build(commits);
-            var max = GraphBuilder.MaxLanes(rows);
+            var termo = Busca;
+            List<GraphRow> rows;
+            if (string.IsNullOrWhiteSpace(termo))
+            {
+                rows = GraphBuilder.Build(await GitService.LogAsync(_repo.Path, _limit, AllBranches));
+            }
+            else
+            {
+                // resultado da busca não é contínuo: sem grafo, só o ponto de cada commit
+                rows = (await GitService.SearchLogAsync(_repo.Path, termo, _limit, AllBranches))
+                    .Select(c => new GraphRow { Commit = c }).ToList();
+            }
+            if (termo != Busca) return; // a busca mudou enquanto o git respondia
+            var max = Math.Max(1, GraphBuilder.MaxLanes(rows));
 
             Commits = new ObservableCollection<CommitRowViewModel>(
                 rows.Select(r => new CommitRowViewModel { Commit = r.Commit, Row = r, MaxLanes = max }));
+            OnPropertyChanged(nameof(ContagemTexto));
 
             OnPropertyChanged(nameof(Count));
             SelectedCommit = null;
@@ -233,6 +271,130 @@ public sealed partial class HistoryViewModel : ObservableObject
         {
             _main.Notify(e.Message, true);
         }
+    }
+
+    // ------------------------------------------------------ ações no commit
+    // As do menu de contexto de commit do GitKraken: criar branch/tag ali, cherry-pick,
+    // reverter e resetar a branch atual. Todas agem sobre o commit selecionado.
+
+    [ObservableProperty] private bool _busy;
+
+    private async Task AcaoAsync(Func<Commit, Task> acao, string? aviso = null)
+    {
+        if (SelectedCommit is not { } row || Busy) return;
+        Busy = true;
+        try
+        {
+            await acao(row.Commit);
+            if (aviso is not null) _main.Notify(aviso);
+        }
+        catch (Exception e)
+        {
+            _main.Notify(ExplicarFalha(e.Message), true);
+        }
+        finally
+        {
+            Busy = false;
+            // mesmo com erro: um cherry-pick em conflito já mexeu no repositório
+            await LoadAsync();
+            try { await _main.RefreshRepoAsync(_repo.Id); } catch (Exception) { /* só o contador */ }
+        }
+    }
+
+    /// <summary>Conflito em cherry-pick/revert vira instrução, não só a saída crua do git.</summary>
+    public static string ExplicarFalha(string erro) =>
+        erro.Contains("conflict", StringComparison.OrdinalIgnoreCase) ||
+        erro.Contains("could not apply", StringComparison.OrdinalIgnoreCase) ||
+        erro.Contains("could not revert", StringComparison.OrdinalIgnoreCase)
+            ? "Parou em conflito. Resolva os arquivos na aba Alterações e faça o commit; " +
+              "para desistir, use Alterações → Reverter → Voltar ao último commit."
+            : erro;
+
+    private static bool EhMerge(Commit c) => c.Parents.Count > 1;
+
+    [RelayCommand]
+    private Task HistoricoDoArquivo() =>
+        SelectedFile is { } f ? _main.MostrarHistoricoDoArquivoAsync(_repo, f.Path, blame: false) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task AutoriaDoArquivo() =>
+        SelectedFile is { } f ? _main.MostrarHistoricoDoArquivoAsync(_repo, f.Path, blame: true) : Task.CompletedTask;
+
+    /// <summary>Rebase interativo do commit selecionado até o HEAD.</summary>
+    [RelayCommand]
+    private async Task Reorganizar()
+    {
+        if (SelectedCommit is not { } row) return;
+        await _main.MostrarRebaseAsync(_repo, row.Commit.Hash);
+    }
+
+    [RelayCommand]
+    private async Task CriarBranchAqui()
+    {
+        if (SelectedCommit is not { } row) return;
+        var nome = await _main.PromptAsync("Criar branch", $"Nome da nova branch a partir de {row.Short}:");
+        if (string.IsNullOrWhiteSpace(nome)) return;
+        await AcaoAsync(c => GitService.CreateBranchAtAsync(_repo.Path, nome.Trim(), c.Hash),
+            $"Branch {nome.Trim()} criada em {row.Short}.");
+    }
+
+    [RelayCommand]
+    private async Task CriarTagAqui()
+    {
+        if (SelectedCommit is not { } row) return;
+        var nome = await _main.PromptAsync("Criar tag", $"Nome da tag em {row.Short}:");
+        if (string.IsNullOrWhiteSpace(nome)) return;
+        await AcaoAsync(c => GitService.CreateTagAsync(_repo.Path, nome.Trim(), c.Hash),
+            $"Tag {nome.Trim()} criada em {row.Short}. Ela só vai ao remoto com um push da tag.");
+    }
+
+    [RelayCommand]
+    private async Task CherryPick()
+    {
+        if (SelectedCommit is not { } row) return;
+        var ok = await _main.ConfirmAsync("Cherry-pick",
+            $"Aplicar o commit {row.Short} \"{row.Subject}\" na branch atual?\n\n" +
+            "Um commit novo, com as mesmas alterações, será criado." +
+            (EhMerge(row.Commit) ? "\n\nÉ um merge: as alterações são tomadas em relação ao primeiro pai." : ""));
+        if (!ok) return;
+        await AcaoAsync(c => GitService.CherryPickAsync(_repo.Path, c.Hash, EhMerge(c)),
+            $"Commit {row.Short} aplicado na branch atual.");
+    }
+
+    [RelayCommand]
+    private async Task ReverterCommit()
+    {
+        if (SelectedCommit is not { } row) return;
+        var ok = await _main.ConfirmAsync("Reverter commit",
+            $"Criar um commit que desfaz {row.Short} \"{row.Subject}\"?\n\n" +
+            "O histórico não é reescrito: dá para enviar normalmente, mesmo que o commit já esteja no remoto.");
+        if (!ok) return;
+        await AcaoAsync(c => GitService.RevertCommitAsync(_repo.Path, c.Hash, EhMerge(c)),
+            $"Commit {row.Short} revertido.");
+    }
+
+    [RelayCommand]
+    private Task ResetSoft() => ResetarAsync(GitService.ModoReset.Soft,
+        "As alterações dos commits desfeitos ficam preparadas para um novo commit.");
+
+    [RelayCommand]
+    private Task ResetMixed() => ResetarAsync(GitService.ModoReset.Mixed,
+        "As alterações dos commits desfeitos voltam para alterações locais (não preparadas).");
+
+    [RelayCommand]
+    private Task ResetHard() => ResetarAsync(GitService.ModoReset.Hard,
+        "As alterações dos commits desfeitos E as alterações locais pendentes serão DESCARTADAS.\n\n" +
+        "Esta ação não pode ser desfeita.");
+
+    private async Task ResetarAsync(GitService.ModoReset modo, string efeito)
+    {
+        if (SelectedCommit is not { } row) return;
+        var ok = await _main.ConfirmAsync("Resetar branch",
+            $"Mover a branch atual para {row.Short} \"{row.Subject}\"?\n\n{efeito}\n\n" +
+            "Se os commits desfeitos já estiverem no remoto, o próximo envio vai exigir push forçado.");
+        if (!ok) return;
+        await AcaoAsync(c => GitService.ResetAsync(_repo.Path, c.Hash, modo),
+            $"Branch movida para {row.Short}.");
     }
 
     private async Task LoadFileDiffAsync(CommitFileViewModel? file)

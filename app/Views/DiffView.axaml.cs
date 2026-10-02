@@ -1,5 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using GRepos.ViewModels;
@@ -16,6 +18,24 @@ public partial class DiffView : UserControl
             PushCharWidth();
             PushViewport();
         };
+        this.FindControl<ItemsControl>("Linhas")!.Tapped += LinhaTocada;
+    }
+
+    /// <summary>
+    /// Clique numa linha + ou − marca/desmarca para preparar só ela. O Tag da faixa diz
+    /// o lado ("L" esquerda, "R" direita, "U" unificado); o view model ignora o resto.
+    /// </summary>
+    private void LinhaTocada(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is not DiffViewModel vm) return;
+        for (var v = e.Source as Visual; v is not null && v != sender; v = v.GetVisualParent())
+        {
+            if (v is Border { Tag: string lado, DataContext: DiffRowBase row })
+            {
+                vm.AlternarLinha(row, lado == "R");
+                return;
+            }
+        }
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
