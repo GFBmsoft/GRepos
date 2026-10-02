@@ -187,8 +187,13 @@ public static class GitFlow
         return limpo.StartsWith(prefixo, StringComparison.OrdinalIgnoreCase) ? limpo : prefixo + limpo;
     }
 
+    /// <summary>
+    /// --no-track: a branch nova não herda vínculo da base. Partindo de uma remota, o git
+    /// a ligaria à develop/main de lá, e o Enviar falhava ou mandaria a feature para a base.
+    /// O vínculo certo (origin/feat/x) nasce no primeiro Enviar.
+    /// </summary>
     public static Task IniciarAsync(string repo, TipoBranch tipo, string nome, GitFlowConfig cfg) =>
-        GitService.RunAsync(repo, new[] { "checkout", "-b", NomeCompleto(tipo, nome, cfg), Base(tipo, cfg) });
+        GitService.RunAsync(repo, new[] { "checkout", "--no-track", "-b", NomeCompleto(tipo, nome, cfg), Base(tipo, cfg) });
 
     /// <summary>
     /// Passos de "finalizar", na ordem, para mostrar na confirmação e para executar.

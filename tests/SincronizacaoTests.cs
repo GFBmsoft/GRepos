@@ -146,6 +146,42 @@ public class SincronizacaoTests
         finally { Limpar(Raiz(meu)); }
     }
 
+    /// <summary>
+    /// O caso do PAF_NFC-e: feature criada aqui a partir de origin/develop fica vinculada à
+    /// develop; o Enviar tem de criar origin/feat/... e não pode tocar na develop.
+    /// </summary>
+    [Fact]
+    public async Task Enviar_feature_vinculada_a_develop_cria_a_propria_remota()
+    {
+        var (_, _, meu) = await Cenario();
+        try
+        {
+            await Git(meu, "checkout", "-q", "-b", "feat/skill", "origin/develop"); // vincula à develop
+            await Commit(meu, "s.txt", "skill");
+            var developAntes = await Hash(meu, "origin/develop");
+
+            await GitService.PushAsync(meu, setUpstream: false);
+
+            Assert.Equal(await Hash(meu, "feat/skill"), await Hash(meu, "origin/feat/skill"));
+            Assert.Equal("origin/feat/skill", (await Git(meu, "rev-parse", "--abbrev-ref", "@{upstream}")).Trim());
+            await Git(meu, "fetch", "-q");
+            Assert.Equal(developAntes, await Hash(meu, "origin/develop"));
+        }
+        finally { Limpar(Raiz(meu)); }
+    }
+
+    [Fact]
+    public async Task Feature_do_gitflow_nasce_sem_vinculo_com_a_base()
+    {
+        var (_, _, meu) = await Cenario();
+        try
+        {
+            await GitFlow.IniciarAsync(meu, TipoBranch.Feature, "nova", new GitFlowConfig { Master = "main", Develop = "origin/develop" });
+            Assert.False(await GitService.TemUpstreamAsync(meu));
+        }
+        finally { Limpar(Raiz(meu)); }
+    }
+
     [Fact]
     public async Task Trocar_numa_remota_cria_a_local_vinculada_sem_soltar_o_head()
     {

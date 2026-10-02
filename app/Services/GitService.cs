@@ -773,11 +773,32 @@ public static class GitService
         return (criadas, atualizadas);
     }
 
+    /// <summary>
+    /// Envia a branch atual. Também cria o vínculo quando a branch está ligada a outra de
+    /// nome diferente — o caso de "feat/x" criada de origin/develop, que o git vincula à
+    /// develop: o push simples recusava ("upstream ... does not match the name"), e com
+    /// outra configuração mandaria a feature para dentro da develop.
+    /// </summary>
     public static async Task<string> PushAsync(string repo, bool setUpstream)
     {
-        if (!setUpstream) return await RedeAsync(repo, "push");
-        var branch = (await Run(repo, "rev-parse", "--abbrev-ref", "HEAD")).Trim();
+        var branch = (await Run(repo, "branch", "--show-current")).Trim();
+        if (!setUpstream && branch.Length > 0) setUpstream = await UpstreamDeOutroNomeAsync(repo, branch);
+        if (!setUpstream || branch.Length == 0) return await RedeAsync(repo, "push");
         return await RedeAsync(repo, "push", "--set-upstream", "origin", branch);
+    }
+
+    /// <summary>A branch está vinculada a uma remota de nome diferente (ex.: feat/x → develop)?</summary>
+    public static async Task<bool> UpstreamDeOutroNomeAsync(string repo, string branch)
+    {
+        try
+        {
+            var merge = (await Run(repo, "config", "--get", $"branch.{branch}.merge")).Trim();
+            return merge.Length > 0 && merge != "refs/heads/" + branch;
+        }
+        catch (GitException)
+        {
+            return false; // sem vínculo nenhum: o chamador já trata
+        }
     }
 
     // -------------------------------------------------------------- branches
