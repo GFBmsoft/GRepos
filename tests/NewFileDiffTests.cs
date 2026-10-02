@@ -77,6 +77,49 @@ public class NewFileDiffTests
         finally { Limpar(dir); }
     }
 
+    /// <summary>
+    /// Fonte Delphi em ANSI (Windows-1252): o acento aparece inteiro, não como "�", e o
+    /// bloco volta ao git nos bytes originais — senão o "git apply" não casa o contexto.
+    /// </summary>
+    [Fact]
+    public async Task Arquivo_ansi_mostra_acento_e_aceita_preparar_bloco()
+    {
+        var dir = await RepoComArquivoNovo("", "u.pas");
+        var arquivo = Path.Combine(dir, "u.pas");
+        try
+        {
+            File.WriteAllBytes(arquivo, TextoGit.Ansi.GetBytes("{O módulo grava}\nserviço\nfim\n"));
+
+            var raw = await GitService.DiffFileAsync(dir, "u.pas", staged: false, untracked: true);
+            Assert.Contains("+{O módulo grava}", raw);
+            var diff = DiffParser.Parse(raw);
+            await GitService.ApplyPatchAsync(dir, DiffParser.BuildHunkPatch(diff, diff.Hunks[0]), cached: true, reverse: false);
+            await Git(dir, "commit", "-qm", "ansi");
+
+            File.WriteAllBytes(arquivo, TextoGit.Ansi.GetBytes("{O módulo grava}\nserviço alterado\nfim\n"));
+            raw = await GitService.DiffFileAsync(dir, "u.pas", staged: false);
+            Assert.Contains("-serviço\n", raw.Replace("\r", ""));
+            Assert.Contains("+serviço alterado", raw);
+
+            diff = DiffParser.Parse(raw);
+            await GitService.ApplyPatchAsync(dir, DiffParser.BuildHunkPatch(diff, diff.Hunks[0]), cached: true, reverse: false);
+            var preparado = await GitService.DiffFileAsync(dir, "u.pas", staged: true);
+            Assert.Contains("+serviço alterado", preparado);
+
+            var historico = await GitService.CommitFileDiffAsync(dir, "HEAD", "u.pas");
+            Assert.Contains("+{O módulo grava}", historico);
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
+    public void Linhas_utf8_e_ansi_no_mesmo_diff()
+    {
+        var bytes = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Concat(
+            System.Text.Encoding.UTF8.GetBytes("-ação\n"), TextoGit.Ansi.GetBytes("+ação – fim\n")));
+        Assert.Equal("-ação\n+ação – fim\n", TextoGit.Decodificar(bytes));
+    }
+
     [Fact]
     public async Task Arquivo_binario_nao_e_despejado_na_tela()
     {

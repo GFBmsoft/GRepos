@@ -60,7 +60,7 @@ public static class GitService
 
     private static async Task<string> ExecutarAsync(
         string repo, IEnumerable<string> args, string? stdin, TimeSpan tempoLimite,
-        (string Nome, string Valor)[] env)
+        (string Nome, string Valor)[] env, bool conteudo = false, Encoding? encodingStdin = null)
     {
         var psi = new ProcessStartInfo("git")
         {
@@ -69,8 +69,10 @@ public static class GitService
             RedirectStandardInput = stdin is not null,
             UseShellExecute = false,
             CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8,
+            // conteúdo de arquivo: Latin1 guarda os bytes intactos para o TextoGit decidir
+            StandardOutputEncoding = conteudo ? Encoding.Latin1 : Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
+            StandardInputEncoding = stdin is null ? null : encodingStdin ?? new UTF8Encoding(false),
         };
         psi.ArgumentList.Add("-C");
         psi.ArgumentList.Add(repo);
@@ -138,10 +140,14 @@ public static class GitService
             var msg = stderr.Trim();
             throw new GitException(msg.Length > 0 ? msg : $"git falhou (código {proc.ExitCode})");
         }
-        return stdout;
+        return conteudo ? TextoGit.Decodificar(Encoding.Latin1.GetBytes(stdout)) : stdout;
     }
 
     private static Task<string> Run(string repo, params string[] args) => RunAsync(repo, args);
+
+    /// <summary>Saída com conteúdo de arquivo (diff, show), que pode estar em ANSI.</summary>
+    private static Task<string> RunConteudoAsync(string repo, IEnumerable<string> args) =>
+        ExecutarAsync(repo, args, null, default, Array.Empty<(string, string)>(), conteudo: true);
 
     /// <summary>
     /// Chaves de config do repositório que casam com o padrão. Sem nenhuma, o git sai
@@ -377,7 +383,7 @@ public static class GitService
         args.Add("--");
         args.Add(file);
 
-        return await RunAsync(repo, args);
+        return await RunConteudoAsync(repo, args);
     }
 
     /// <summary>Tamanho a partir do qual o arquivo novo não é exibido inteiro.</summary>
@@ -410,7 +416,7 @@ public static class GitService
         if (Array.IndexOf(bytes, (byte)0) >= 0)
             return $"diff --git a/{file} b/{file}\nBinary files /dev/null and b/{file} differ\n";
 
-        var texto = new UTF8Encoding(false).GetString(bytes);
+        var texto = TextoGit.Decodificar(bytes);
         var semQuebraFinal = texto.Length > 0 && !texto.EndsWith("\n");
         var linhas = texto.Split('\n');
         var total = linhas.Length;
@@ -476,7 +482,22 @@ public static class GitService
         if (reverse) args.Add("--reverse");
         args.Add("-");
         if (!patch.EndsWith("\n")) patch += "\n";
-        return RunAsync(repo, args, patch);
+        return ExecutarAsync(repo, args, patch, default, Array.Empty<(string, string)>(),
+            encodingStdin: TextoGit.EncodingDoArquivo(ArquivoDoPatch(repo, patch)));
+    }
+
+    /// <summary>Caminho em disco do arquivo de um patch, pela linha "+++ b/" (ou "--- a/").</summary>
+    private static string ArquivoDoPatch(string repo, string patch)
+    {
+        string? rel = null;
+        foreach (var linha in patch.Split('\n'))
+        {
+            var l = linha.TrimEnd('\r');
+            if (l.StartsWith("+++ b/")) { rel = l[6..]; break; }
+            if (l.StartsWith("--- a/")) rel ??= l[6..];
+            if (l.StartsWith("@@")) break;
+        }
+        return rel is null ? "" : Path.Combine(repo, rel.Replace('/', Path.DirectorySeparatorChar));
     }
 
     public static Task<string> CommitAsync(string repo, string message, bool amend)
@@ -739,7 +760,7 @@ public static class GitService
     }
 
     public static Task<string> CommitFileDiffAsync(string repo, string hash, string file) =>
-        Run(repo, "show", "--no-color", "--format=", "-m", "--first-parent", hash, "--", file);
+        RunConteudoAsync(repo, new[] { "show", "--no-color", "--format=", "-m", "--first-parent", hash, "--", file });
 
     /// <summary>URL do remoto "origin"; vazio quando o repositório não tem remoto.</summary>
     public static async Task<string> RemoteUrlAsync(string repo)
