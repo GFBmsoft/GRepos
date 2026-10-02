@@ -52,6 +52,59 @@ public static class TextoGit
     }
 
     /// <summary>
+    /// Caminho como o git o escreve: entre aspas e com escapes estilo C ("\303\243" são os
+    /// bytes UTF-8 de "ã") quando tem caractere especial. Sem aspas, volta como veio.
+    /// </summary>
+    public static string Caminho(string s)
+    {
+        if (s.Length < 2 || s[0] != '"' || s[^1] != '"') return s;
+
+        var bytes = new System.Collections.Generic.List<byte>(s.Length);
+        for (var i = 1; i < s.Length - 1; i++)
+        {
+            var c = s[i];
+            if (c != '\\' || i + 1 >= s.Length - 1)
+            {
+                bytes.AddRange(Utf8.GetBytes(c.ToString()));
+                continue;
+            }
+
+            var e = s[++i];
+            if (e is >= '0' and <= '7' && i + 2 < s.Length - 1)
+            {
+                bytes.Add(Convert.ToByte(s.Substring(i, 3), 8));
+                i += 2;
+                continue;
+            }
+            bytes.Add(e switch
+            {
+                'n' => (byte)'\n', 't' => (byte)'\t', 'r' => (byte)'\r', 'a' => 7, 'b' => 8,
+                'f' => 12, 'v' => 11, _ => (byte)e,
+            });
+        }
+        return Utf8.GetString(bytes.ToArray());
+    }
+
+    /// <summary>
+    /// Bytes do patch para o "git apply": cabeçalho (caminhos) sempre em UTF-8, que é como
+    /// o git guarda nomes; linhas de conteúdo no encoding do arquivo.
+    /// </summary>
+    public static byte[] CodificarPatch(string patch, Encoding conteudo)
+    {
+        var saida = new System.Collections.Generic.List<byte>(patch.Length);
+        var noBloco = false;
+        foreach (var linha in patch.Split('\n'))
+        {
+            if (linha.StartsWith("diff --git ")) noBloco = false;
+            else if (linha.StartsWith("@@")) noBloco = true;
+            saida.AddRange((noBloco ? conteudo : Utf8).GetBytes(linha));
+            saida.Add((byte)'\n');
+        }
+        saida.RemoveAt(saida.Count - 1); // o Split cria uma linha a mais que as quebras
+        return saida.ToArray();
+    }
+
+    /// <summary>
     /// Encoding em que um patch deve voltar ao git: o mesmo do arquivo em disco, senão o
     /// "git apply" não acha as linhas de contexto. Arquivo apagado ou ilegível fica em UTF-8.
     /// </summary>

@@ -76,6 +76,10 @@ public static class GitService
         };
         psi.ArgumentList.Add("-C");
         psi.ArgumentList.Add(repo);
+        // sem isto "Impressão/" sai como "Impress\303\243o/": a tela mostra o escape e o
+        // "git add" não acha o arquivo
+        psi.ArgumentList.Add("-c");
+        psi.ArgumentList.Add("core.quotepath=false");
         foreach (var a in args) psi.ArgumentList.Add(a);
 
         // Herdar estas variáveis de quem abriu o app (terminal, script, agente) impede o
@@ -332,14 +336,14 @@ public static class GitService
         {
             if (line.StartsWith("? "))
             {
-                list.Add(new FileChange { Path = line[2..].Trim('\r'), Index = ".", Worktree = "?", Kind = ChangeKind.Untracked });
+                list.Add(new FileChange { Path = TextoGit.Caminho(line[2..].Trim('\r')), Index = ".", Worktree = "?", Kind = ChangeKind.Untracked });
             }
             else if (line.StartsWith("u "))
             {
                 // u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path> — 9 campos antes do caminho
                 var parts = line[2..].Split(' ', 10);
                 if (parts.Length == 10)
-                    list.Add(new FileChange { Path = parts[9].Trim('\r'), Index = "U", Worktree = "U", Kind = ChangeKind.Conflict });
+                    list.Add(new FileChange { Path = TextoGit.Caminho(parts[9].Trim('\r')), Index = "U", Worktree = "U", Kind = ChangeKind.Conflict });
             }
             else if ((line.StartsWith("1 ") || line.StartsWith("2 ")) && line.Length > 4)
             {
@@ -361,8 +365,8 @@ public static class GitService
                 }
                 list.Add(new FileChange
                 {
-                    Path = path,
-                    OrigPath = orig,
+                    Path = TextoGit.Caminho(path),
+                    OrigPath = orig is null ? null : TextoGit.Caminho(orig),
                     Index = xy[..1],
                     Worktree = xy[1..2],
                     Kind = ChangeKind.Tracked,
@@ -482,8 +486,10 @@ public static class GitService
         if (reverse) args.Add("--reverse");
         args.Add("-");
         if (!patch.EndsWith("\n")) patch += "\n";
-        return ExecutarAsync(repo, args, patch, default, Array.Empty<(string, string)>(),
-            encodingStdin: TextoGit.EncodingDoArquivo(ArquivoDoPatch(repo, patch)));
+        // os bytes já vêm prontos; Latin1 só os carrega até o stdin sem alterar nenhum
+        var bytes = TextoGit.CodificarPatch(patch, TextoGit.EncodingDoArquivo(ArquivoDoPatch(repo, patch)));
+        return ExecutarAsync(repo, args, Encoding.Latin1.GetString(bytes), default,
+            Array.Empty<(string, string)>(), encodingStdin: Encoding.Latin1);
     }
 
     /// <summary>Caminho em disco do arquivo de um patch, pela linha "+++ b/" (ou "--- a/").</summary>

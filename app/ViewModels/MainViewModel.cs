@@ -1140,6 +1140,21 @@ public sealed partial class MainViewModel : ObservableObject
         RebuildTree();
         SelectRepo(repo.Id);
         _ = RefreshRepoAsync(repo.Id);
+        _ = PreencherModeloDoRemotoAsync(repo);
+    }
+
+    /// <summary>
+    /// Repositório que já chega com remoto ganha o link no padrão do GRepos ({{user}} no
+    /// lugar da credencial). Só o modelo: o .git/config muda quando o usuário salva a
+    /// configuração do repositório.
+    /// </summary>
+    private async Task PreencherModeloDoRemotoAsync(Repo repo)
+    {
+        if (string.IsNullOrEmpty(Settings.GithubUser)) return;
+        var modelo = await RemotoConfig.SugerirAsync(repo.Path);
+        if (modelo.Length == 0 || repo.RemoteTemplate is not null) return;
+        repo.RemoteTemplate = modelo;
+        Persist();
     }
 
     public void UpdateRepository(Repo repo, string name, string? groupId, string? pairKey, string? role,

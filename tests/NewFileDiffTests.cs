@@ -112,6 +112,51 @@ public class NewFileDiffTests
         finally { Limpar(dir); }
     }
 
+    /// <summary>
+    /// Pasta com acento (o "Units/Impressão" do bmOS): o git escapava o caminho como
+    /// "Impress\303\243o", a lista mostrava isso e o "git add" não achava o arquivo.
+    /// </summary>
+    [Fact]
+    public async Task Pasta_com_acento_aparece_e_e_preparada()
+    {
+        var dir = await RepoComArquivoNovo("");
+        var pasta = Path.Combine(dir, "Impressão");
+        var arquivo = Path.Combine(pasta, "Ação.pas");
+        try
+        {
+            Directory.CreateDirectory(pasta);
+            File.WriteAllBytes(arquivo, TextoGit.Ansi.GetBytes("impressão\nfim\n"));
+            await Git(dir, "add", ".");
+            await Git(dir, "commit", "-qm", "pasta");
+
+            File.WriteAllBytes(arquivo, TextoGit.Ansi.GetBytes("impressão\nmeio\nfim\n"));
+            File.WriteAllText(Path.Combine(pasta, "Nova ção.txt"), "x\n");
+
+            var (_, files) = await GitService.StatusAndChangesAsync(dir);
+            Assert.Contains(files, f => f.Path == "Impressão/Ação.pas");
+            Assert.Contains(files, f => f.Path == "Impressão/Nova ção.txt");
+
+            var raw = await GitService.DiffFileAsync(dir, "Impressão/Ação.pas", staged: false);
+            Assert.Contains("+meio", raw);
+            var diff = DiffParser.Parse(raw);
+            await GitService.ApplyPatchAsync(dir, DiffParser.BuildHunkPatch(diff, diff.Hunks[0]), cached: true, reverse: false);
+            await GitService.StageAsync(dir, new[] { "Impressão/Nova ção.txt" });
+
+            (_, files) = await GitService.StatusAndChangesAsync(dir);
+            Assert.Contains(files, f => f.Path == "Impressão/Ação.pas" && f.Index == "M");
+            Assert.Contains(files, f => f.Path == "Impressão/Nova ção.txt" && f.Index == "A");
+            Assert.Contains("impressão", await GitService.DiffFileAsync(dir, "Impressão/Ação.pas", staged: true));
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Theory]
+    [InlineData("\"Units/Impress\\303\\243o/a.pas\"", "Units/Impressão/a.pas")]
+    [InlineData("\"a\\tb\\\\c\\\"d\"", "a\tb\\c\"d")]
+    [InlineData("Units/Impressão/a.pas", "Units/Impressão/a.pas")]
+    public void Caminho_entre_aspas_do_git_e_decodificado(string doGit, string esperado) =>
+        Assert.Equal(esperado, TextoGit.Caminho(doGit));
+
     [Fact]
     public void Linhas_utf8_e_ansi_no_mesmo_diff()
     {

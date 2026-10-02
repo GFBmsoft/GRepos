@@ -409,10 +409,11 @@ public sealed class RepoConfigWindow : DialogWindow
         };
 
 
-        // ------------------------------------------- URL do remoto com variáveis
+        // ------------------------------------------------------ link do remoto
 
-        // o link leva só o usuário; o token fica no credential manager, na conta dele.
-        // {{token}} ainda funciona, mas grava o segredo em texto puro no .git/config
+        // O link leva só o usuário; o token fica no Credential Manager, na conta dele.
+        // Sem modelo salvo, o campo abre com o remoto atual nesse padrão, e salvar já
+        // leva ao git — antes eram dois botões que ninguém sabia quando usar.
         var urlBox = new TextBox
         {
             Text = repo.RemoteTemplate ?? "",
@@ -434,6 +435,7 @@ public sealed class RepoConfigWindow : DialogWindow
 
         // {{user}} vira a conta escolhida; na automática, a principal
         var usuarioConta = ContaEscolhida() is { Length: > 0 } escolhida ? escolhida : principalConta;
+        var remotoAtual = "";
 
         var dicaUrl = new TextBlock
         {
@@ -443,127 +445,55 @@ public sealed class RepoConfigWindow : DialogWindow
             Classes = { "faint" },
         };
 
-        void AtualizarDica() => dicaUrl.Text =
-            "{{user}} vira " + (usuarioConta.Length > 0 ? $"“{usuarioConta}”" : "o usuário de Preferências → Autenticação") +
-            ". O token não vai no link: o git pede ao Credential Manager o token dessa conta." +
-            (ContaEscolhida().Length > 0 ? " Ao trocar de conta, aplique no git para o link levar o usuário novo." : "");
-        AtualizarDica();
-
         var autenticacao = new TextBlock
         {
             FontSize = 11.5,
             Margin = new Thickness(0, 8, 0, 0),
             TextWrapping = TextWrapping.Wrap,
-            Text = "Autenticação: verificando…",
+            Text = "Verificando a autenticação…",
         };
 
-        // aviso para o remoto do jeito que o SourceTree deixa: token dentro da URL
-        var aviso = new TextBlock
+        // o que o salvar vai mudar no git; some quando o link já está certo
+        var previa = new TextBlock
         {
             FontSize = 11.5,
             Margin = new Thickness(0, 6, 0, 0),
             TextWrapping = TextWrapping.Wrap,
             IsVisible = false,
-            Text = "⚠ O remoto atual tem um token gravado na URL, em texto puro no .git/config. " +
-                   "“Usar o remoto atual” e “Aplicar no git” trocam pelo link sem token — e, se a sua " +
-                   "conta ainda não tiver token salvo, esse mesmo token vai para o Credential Manager.",
         };
-        aviso.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("Orange"));
+        previa.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("Orange"));
 
-        var urlAtual = new TextBlock
+        void AtualizarPrevia()
         {
-            FontSize = 11,
-            Margin = new Thickness(0, 6, 0, 0),
-            TextWrapping = TextWrapping.Wrap,
-            Classes = { "faint" },
-        };
+            dicaUrl.Text = "{{user}} vira " +
+                (usuarioConta.Length > 0 ? $"“{usuarioConta}”" : "o usuário de Preferências → Autenticação") +
+                ". O token não vai no link.";
+            var texto = RemotoConfig.Previa(remotoAtual, urlBox.Text, usuarioConta);
+            previa.Text = texto ?? "";
+            previa.IsVisible = texto is not null;
+        }
 
-        var sugerir = Btn("Usar o remoto atual");
-        var aplicar = Btn("Aplicar no git");
-        sugerir.MinWidth = 140;
-        aplicar.MinWidth = 120;
-
-        async System.Threading.Tasks.Task MostrarRemotoAtualAsync()
+        async System.Threading.Tasks.Task MostrarAutenticacaoAsync()
         {
-            var atual = await GitService.RemoteUrlAsync(repo.Path);
-            urlAtual.Text = atual.Length > 0
-                ? "Remoto atual: " + GitService.WebUrl(atual)
-                : "Este repositório ainda não tem remoto configurado.";
-            aviso.IsVisible = UrlTemplate.SegredoEmbutido(atual) is not null;
-
             if (usuarioConta.Length == 0)
             {
-                autenticacao.Text = "Autenticação: nenhum usuário definido em Preferências → Autenticação.";
+                autenticacao.Text = "✗ Nenhuma conta do GitHub em Preferências → Autenticação.";
                 return;
             }
 
             var temToken = !string.IsNullOrEmpty(await GitHubService.TokenDoUsuarioAsync(usuarioConta));
             autenticacao.Text = temToken
-                ? $"Autenticação: ✓ token da conta “{usuarioConta}” no Credential Manager."
-                : $"Autenticação: ✗ nenhum token salvo para “{usuarioConta}”. Salve em Preferências → Autenticação.";
+                ? $"✓ O git usa o token da conta “{usuarioConta}”, guardado no Windows."
+                : $"✗ Nenhum token salvo para “{usuarioConta}”. Salve em Preferências → Autenticação.";
         }
 
         conta.SelectionChanged += async (_, _) =>
         {
             usuarioConta = ContaEscolhida() is { Length: > 0 } c ? c : principalConta;
-            AtualizarDica();
-            await MostrarRemotoAtualAsync();
+            AtualizarPrevia();
+            await MostrarAutenticacaoAsync();
         };
-
-        sugerir.Click += async (_, _) =>
-        {
-            var atual = await GitService.RemoteUrlAsync(repo.Path);
-            urlBox.Text = UrlTemplate.Sugerir(atual);
-        };
-
-        aplicar.Click += async (_, _) =>
-        {
-            try
-            {
-                var modelo = (urlBox.Text ?? "").Trim();
-                if (modelo.Length == 0) return;
-
-                if (modelo.Contains("{{user}}", StringComparison.OrdinalIgnoreCase) && usuarioConta.Length == 0)
-                {
-                    urlAtual.Text = "Defina o usuário em Preferências → Autenticação antes de usar {{user}}.";
-                    return;
-                }
-
-                var guardado = usuarioConta.Length > 0 ? await GitHubService.TokenDoUsuarioAsync(usuarioConta) : null;
-
-                if (UrlTemplate.UsaToken(modelo) && string.IsNullOrEmpty(guardado))
-                {
-                    urlAtual.Text = $"Nenhum token salvo para “{usuarioConta}”. Configure em Preferências → Autenticação.";
-                    return;
-                }
-
-                // tirar o token da URL sem ter outro guardado deixaria o push sem senha:
-                // o que estava na URL vai para o credential manager antes
-                var migrou = false;
-                var segredo = UrlTemplate.SegredoEmbutido(await GitService.RemoteUrlAsync(repo.Path));
-                if (!UrlTemplate.UsaToken(modelo) && string.IsNullOrEmpty(guardado) && segredo is not null && usuarioConta.Length > 0)
-                {
-                    await GitHubService.SalvarCredencialAsync(usuarioConta, segredo);
-                    migrou = true;
-                }
-
-                var token = UrlTemplate.UsaToken(modelo) ? guardado : null;
-                var final = UrlTemplate.Expandir(modelo, usuarioConta, token);
-                await GitService.SetRemoteUrlAsync(repo.Path, final);
-
-                await MostrarRemotoAtualAsync();
-                urlAtual.Text = "Remoto atualizado: " + UrlTemplate.Mascarar(final, token) +
-                                (migrou ? "\nO token que estava na URL foi salvo no Credential Manager." : "");
-            }
-            catch (Exception ex)
-            {
-                urlAtual.Text = ex.Message;
-            }
-        };
-
-        var acoesUrl = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        acoesUrl.Children.Add(sugerir);
-        acoesUrl.Children.Add(aplicar);
+        urlBox.TextChanged += (_, _) => AtualizarPrevia();
 
         var remove = Btn("Remover da lista");
         remove.Classes.Add("danger");
@@ -579,8 +509,20 @@ public sealed class RepoConfigWindow : DialogWindow
             Close();
         };
         cancel.Click += (_, _) => Close();
-        save.Click += (_, _) =>
+        save.Click += async (_, _) =>
         {
+            try
+            {
+                var mudou = await RemotoConfig.AplicarAsync(repo.Path, urlBox.Text, usuarioConta);
+                if (mudou is not null) main.Notify(mudou);
+            }
+            catch (Exception ex)
+            {
+                previa.Text = ex.Message; // fica aberto para o usuário corrigir
+                previa.IsVisible = true;
+                return;
+            }
+
             var gid = group.SelectedIndex > 0 ? groups[group.SelectedIndex - 1].Id : null;
             main.UpdateRepository(repo,
                 string.IsNullOrWhiteSpace(name.Text) ? repo.Name : name.Text!.Trim(),
@@ -592,9 +534,14 @@ public sealed class RepoConfigWindow : DialogWindow
             Close();
         };
 
-        Opened += async (_, _) => await MostrarRemotoAtualAsync();
-
-        acoesUrl.Margin = new Thickness(0, 8, 0, 0);
+        Opened += async (_, _) =>
+        {
+            remotoAtual = await GitService.RemoteUrlAsync(repo.Path);
+            if (string.IsNullOrWhiteSpace(urlBox.Text) && usuarioConta.Length > 0)
+                urlBox.Text = UrlTemplate.Sugerir(remotoAtual);
+            AtualizarPrevia();
+            await MostrarAutenticacaoAsync();
+        };
 
         Compose("Configurar Repositório",
             new Control[]
@@ -609,10 +556,8 @@ public sealed class RepoConfigWindow : DialogWindow
                 Label("Link do remoto"),
                 urlBox,
                 dicaUrl,
-                acoesUrl,
                 autenticacao,
-                aviso,
-                urlAtual,
+                previa,
                 Secao("Par Origem × Destino"),
                 Field("Chave do par (mesmo módulo em outro banco) — use a mesma nos dois repositórios", pairKey),
                 hint,
