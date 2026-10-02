@@ -76,6 +76,28 @@ public class UiSmokeTests
         window.Close();
     }
 
+    /// <summary>Os dois modos da tela de adicionar, com grupos na lista: o nome segue o link.</summary>
+    [AvaloniaFact]
+    public void Adicionar_repositorio_monta_nos_dois_modos()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        main.CreateGroup("Financeiro");
+        var janela = new AddRepoWindow(main, new FakeDialogs(), clonar: true);
+        janela.Show();
+
+        var link = janela.GetVisualDescendants().OfType<TextBox>()
+            .First(t => t.Watermark?.ToString()?.StartsWith("https://") == true);
+        link.Text = "https://github.com/bmsoftsistemas-mysql/bmOS.git";
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Contains(janela.GetVisualDescendants().OfType<TextBox>(), t => t.Text == "bmOS");
+        Assert.Contains(janela.GetVisualDescendants().OfType<Button>(), b => b.Content as string == "Clonar");
+
+        janela.GetVisualDescendants().OfType<RadioButton>().First().IsChecked = true;
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.Contains(janela.GetVisualDescendants().OfType<Button>(), b => b.Content as string == "Adicionar");
+        janela.Close();
+    }
+
     [AvaloniaFact]
     public void ChangesView_monta_com_arquivos_e_diff()
     {

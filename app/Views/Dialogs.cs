@@ -291,10 +291,20 @@ public sealed record GroupResult(string Nome, string Cor);
 
 // ------------------------------------------------------------ adicionar repo
 
+/// <summary>
+/// Adiciona uma pasta que já é repositório ou clona um do GitHub. O clone já sai com o
+/// link no padrão do GRepos (só o usuário na URL, token no Credential Manager).
+/// </summary>
 public sealed class AddRepoWindow : DialogWindow
 {
-    public AddRepoWindow(MainViewModel main, IDialogService dialogs) : base("Adicionar repositório")
+    public AddRepoWindow(MainViewModel main, IDialogService dialogs, bool clonar = false) : base("Adicionar repositório")
     {
+        var existente = new RadioButton { Content = "Pasta no computador", GroupName = "modo", IsChecked = !clonar };
+        var clone = new RadioButton { Content = "Clonar do GitHub", GroupName = "modo", IsChecked = clonar, Margin = new Thickness(16, 0, 0, 0) };
+        var modos = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+        modos.Children.Add(existente);
+        modos.Children.Add(clone);
+
         var path = new TextBox { Watermark = @"D:\Projetos\..." };
         var name = new TextBox();
         var group = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
@@ -321,34 +331,175 @@ public sealed class AddRepoWindow : DialogWindow
             }
         };
 
-        var pathRow = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        browse.Margin = new Thickness(6, 0, 0, 0);
-        Grid.SetColumn(browse, 1);
-        pathRow.Children.Add(path);
-        pathRow.Children.Add(browse);
+        // ---------------------------------------------------------------- clonar
+
+        var link = new TextBox { Watermark = "https://github.com/organizacao/repositorio.git" };
+
+        // sugere onde o último clone foi feito; sem histórico, ao lado do último repositório
+        var pastaPai = new TextBox
+        {
+            Text = main.Settings.PastaDeClone is { Length: > 0 } p ? p
+                : main.Repos.LastOrDefault() is { } ultimo ? System.IO.Path.GetDirectoryName(ultimo.Path) ?? "" : "",
+            Watermark = @"D:\Projetos",
+        };
+        var nomePasta = new TextBox { Watermark = "nome da pasta (sai do link)" };
+
+        // o nome segue o link até o usuário mexer nele
+        var nomeEditado = false;
+        var mudandoNome = false;
+        link.TextChanged += (_, _) =>
+        {
+            if (nomeEditado) return;
+            mudandoNome = true;
+            nomePasta.Text = RemotoConfig.NomeDoLink(link.Text);
+            mudandoNome = false;
+        };
+        nomePasta.TextChanged += (_, _) => { if (!mudandoNome) nomeEditado = true; };
+
+        var procurarPai = Btn("Procurar");
+        procurarPai.Click += async (_, _) =>
+        {
+            var chosen = await dialogs.PickFolderAsync("Pasta onde o repositório será criado");
+            if (chosen is not null) pastaPai.Text = chosen;
+        };
+
+        var principal = main.Settings.GithubUser ?? "";
+        var contas = main.Contas.ToList();
+        var conta = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        conta.ItemsSource = new[] { principal.Length > 0 ? $"Automática (principal: {principal})" : "Automática" }
+            .Concat(contas).ToList();
+        conta.SelectedIndex = 0;
+        string ContaEscolhida() => conta.SelectedIndex > 0 ? contas[conta.SelectedIndex - 1] : "";
+
+        var dicaClone = new TextBlock
+        {
+            FontSize = 11,
+            Margin = new Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            Classes = { "faint" },
+            Text = "O link fica gravado só com o usuário da conta; o token é o dela, guardado no Windows. " +
+                   "Se o link colado tiver um token, ele não é gravado.",
+        };
+
+        var situacao = new TextBlock
+        {
+            FontSize = 11.5,
+            Margin = new Thickness(0, 4, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+            IsVisible = false,
+        };
+
+        // ----------------------------------------------------------------- layout
+
+        Grid LinhaComBotao(Control campo, Button botao)
+        {
+            var linha = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+            botao.Margin = new Thickness(6, 0, 0, 0);
+            Grid.SetColumn(botao, 1);
+            linha.Children.Add(campo);
+            linha.Children.Add(botao);
+            return linha;
+        }
+
+        var camposExistente = new StackPanel
+        {
+            Children =
+            {
+                Field("Pasta do repositório", LinhaComBotao(path, browse)),
+                Field("Nome exibido", name),
+            },
+        };
+        var camposClone = new StackPanel
+        {
+            Children =
+            {
+                Field("Link do repositório", link),
+                Field("Criar dentro da pasta", LinhaComBotao(pastaPai, procurarPai)),
+                Field("Nome da pasta (também é o nome exibido)", nomePasta),
+                Field("Conta do GitHub", conta),
+                dicaClone,
+            },
+            Margin = new Thickness(0, 0, 0, 10),
+        };
 
         var cancel = Btn("Cancelar");
         var add = Btn("Adicionar", true);
-        cancel.Click += (_, _) => Close();
-        add.Click += (_, _) =>
+
+        void TrocarModo()
         {
-            if (string.IsNullOrWhiteSpace(path.Text) || string.IsNullOrWhiteSpace(name.Text)) return;
+            var c = clone.IsChecked == true;
+            camposExistente.IsVisible = !c;
+            camposClone.IsVisible = c;
+            add.Content = c ? "Clonar" : "Adicionar";
+            situacao.IsVisible = false;
+        }
+        existente.IsCheckedChanged += (_, _) => TrocarModo();
+        clone.IsCheckedChanged += (_, _) => TrocarModo();
+        TrocarModo();
 
-            string? groupId = null;
-            if (!string.IsNullOrWhiteSpace(newGroup.Text)) groupId = main.CreateGroup(newGroup.Text!.Trim());
-            else if (group.SelectedIndex > 0) groupId = groups[group.SelectedIndex - 1].Id;
+        string? GrupoEscolhido()
+        {
+            if (!string.IsNullOrWhiteSpace(newGroup.Text)) return main.CreateGroup(newGroup.Text!.Trim());
+            return group.SelectedIndex > 0 ? groups[group.SelectedIndex - 1].Id : null;
+        }
 
-            main.AddRepository(path.Text!.Trim(), name.Text!.Trim(), groupId);
+        void Mostrar(string texto, bool erro)
+        {
+            situacao.Text = texto;
+            situacao.IsVisible = true;
+            if (erro) situacao.Bind(TextBlock.ForegroundProperty, new DynamicResourceExtension("Red"));
+            else situacao.ClearValue(TextBlock.ForegroundProperty);
+        }
+
+        cancel.Click += (_, _) => Close();
+        add.Click += async (_, _) =>
+        {
+            if (clone.IsChecked != true)
+            {
+                if (string.IsNullOrWhiteSpace(path.Text) || string.IsNullOrWhiteSpace(name.Text)) return;
+                main.AddRepository(path.Text!.Trim(), name.Text!.Trim(), GrupoEscolhido());
+                Close();
+                return;
+            }
+
+            var pai = (pastaPai.Text ?? "").Trim();
+            var nome = (nomePasta.Text ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(link.Text) || pai.Length == 0 || nome.Length == 0)
+            {
+                Mostrar("Informe o link, a pasta e o nome.", true);
+                return;
+            }
+
+            var destino = System.IO.Path.Combine(pai, nome);
+            var usuario = ContaEscolhida() is { Length: > 0 } c ? c : principal;
+
+            add.IsEnabled = cancel.IsEnabled = false;
+            Mostrar("Clonando… repositório grande pode levar alguns minutos.", false);
+            try
+            {
+                await RemotoConfig.ClonarAsync(link.Text!, destino, usuario);
+            }
+            catch (Exception ex)
+            {
+                Mostrar(ex.Message, true);
+                add.IsEnabled = cancel.IsEnabled = true;
+                return;
+            }
+
+            main.Settings.PastaDeClone = pai;
+            main.AddRepository(destino, nome, GrupoEscolhido(), ContaEscolhida());
             Close();
         };
 
         Compose("Adicionar repositório",
             new Control[]
             {
-                Field("Pasta do repositório", pathRow),
-                Field("Nome exibido", name),
+                modos,
+                camposExistente,
+                camposClone,
                 Field("Grupo", group),
                 Field("…ou criar um grupo novo", newGroup),
+                situacao,
             },
             new[] { cancel, add });
     }

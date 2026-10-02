@@ -65,6 +65,44 @@ public class RemotoConfigTests
     }
 
     [Theory]
+    [InlineData("https://github.com/bmsoftsistemas-mysql/bmOS.git", "bmOS")]
+    [InlineData("https://ghp_x@github.com/o/Financeiro/", "Financeiro")]
+    [InlineData("git@github.com:o/NFe.git", "NFe")]
+    [InlineData(@"D:\repos\local", "local")]
+    public void Nome_da_pasta_sai_do_link(string link, string nome) =>
+        Assert.Equal(nome, RemotoConfig.NomeDoLink(link));
+
+    /// <summary>Clone de um repositório local: não precisa de rede nem de conta.</summary>
+    [Fact]
+    public async Task Clona_e_recusa_pasta_ocupada()
+    {
+        var origem = await RepoAsync(null);
+        var pai = Directory.CreateTempSubdirectory("grepos-clone-").FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(origem, "a.txt"), "a\n");
+            await GitService.RunAsync(origem, new[] { "add", "." });
+            await GitService.RunAsync(origem, new[] { "-c", "user.name=T", "-c", "user.email=t@t", "commit", "-qm", "a" });
+
+            var destino = Path.Combine(pai, "Impressão");
+            await RemotoConfig.ClonarAsync(origem, destino, "fulano-sem-token");
+            Assert.True(File.Exists(Path.Combine(destino, "a.txt")));
+
+            var erro = await Assert.ThrowsAsync<GitException>(() => RemotoConfig.ClonarAsync(origem, destino, ""));
+            Assert.Contains("não está vazia", erro.Message);
+        }
+        finally
+        {
+            foreach (var d in new[] { origem, pai })
+            {
+                foreach (var f in Directory.EnumerateFiles(d, "*", SearchOption.AllDirectories))
+                    File.SetAttributes(f, FileAttributes.Normal);
+                Directory.Delete(d, true);
+            }
+        }
+    }
+
+    [Theory]
     [InlineData("https://GFBmsoft@github.com/o/r.git", null)]
     [InlineData("https://ghp_abc123@github.com/o/r.git", "token gravado")]
     [InlineData("https://github.com/o/r.git", "passa a ser https://GFBmsoft@github.com/o/r.git")]

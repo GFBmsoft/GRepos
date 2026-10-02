@@ -520,6 +520,28 @@ public class ScreenshotTests
     }
 
     [AvaloniaFact]
+    public void Adicionar_repositorio_clonando()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var janela = new AddRepoWindow(main, new FakeDialogs(), clonar: true);
+        janela.Show();
+        janela.GetVisualDescendants().OfType<TextBox>()
+            .First(t => t.Watermark?.ToString()?.StartsWith("https://") == true)
+            .Text = "https://github.com/bmsoftsistemas-mysql/bmOS.git";
+        janela.Measure(new Size(460, 640));
+        janela.Arrange(new Rect(0, 0, 460, 640));
+
+        var dir = OutDir;
+        if (dir is not null)
+        {
+            Directory.CreateDirectory(dir);
+            using var frame = janela.CaptureRenderedFrame();
+            frame?.Save(Path.Combine(dir, "adicionar-clone.png"));
+        }
+        janela.Close();
+    }
+
+    [AvaloniaFact]
     public void Dialogo_de_configuracao_do_repositorio()
     {
         var main = new MainViewModel(new FakeDialogs());

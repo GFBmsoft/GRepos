@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace GRepos.Services;
@@ -50,6 +52,41 @@ public static class RemotoConfig
 
         return "Link do git atualizado: " + UrlTemplate.Mascarar(final, token) +
                (migrou ? ". O token que estava no link foi guardado no Windows." : ".");
+    }
+
+    /// <summary>Nome da pasta que o "git clone" criaria: o último trecho do link, sem ".git".</summary>
+    public static string NomeDoLink(string? url)
+    {
+        var u = (url ?? "").Trim().TrimEnd('/', '\\');
+        if (u.EndsWith(".git", StringComparison.OrdinalIgnoreCase)) u = u[..^4];
+        var i = u.LastIndexOfAny(new[] { '/', '\\', ':' });
+        return i >= 0 ? u[(i + 1)..] : u;
+    }
+
+    /// <summary>
+    /// Clona já no padrão: o link que fica no .git/config leva só o usuário da conta. Se
+    /// o link colado trouxer um token (como o SourceTree copia), ele não é gravado — vai
+    /// para o Credential Manager quando a conta ainda não tem nenhum lá.
+    /// </summary>
+    public static async Task ClonarAsync(string url, string destino, string usuario)
+    {
+        url = (url ?? "").Trim();
+        if (url.Length == 0) throw new GitException("Informe o link do repositório.");
+        if (Directory.Exists(destino) && Directory.EnumerateFileSystemEntries(destino).Any())
+            throw new GitException($"A pasta “{destino}” já existe e não está vazia.");
+
+        var link = url;
+        if (usuario.Length > 0 && url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            var segredo = UrlTemplate.SegredoEmbutido(url);
+            if (segredo is not null && string.IsNullOrEmpty(await GitHubService.TokenDoUsuarioAsync(usuario)))
+                await GitHubService.SalvarCredencialAsync(usuario, segredo);
+            link = UrlTemplate.Expandir(UrlTemplate.Sugerir(url), usuario, null);
+        }
+
+        var pai = Path.GetDirectoryName(Path.GetFullPath(destino))!;
+        Directory.CreateDirectory(pai);
+        await GitService.CloneAsync(pai, link, destino, usuario);
     }
 
     /// <summary>

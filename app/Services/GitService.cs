@@ -553,6 +553,35 @@ public static class GitService
             .ToList();
     }
 
+    /// <summary>Teto do clone: repositório grande leva minutos, bem mais que o push.</summary>
+    internal static TimeSpan TempoLimiteClone { get; set; } = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// Clona <paramref name="url"/> em <paramref name="destino"/>. A conta vai ao
+    /// credential manager como nas outras operações de rede.
+    /// </summary>
+    public static async Task CloneAsync(string pai, string url, string destino, string conta)
+    {
+        var args = new List<string>();
+        if (!string.IsNullOrWhiteSpace(conta))
+        {
+            args.Add("-c");
+            args.Add($"credential.https://github.com.username={conta.Trim()}");
+        }
+        args.AddRange(new[] { "clone", "--", url, destino });
+
+        try
+        {
+            await ExecutarAsync(pai, args, null, TempoLimiteClone, Array.Empty<(string, string)>());
+        }
+        catch (OperationCanceledException)
+        {
+            throw new GitException(
+                "O clone passou de " + (int)TempoLimiteClone.TotalMinutes + " minutos e foi cancelado. " +
+                "Se havia uma janela de login do Git Credential Manager esperando, procure-a na barra de tarefas.");
+        }
+    }
+
     public static Task<string> SetRemoteUrlAsync(string repo, string url) =>
         Run(repo, "remote", "set-url", "origin", url);
 

@@ -1124,7 +1124,8 @@ public sealed partial class MainViewModel : ObservableObject
         return g.Id;
     }
 
-    public void AddRepository(string path, string name, string? groupId)
+    /// <param name="conta">Conta do GitHub do repositório; vazio fica com a principal.</param>
+    public void AddRepository(string path, string name, string? groupId, string? conta = null)
     {
         var norm = path.Replace('\\', '/').TrimEnd('/');
         if (_ws.Repos.Any(r => r.Path.Replace('\\', '/').TrimEnd('/')
@@ -1134,7 +1135,12 @@ public sealed partial class MainViewModel : ObservableObject
             return;
         }
 
-        var repo = new Repo { Id = NewId(), Name = name, Path = path, GroupId = groupId };
+        var repo = new Repo
+        {
+            Id = NewId(), Name = name, Path = path, GroupId = groupId,
+            Conta = string.IsNullOrWhiteSpace(conta) ? null : conta.Trim(),
+        };
+        GitService.DefinirConta(repo.Path, repo.Conta);
         _ws.Repos.Add(repo);
         Persist();
         RebuildTree();

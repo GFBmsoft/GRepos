@@ -73,6 +73,9 @@ public sealed class Settings
     /// </summary>
     public List<string> GithubContas { get; set; } = new();
 
+    /// <summary>Pasta onde o último clone foi criado; o próximo sugere a mesma.</summary>
+    public string PastaDeClone { get; set; } = "";
+
     /// <summary>Avisar quando sair uma release nova do próprio GRepos.</summary>
     public bool AvisarAtualizacao { get; set; } = true;
 
