@@ -6,3 +6,6 @@ dist/
 EVs/
 dist-unico/
 dist-standalone/
+
+# gerado sozinho por dotnet restore; o projeto usa o nuget.org padrão
+app/NuGet/
