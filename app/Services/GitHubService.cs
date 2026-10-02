@@ -143,7 +143,8 @@ public static class GitHubService
 
     private static HttpClient CriarCliente()
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+        // o prazo de verdade é por tentativa, no PrazoHttp; este é só o teto geral
+        var http = new HttpClient(new PrazoHttp(new HttpClientHandler())) { Timeout = TimeSpan.FromSeconds(60) };
         http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("GRepos", "1.0"));
         http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
         return http;
