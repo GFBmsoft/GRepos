@@ -116,13 +116,20 @@ public class RepoNodeTests
         {
             await GRepos.Services.GitService.RunAsync(repo, new[] { "init", "-q", "-b", "develop" });
 
+            // Status de verdade, e não um inventado: adicionar e selecionar o repositório
+            // disparam leituras em segundo plano (status, aba de alterações), e qualquer uma
+            // que chegasse depois apagava o valor inventado — o teste falhava ao acaso. Com
+            // o arquivo no disco antes de tudo, todas as leituras dizem a mesma coisa.
+            System.IO.File.WriteAllText(System.IO.Path.Combine(repo, "novo.txt"), "x");
+
             var main = new MainViewModel(new FakeDialogs());
             main.CreateGroup("Módulos");
             main.AddRepository(repo, "Financeiro", main.Groups[0].Id);
             main.RebuildTree();
 
             var id = main.Tree.OfType<RepoNode>().Single().Id;
-            main.ApplyStatus(id, new GRepos.Models.RepoStatus { Branch = "develop", Ahead = 2 });
+
+            await main.RefreshRepoAsync(id);
 
             var grupo = main.Tree.OfType<GroupNode>().First();
             main.ToggleGroupCommand.Execute(grupo);
@@ -133,7 +140,7 @@ public class RepoNodeTests
             var no = main.Tree.OfType<RepoNode>().Single();
             Assert.True(no.TemBranch);
             Assert.Equal("develop", no.BranchRotulo);
-            Assert.True(no.ShowAhead);
+            Assert.True(no.ShowDirty);
         }
         finally
         {

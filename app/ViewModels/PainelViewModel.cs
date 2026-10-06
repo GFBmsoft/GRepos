@@ -422,7 +422,15 @@ public sealed partial class PainelViewModel : ObservableObject
     /// </summary>
     public async Task CarregarEsteirasAsync()
     {
-        await Task.WhenAll(Cartoes.Select(CarregarEsteiraAsync));
+        // em fila curta: cem repositórios de uma vez eram cem processos do git e cem
+        // consultas à API no mesmo instante, e a tela ficava presa esperando por eles
+        using var vagas = new System.Threading.SemaphoreSlim(6);
+        await Task.WhenAll(Cartoes.Select(async cartao =>
+        {
+            await vagas.WaitAsync();
+            try { await CarregarEsteiraAsync(cartao); }
+            finally { vagas.Release(); }
+        }));
         OnPropertyChanged(nameof(Resumo));
         AtualizarPendencias();
     }

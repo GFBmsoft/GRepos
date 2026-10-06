@@ -29,6 +29,52 @@ public class PainelTests
     }
 
     /// <summary>
+    /// A varredura automática atualizava a árvore e deixava o painel com o status antigo;
+    /// e o "Atualizar" clicado no meio dela voltava na hora, sem nada novo — só o segundo
+    /// clique mostrava a alteração.
+    /// </summary>
+    [Fact]
+    public async Task Varredura_atualiza_o_painel_e_quem_chega_no_meio_espera_a_mesma()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-painel-" + Path.GetRandomFileName());
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+
+        try
+        {
+            var main = new MainViewModel(new FakeDialogs());
+            // mais repositórios que vagas na fila: a varredura não pode perder nenhum
+            for (var i = 0; i < 12; i++)
+            {
+                var repo = Path.Combine(home, "repo" + i);
+                Directory.CreateDirectory(repo);
+                await GitService.RunAsync(repo, new[] { "init", "-q", "-b", "main" });
+                main.AddRepository(repo, "Repo" + i, null);
+            }
+            await main.RefreshAllAsync();
+
+            main.MostrarPainel(null);
+            Assert.All(main.Painel!.Cartoes, c => Assert.False(c.MostraSujo));
+
+            foreach (var r in main.Repos) File.WriteAllText(Path.Combine(r.Path, "novo.txt"), "x");
+
+            var automatica = main.RefreshAllSilenciosoAsync();
+            var doUsuario = main.RefreshAllAsync();
+            Assert.Same(automatica, doUsuario);
+            await doUsuario;
+
+            Assert.Equal(12, main.Painel!.Cartoes.Count);
+            Assert.All(main.Painel.Cartoes, c => Assert.True(c.MostraSujo, c.Nome + " ficou com o status antigo"));
+            Assert.All(main.Tree.OfType<RepoNode>(), n => Assert.True(n.Status?.IsDirty, n.Name));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { Directory.Delete(home, true); } catch (Exception) { /* temporária */ }
+        }
+    }
+
+    /// <summary>
     /// Clicar num grupo abre o painel e **recolhe** o grupo, então os nós daquele grupo
     /// saem da árvore. O "Abrir" do cartão procurava um nó que não existia mais e não
     /// fazia nada — precisa reabrir o grupo antes de selecionar.

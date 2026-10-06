@@ -373,7 +373,10 @@
                      VerticalAlignment="Center" />
 
           <!-- discreto, mas com a cor de destaque: é novidade, não é erro -->
-          <Button Grid.Column="1" Classes="tiny" Margin="0,0,14,0" VerticalAlignment="Center"
+          <!-- as dicas dos botões da barra abrem para cima: na borda de baixo da tela a
+               dica padrão não cabe sob o ponteiro, cai em cima do botão e engole o clique -->
+          <Button Grid.Column="1" Classes="tiny" Margin="0,0,14,0" VerticalAlignment="Center" Height="22"
+                  ToolTip.Placement="Top" ToolTip.VerticalOffset="-6"
                   IsVisible="{Binding TemAtualizacao}"
                   IsEnabled="{Binding !Atualizando}" Command="{Binding AtualizarAgoraCommand}"
                   ToolTip.Tip="Baixa o executável da nova versão e reinicia o aplicativo">
@@ -386,7 +389,8 @@
           <TextBlock Grid.Column="2" Text="{Binding RepoCountText}" Classes="faint" FontSize="11"
                      VerticalAlignment="Center" />
           <!-- a versão é o gatilho natural do changelog: clicar nela abre as novidades -->
-          <Button Grid.Column="3" Classes="tiny" Margin="14,0,0,0" VerticalAlignment="Center"
+          <Button Grid.Column="3" Classes="tiny" Margin="14,0,0,0" VerticalAlignment="Center" Height="22"
+                  ToolTip.Placement="Top" ToolTip.VerticalOffset="-6"
                   Command="{Binding AbrirNovidadesCommand}"
                   ToolTip.Tip="Ver o que mudou em cada versão">
             <TextBlock Text="{Binding VersaoTexto}" Classes="faint" FontSize="11" />
@@ -394,7 +398,8 @@
 
           <!-- só o ícone: a versão ao lado já diz do que se trata. Ganha a cor de
                destaque quando há versão nova, para o aviso não depender só do texto -->
-          <Button Grid.Column="4" Classes="icon" Content="&#xE895;" Width="20" Height="20"
+          <Button Grid.Column="4" Classes="icon" Content="&#xE895;" Width="28" Height="22"
+                  ToolTip.Placement="Top" ToolTip.VerticalOffset="-6"
                   FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"
                   Foreground="{Binding CorDoIconeAtualizacao, Converter={x:Static local:Converters.ResourceBrush}}"
                   IsEnabled="{Binding !VerificandoAtualizacao}"

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -204,6 +205,11 @@ public sealed partial class MainViewModel : ObservableObject
     {
         var painel = Painel;
         if (painel is null) return;
+
+        // a esteira é consultada pela branch de cada repositório: com a varredura ainda
+        // em curso (abertura do app), espera o status chegar para perguntar pela branch certa
+        if (_varrendo && _varredura is { } emCurso) await emCurso;
+        if (!ReferenceEquals(painel, Painel)) return;
 
         await painel.CarregarEsteirasAsync();
         if (ReferenceEquals(painel, Painel)) painel.Subtitulo = painel.Resumo;
@@ -656,12 +662,15 @@ public sealed partial class MainViewModel : ObservableObject
 
         RebuildTree();
         ApplyTimer();
-        await RefreshAllAsync();
+        var varredura = RefreshAllAsync();
 
         // abre no painel: a visão de todos os repositórios diz mais, logo de cara, do
-        // que um repositório escolhido por ordem alfabética
+        // que um repositório escolhido por ordem alfabética. Ele aparece já, sem esperar
+        // a varredura: os cartões se preenchem conforme cada repositório responde.
         if (_ws.Repos.Count > 0) MostrarPainel(null);
         else SelectedNode = Tree.OfType<RepoNode>().FirstOrDefault();
+
+        await varredura;
     }
 
     private void ApplyTimer()
@@ -962,30 +971,57 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     public Task RefreshAllSilenciosoAsync() => VarrerAsync(automatica: true);
 
-    private async Task VarrerAsync(bool automatica)
-    {
-        if (_varrendo || _ws.Repos.Count == 0) return;
+    /// <summary>
+    /// Quantos <c>git status</c> rodam ao mesmo tempo. Cem de uma vez disputam disco e
+    /// processador entre si e com a tela; em fila curta terminam no mesmo tempo e o
+    /// aplicativo continua respondendo enquanto isso.
+    /// </summary>
+    private static readonly int GitsSimultaneos = Math.Clamp(Environment.ProcessorCount, 4, 8);
 
+    private Task? _varredura;
+
+    private Task VarrerAsync(bool automatica)
+    {
+        if (_ws.Repos.Count == 0) return Task.CompletedTask;
+
+        // Quem chega no meio de uma varredura espera a mesma, em vez de voltar na hora de
+        // mãos vazias: era assim que "Atualizar" clicado durante a varredura automática
+        // não mostrava nada, e só o segundo clique trazia o status novo.
+        if (_varrendo && _varredura is { } emCurso) return emCurso;
+        return _varredura = VarrerDeFatoAsync(automatica);
+    }
+
+    private async Task VarrerDeFatoAsync(bool automatica)
+    {
         _varrendo = true;
         if (!automatica) Scanning = true;
         try
         {
-            var repos = _ws.Repos.ToList();
-            var tasks = repos.Select(r => GitService.StatusAsync(r.Path)).ToList();
-            var results = await Task.WhenAll(tasks);
+            using var vagas = new SemaphoreSlim(GitsSimultaneos);
+            var pendentes = _ws.Repos.ToList().Select(r => StatusNaFilaAsync(r, vagas)).ToList();
 
-            for (var i = 0; i < repos.Count; i++)
+            // cada repositório aparece assim que o git dele responde: com muitos, esperar
+            // o último para mostrar o primeiro deixava a árvore vazia por segundos
+            while (pendentes.Count > 0)
             {
+                var pronta = await Task.WhenAny(pendentes);
+                pendentes.Remove(pronta);
+                var (repo, status) = await pronta;
+                if (status is null) continue;
+
                 // guardado mesmo sem nó: o repositório pode estar num grupo recolhido
-                _statusConhecido[repos[i].Id] = results[i];
-                if (_nodes.TryGetValue(repos[i].Id, out var node))
+                _statusConhecido[repo.Id] = status;
+                if (_nodes.TryGetValue(repo.Id, out var node))
                 {
-                    node.Status = results[i];
+                    node.Status = status;
                     node.Refreshed();
                 }
+                if (CurrentRepo?.Id == repo.Id) RefreshHeaderBindings();
             }
 
             RefreshHeaderBindings();
+            // o painel aberto acompanha: antes só o botão dele repassava o status novo
+            AtualizarCartoesDoPainel();
         }
         catch (Exception e)
         {
@@ -995,6 +1031,24 @@ public sealed partial class MainViewModel : ObservableObject
         {
             _varrendo = false;
             if (!automatica) Scanning = false;
+        }
+    }
+
+    /// <summary>Status de um repositório, fora da thread da tela; null se o git nem chegou a rodar.</summary>
+    private static async Task<(Repo Repo, RepoStatus? Status)> StatusNaFilaAsync(Repo repo, SemaphoreSlim vagas)
+    {
+        await vagas.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            return (repo, await Task.Run(() => GitService.StatusAsync(repo.Path)).ConfigureAwait(false));
+        }
+        catch (Exception)
+        {
+            return (repo, null); // um repositório com problema não derruba a varredura dos outros
+        }
+        finally
+        {
+            vagas.Release();
         }
     }
 
@@ -1418,6 +1472,12 @@ public sealed partial class MainViewModel : ObservableObject
                 ? $"Versão {AtualizacaoTag} disponível — o aviso está aqui na barra."
                 : $"Você já está na versão mais recente ({VersaoEmUso}).");
         }
+        catch (Exception e)
+        {
+            // dizer "você já está na mais recente" quando a consulta falhou era mentira:
+            // o usuário clicava de novo, a segunda passava e só aí a versão nova aparecia
+            Notify("Não foi possível consultar a versão mais recente: " + e.Message, true);
+        }
         finally
         {
             VerificandoAtualizacao = false;
@@ -1473,9 +1533,10 @@ public sealed partial class MainViewModel : ObservableObject
 
             if (tag.Length > 0 && Atualizador.TemNovidade(atual, tag)) AtualizacaoTag = tag;
         }
-        catch (Exception)
+        catch (Exception) when (!forcar)
         {
-            // atualização é conveniência: sem rede ou fora da cota, o app segue igual
+            // atualização é conveniência: sem rede ou fora da cota, o app segue igual.
+            // Pedida pelo usuário, a falha sobe para quem chamou dizer o que houve.
         }
     }
 

@@ -92,7 +92,10 @@ public static class GitService
 
         foreach (var (nome, valor) in env) psi.Environment[nome] = valor;
 
-        using var proc = Process.Start(psi) ?? throw new GitException("não foi possível executar o git");
+        // Criar o processo custa alguns milissegundos e, numa varredura de cem repositórios,
+        // isso somado travava a tela por um segundo. Fora da thread de quem chamou, a soma some.
+        using var proc = await Task.Run(() => Process.Start(psi))
+            ?? throw new GitException("não foi possível executar o git");
 
         if (stdin is not null)
         {
@@ -169,7 +172,8 @@ public static class GitService
         };
         foreach (var a in new[] { "-C", repo, "cat-file", "--filters", objeto }) psi.ArgumentList.Add(a);
 
-        using var proc = Process.Start(psi) ?? throw new GitException("não foi possível executar o git");
+        using var proc = await Task.Run(() => Process.Start(psi))
+            ?? throw new GitException("não foi possível executar o git");
         using var saida = new MemoryStream();
         var erro = proc.StandardError.ReadToEndAsync();
         await proc.StandardOutput.BaseStream.CopyToAsync(saida);

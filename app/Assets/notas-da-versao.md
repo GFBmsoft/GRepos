@@ -1,3 +1,9 @@
+## 1.0.0.31 — 06/10/2026
+- Com muitos repositórios o aplicativo abre sem travar: o painel aparece na hora e cada repositório mostra a branch e as pendências assim que responde, em vez de todos esperarem o último.
+- **Atualizar** clicado durante a varredura automática deixa de ser ignorado, e o painel passa a acompanhar a varredura automática.
+- Barra de status: o clique em procurar atualização e em baixar a versão nova pega de primeira (a dica do botão abria por cima dele).
+- Procurar atualização avisa quando a consulta falha, em vez de dizer que você já está na versão mais recente.
+
 ## 1.0.0.30 — 06/10/2026
 - Preferências: nova seção **Notas da versão**, com o que mudou em cada versão. Ela vem dentro do aplicativo e funciona sem internet.
 
