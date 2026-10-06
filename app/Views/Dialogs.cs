@@ -1398,6 +1398,20 @@ public sealed class SettingsWindow : DialogWindow
         var campoDiff = Field("Pasta de instalação (ou caminho do .exe)", linhaDiff);
         campoDiff.Margin = new Thickness(0);
 
+        // ------------------------------------------------------ notas da versão
+
+        var notas = NotasDaVersao.Carregar();
+        var textoDaNota = new MarkdownView();
+        var versoes = new ComboBox
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            ItemsSource = notas.Select(n => n.Rotulo).ToList(),
+        };
+        versoes.SelectionChanged += (_, _) =>
+            textoDaNota.Markdown = versoes.SelectedIndex >= 0 ? notas[versoes.SelectedIndex].Notas : "";
+        // abre na versão em uso: é a pergunta de quem acabou de atualizar
+        if (notas.Count > 0) versoes.SelectedIndex = NotasDaVersao.IndiceDa(notas, MainViewModel.VersaoEmUso);
+
         var secoes = new List<(string, IEnumerable<Control>)>
         {
             ("Aparência", aparencia),
@@ -1448,6 +1462,16 @@ public sealed class SettingsWindow : DialogWindow
                 ondeFica,
                 erroPortatil,
             }),
+            ("Notas da versão", notas.Count == 0
+                ? new Control[] { Label("Este executável não traz as notas da versão.") }
+                : new Control[]
+                {
+                    Label(MainViewModel.VersaoEmUso.Length > 0
+                        ? "Você está na " + MainViewModel.VersaoEmUso + ". Escolha uma versão para ver o que mudou nela."
+                        : "Build local, sem versão publicada. Escolha uma versão para ver o que mudou nela."),
+                    Field("Versão", versoes),
+                    textoDaNota,
+                }),
         };
 
         ComposeEmSecoes("Preferências", secoes, new[] { close, save });

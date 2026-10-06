@@ -75,7 +75,7 @@ public class UiSmokeTests
 
         var lista = janela.GetVisualDescendants().OfType<ListBox>().First();
         var secoes = lista.Items.Cast<string>().ToList();
-        Assert.Equal(new[] { "Aparência", "Geral", "Obter e puxar", "Terminal", "Diff externo", "Contas", "Aplicativo" }, secoes);
+        Assert.Equal(new[] { "Aparência", "Geral", "Obter e puxar", "Terminal", "Diff externo", "Contas", "Aplicativo", "Notas da versão" }, secoes);
 
         bool Visivel(string rotulo) => janela.GetVisualDescendants().OfType<TextBlock>()
             .Any(t => t.Text == rotulo && t.IsEffectivelyVisible);

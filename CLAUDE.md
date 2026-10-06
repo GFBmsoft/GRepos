@@ -61,6 +61,11 @@ push na main (artefato de 30 dias) e, num push de tag `1.0.0.N`, publica a Relea
 `app/bin/Release/net8.0/` — já aconteceu de o usuário abrir o errado e testar a versão
 velha. A barra de status mostra a data do executável em uso, justamente para conferir.
 
+**Notas da versão.** Antes de criar a tag `1.0.0.N`, acrescente a versão no topo de
+`app/Assets/notas-da-versao.md` (`## 1.0.0.N — dd/mm/aaaa` e os itens), escrita para quem
+usa o app, não como assunto de commit. É o que aparece em Preferências → Notas da versão;
+`NotasDaVersaoTests` falha se o arquivo sair do formato ou da ordem.
+
 ## Regras
 
 - Nada de reimplementar Git: o CLI já traz credenciais, SSH e hooks.

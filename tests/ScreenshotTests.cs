@@ -136,6 +136,19 @@ public class ScreenshotTests
         frame?.Save(Path.Combine(dir, nome + ".png"));
     }
 
+    /// <summary>Preferências na seção das notas: a versão escolhida e o que mudou nela.</summary>
+    [AvaloniaFact]
+    public void Preferencias_na_secao_de_notas_da_versao()
+    {
+        var janela = new SettingsWindow(new MainViewModel(new FakeDialogs()));
+        janela.Show();
+        var lista = janela.GetVisualDescendants().OfType<ListBox>().First();
+        lista.SelectedIndex = lista.Items.Cast<string>().ToList().IndexOf("Notas da versão");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        ShotJanela(janela, "preferencias-notas", 720, 560);
+    }
+
     /// <summary>
     /// Preferências com grupos: são as linhas de grupo, com botões encostados à direita,
     /// que denunciam a barra de rolagem passando por cima do conteúdo.
