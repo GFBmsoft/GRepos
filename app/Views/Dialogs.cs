@@ -156,6 +156,94 @@ public abstract class DialogWindow : Window
 
         Content = new Border { Padding = new Thickness(16), Child = panel };
     }
+
+    /// <summary>
+    /// Diálogo com muitos campos: a lista de seções fica à esquerda e só a escolhida
+    /// aparece à direita. As outras continuam montadas (só escondidas), então o que foi
+    /// digitado numa seção não se perde ao visitar outra, e o Salvar lê todas.
+    /// </summary>
+    protected void ComposeEmSecoes(string heading, IReadOnlyList<(string Nome, IEnumerable<Control> Corpo)> secoes,
+        IEnumerable<Control> footer)
+    {
+        var titulo = new TextBlock
+        {
+            Text = heading,
+            FontSize = 14.5,
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 0, 0, 12),
+        };
+
+        var lista = new ListBox
+        {
+            ItemsSource = secoes.Select(s => s.Nome).ToList(),
+            Background = Brushes.Transparent,
+            Margin = new Thickness(0, 0, 14, 0),
+            // a densidade compacta das listas do app deixaria os nomes colados
+            ItemTemplate = new FuncDataTemplate<string>((nome, _) =>
+                new TextBlock { Text = nome, FontSize = 12.5, Margin = new Thickness(8, 5) }),
+        };
+
+        var nomeDaSecao = Secao("", primeira: true);
+        var paineis = new Panel();
+        foreach (var (_, corpo) in secoes)
+        {
+            var painel = new StackPanel { Spacing = 0, IsVisible = false };
+            foreach (var c in corpo) painel.Children.Add(c);
+            paineis.Children.Add(painel);
+        }
+
+        var rolagem = new ScrollViewer
+        {
+            AllowAutoHide = false,
+            VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Padding = new Thickness(0, 0, FolgaDaBarra, 0),
+            Content = paineis,
+        };
+
+        lista.SelectionChanged += (_, _) =>
+        {
+            var escolhida = Math.Max(0, lista.SelectedIndex);
+            for (var i = 0; i < paineis.Children.Count; i++) paineis.Children[i].IsVisible = i == escolhida;
+            nomeDaSecao.Text = secoes[escolhida].Nome.ToUpperInvariant();
+            rolagem.Offset = default; // seção nova começa do topo, não onde a anterior parou
+        };
+        lista.SelectedIndex = 0;
+
+        var foot = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Spacing = 8,
+            Margin = new Thickness(0, 14, 0, 0),
+        };
+        foreach (var c in footer) foot.Children.Add(c);
+
+        var separador = new Border { Width = 1, Margin = new Thickness(0, 0, 14, 0) };
+        separador.Bind(Border.BackgroundProperty, new DynamicResourceExtension("Border"));
+
+        var grade = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("170,Auto,*"),
+            RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
+        };
+        void Por(Control c, int linha, int coluna, int linhas = 1, int colunas = 1)
+        {
+            Grid.SetRow(c, linha);
+            Grid.SetColumn(c, coluna);
+            Grid.SetRowSpan(c, linhas);
+            Grid.SetColumnSpan(c, colunas);
+            grade.Children.Add(c);
+        }
+        Por(titulo, 0, 0, colunas: 3);
+        Por(lista, 1, 0, linhas: 2);
+        Por(separador, 1, 1, linhas: 2);
+        Por(nomeDaSecao, 1, 2);
+        Por(rolagem, 2, 2);
+        Por(foot, 3, 0, colunas: 3);
+
+        Content = new Border { Padding = new Thickness(16), Child = grade };
+    }
 }
 
 // ------------------------------------------------------------------ confirmar
@@ -728,14 +816,14 @@ public sealed class SettingsWindow : DialogWindow
     private static readonly string[] Accents =
         { "#4F8CFF", "#3FB950", "#F0883E", "#D2A8FF", "#E3B341", "#56D4BC" };
 
-    public SettingsWindow(MainViewModel main) : base("Preferências", 520)
+    public SettingsWindow(MainViewModel main) : base("Preferências", 720)
     {
-        // esta é a única tela longa: em vez de caber num tamanho fixo, ela abre num
-        // tamanho confortável e o usuário estica se quiser ver mais campos de uma vez
+        // são muitos campos: ficam separados por seção, com a lista à esquerda. A janela abre num
+        // tamanho confortável e o usuário estica se quiser ver mais de uma vez
         SizeToContent = SizeToContent.Manual;
         CanResize = true;
-        Height = 700;
-        MinWidth = 460;
+        Height = 560;
+        MinWidth = 600;
         MinHeight = 420;
         MaxHeight = double.PositiveInfinity;
 
@@ -928,6 +1016,52 @@ public sealed class SettingsWindow : DialogWindow
         Grid.SetColumn(procurarGit, 1);
         linhaGitBash.Children.Add(gitBash);
         linhaGitBash.Children.Add(procurarGit);
+
+        // --------------------------------------------------------- diff externo
+
+        var diffExterno = new TextBox
+        {
+            Text = s.DiffExternoPath,
+            Watermark = @"vazio procura sozinho — ex.: C:\Program Files\Beyond Compare 5",
+        };
+        var diffArgs = new TextBox { Text = s.DiffExternoArgs };
+        var procurarDiff = BtnDiscreto("Procurar…");
+        procurarDiff.Margin = new Thickness(6, 0, 0, 0);
+        var diffUsado = new TextBlock
+        {
+            FontSize = 11.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4, 0, 10),
+            Classes = { "faint" },
+        };
+
+        void MostrarDiffExterno()
+        {
+            var achou = DiffExterno.Localizar(diffExterno.Text);
+            diffUsado.Text = achou is not null
+                ? "Abre: " + achou
+                : string.IsNullOrWhiteSpace(diffExterno.Text)
+                    ? "Nenhuma ferramenta encontrada automaticamente — informe a pasta de instalação ou o .exe."
+                    : "Nenhuma ferramenta conhecida nessa pasta. Se for outra, informe o caminho completo do .exe.";
+            diffUsado.Foreground = achou is null && !string.IsNullOrWhiteSpace(diffExterno.Text)
+                ? new SolidColorBrush(Color.Parse("#E5534B"))
+                : null;
+            // o padrão aparece como dica: dá para ver o que será usado antes de mexer
+            diffArgs.Watermark = "vazio usa: " + (achou is null ? DiffExterno.ArgumentosGenericos : DiffExterno.ArgumentosPadrao(achou));
+        }
+
+        MostrarDiffExterno();
+        diffExterno.TextChanged += (_, _) => MostrarDiffExterno();
+        procurarDiff.Click += async (_, _) =>
+        {
+            var pasta = await main.Dialogos.PickFolderAsync("Pasta de instalação da ferramenta de diff");
+            if (pasta is not null) diffExterno.Text = pasta;
+        };
+
+        var linhaDiff = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+        Grid.SetColumn(procurarDiff, 1);
+        linhaDiff.Children.Add(diffExterno);
+        linhaDiff.Children.Add(procurarDiff);
 
         var accent = s.Accent;
         var swatches = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
@@ -1241,6 +1375,7 @@ public sealed class SettingsWindow : DialogWindow
             main.SetArvoreMinimalista(estiloArvore.SelectedIndex == 0);
             main.SetEsteirasVisiveis((int)(esteiras.Value ?? 6));
             main.SetGitBashPath(gitBash.Text ?? "");
+            main.SetDiffExterno(diffExterno.Text ?? "", diffArgs.Text ?? "");
             main.ApplySettings(
                 theme.SelectedIndex == 1 ? "light" : "dark",
                 accent,
@@ -1251,48 +1386,71 @@ public sealed class SettingsWindow : DialogWindow
             Close();
         };
 
-        var body = new List<Control>
+        var aparencia = new List<Control>
         {
-            Secao("Customização", primeira: true),
             Field("Tema", theme),
             Field("Cor de destaque", swatches),
             Field("Densidade das listas", density),
             Field("Estilo da árvore", estiloArvore),
-            Field("Abrir o repositório em", abaInicial),
-            Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
-            Field("Commits carregados no histórico", logLimit),
-            Field("Execuções mostradas na esteira", esteiras),
-            avisarAtualizacao,
-            linhaAtualizacao,
-            resultadoBusca,
-            portatil,
-            ondeFica,
-            erroPortatil,
         };
-        if (groupsPanel.Children.Count > 0) body.Add(Field("Grupos", groupsPanel));
+        if (groupsPanel.Children.Count > 0) aparencia.Add(Field("Grupos", groupsPanel));
 
-        body.Add(Secao("Obter e puxar"));
-        body.Add(todasAsTags);
-        body.Add(todasAsBranches);
-        body.Add(Label("A branch atual e as que têm commit só seu nunca são mexidas: as locais só avançam quando estão apenas atrás da remota. As mesmas opções ficam no clique direito de Obter e Puxar."));
+        var campoDiff = Field("Pasta de instalação (ou caminho do .exe)", linhaDiff);
+        campoDiff.Margin = new Thickness(0);
 
-        body.Add(Secao("Terminal"));
-        body.Add(Field("Git Bash (pasta do Git ou caminho do git-bash.exe)", linhaGitBash));
-        body.Add(gitBashUsado);
+        var secoes = new List<(string, IEnumerable<Control>)>
+        {
+            ("Aparência", aparencia),
+            ("Geral", new Control[]
+            {
+                Field("Abrir o repositório em", abaInicial),
+                Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
+                Field("Commits carregados no histórico", logLimit),
+                Field("Execuções mostradas na esteira", esteiras),
+            }),
+            ("Obter e puxar", new Control[]
+            {
+                todasAsTags,
+                todasAsBranches,
+                Label("A branch atual e as que têm commit só seu nunca são mexidas: as locais só avançam quando estão apenas atrás da remota. As mesmas opções ficam no clique direito de Obter e Puxar."),
+            }),
+            ("Terminal", new Control[]
+            {
+                Field("Git Bash (pasta do Git ou caminho do git-bash.exe)", linhaGitBash),
+                gitBashUsado,
+            }),
+            ("Diff externo", new Control[]
+            {
+                Label("Ferramenta de comparação aberta pelo botão \"Diff externo\" do painel de diferenças: " +
+                      "Beyond Compare, WinMerge, Meld, KDiff3, P4Merge, TortoiseGitMerge ou VS Code são reconhecidos pela pasta."),
+                campoDiff,
+                diffUsado,
+                Field("Argumentos — $LOCAL é o lado esquerdo, $REMOTE o direito", diffArgs),
+            }),
+            ("Contas", new Control[]
+            {
+                Label("Contas do GitHub. A principal vale para os repositórios que não escolhem outra em Configurar repositório."),
+                contasPanel,
+                Field("Usuário", usuario),
+                Field("Token de acesso pessoal", token),
+                acoesToken,
+                situacao,
+                Secao("Gerenciador de credenciais"),
+                helperTexto,
+                new StackPanel { Margin = new Thickness(0, 8, 0, 0), Children = { configurarHelper } },
+            }),
+            ("Aplicativo", new Control[]
+            {
+                avisarAtualizacao,
+                linhaAtualizacao,
+                resultadoBusca,
+                portatil,
+                ondeFica,
+                erroPortatil,
+            }),
+        };
 
-        body.Add(Secao("Autenticação"));
-        body.Add(Label("Contas do GitHub. A principal vale para os repositórios que não escolhem outra em Configurar repositório."));
-        body.Add(contasPanel);
-        body.Add(Field("Usuário", usuario));
-        body.Add(Field("Token de acesso pessoal", token));
-        body.Add(acoesToken);
-        body.Add(situacao);
-        body.Add(Secao("Gerenciador de credenciais"));
-        body.Add(helperTexto);
-        body.Add(new StackPanel { Margin = new Thickness(0, 8, 0, 0), Children = { configurarHelper } });
-
-        Compose("Preferências", body, new[] { close, save },
-            rodapeCentralizado: true, corpoRolante: true);
+        ComposeEmSecoes("Preferências", secoes, new[] { close, save });
     }
 }
 

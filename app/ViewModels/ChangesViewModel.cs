@@ -47,7 +47,7 @@ public sealed partial class ChangesViewModel : ObservableObject
     {
         _repo = repo;
         _main = main;
-        Diff = new DiffViewModel { Split = split };
+        Diff = new DiffViewModel { Split = split, Externo = AbrirNoDiffExternoAsync, Recarregar = RecarregarDiffAsync };
     }
 
     public DiffViewModel Diff { get; }
@@ -181,8 +181,9 @@ public sealed partial class ChangesViewModel : ObservableObject
             var raw = item.IsConflito
                 ? await GitService.DiffConflitoAsync(_repo.Path, item.Path)
                 : await GitService.DiffFileAsync(
-                    _repo.Path, item.Path, item.Staged, item.Change.Kind == ChangeKind.Untracked);
-            var key = $"{item.Staged}|{item.Path}";
+                    _repo.Path, item.Path, item.Staged, item.Change.Kind == ChangeKind.Untracked,
+                    Diff.LinhasDeContexto);
+            var key = $"{item.Staged}|{item.Path}|{Diff.LinhasDeContexto}";
 
             // diff igual ao que já está na tela não é remontado: evita piscar e
             // perder a posição de rolagem a cada salvamento de arquivo
@@ -244,6 +245,39 @@ public sealed partial class ChangesViewModel : ObservableObject
     [RelayCommand]
     private Task AutoriaDoArquivo() =>
         ArquivoAtual is { } p ? _main.MostrarHistoricoDoArquivoAsync(_repo, p, blame: true) : Task.CompletedTask;
+
+    /// <summary>"Arquivo inteiro" do painel: o mesmo arquivo, com o contexto novo.</summary>
+    private Task RecarregarDiffAsync() =>
+        (SelectedStaged ?? SelectedUnstaged) is { } item ? ShowDiffAsync(item) : Task.CompletedTask;
+
+    // ------------------------------------------------------- diff externo
+
+    /// <summary>
+    /// Preparado: último commit × índice. Local: índice × o arquivo do disco, que a
+    /// ferramenta abre no lugar e pode salvar. Conflito: a minha versão × a que chega.
+    /// </summary>
+    [RelayCommand]
+    private Task AbrirNoDiffExternoAsync()
+    {
+        if ((SelectedStaged ?? SelectedUnstaged) is not { } item)
+        {
+            _main.Notify("Selecione um arquivo para comparar.");
+            return Task.CompletedTask;
+        }
+        var p = item.Path;
+        if (p.EndsWith('/'))
+        {
+            _main.Notify("É uma pasta nova: prepare-a para ver os arquivos e compare um a um.");
+            return Task.CompletedTask;
+        }
+
+        var antigo = item.Change.OrigPath is { Length: > 0 } o ? o : p;
+        var (esquerda, direita) =
+            item.IsConflito ? (VersaoDeArquivo.Em(":2", p, "meu"), VersaoDeArquivo.Em(":3", p, "deles"))
+            : item.Staged ? (VersaoDeArquivo.Em("HEAD", antigo, "HEAD"), VersaoDeArquivo.NoIndice(p))
+            : (VersaoDeArquivo.NoIndice(p), VersaoDeArquivo.NoDisco(p));
+        return _main.AbrirDiffExternoAsync(_repo, esquerda, direita);
+    }
 
     // ---------------------------------------------------------- conflitos
 

@@ -1558,6 +1558,31 @@ public sealed partial class MainViewModel : ObservableObject
         Persist();
     }
 
+    public void SetDiffExterno(string caminho, string argumentos)
+    {
+        var valor = (caminho ?? "").Trim().Trim('"');
+        var args = (argumentos ?? "").Trim();
+        if (_ws.Settings.DiffExternoPath == valor && _ws.Settings.DiffExternoArgs == args) return;
+
+        _ws.Settings.DiffExternoPath = valor;
+        _ws.Settings.DiffExternoArgs = args;
+        Persist();
+    }
+
+    /// <summary>Compara as duas versões na ferramenta externa das preferências.</summary>
+    public async Task AbrirDiffExternoAsync(Repo repo, VersaoDeArquivo esquerda, VersaoDeArquivo direita)
+    {
+        try
+        {
+            await DiffExterno.AbrirAsync(repo.Path, esquerda, direita,
+                _ws.Settings.DiffExternoPath, _ws.Settings.DiffExternoArgs);
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
     public void SetEsteirasVisiveis(int quantas)
     {
         var valor = Math.Clamp(quantas, 1, 50);

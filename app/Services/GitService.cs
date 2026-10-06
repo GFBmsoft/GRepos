@@ -154,6 +154,31 @@ public static class GitService
         ExecutarAsync(repo, args, null, default, Array.Empty<(string, string)>(), conteudo: true);
 
     /// <summary>
+    /// Bytes de um arquivo numa versão (<c>HEAD:caminho</c>, <c>:caminho</c> para o índice),
+    /// como o checkout os gravaria — com a conversão de fim de linha, para a comparação
+    /// com o arquivo do disco não acusar todas as linhas. Null quando a versão não existe.
+    /// </summary>
+    public static async Task<byte[]?> ConteudoBrutoAsync(string repo, string objeto)
+    {
+        var psi = new ProcessStartInfo("git")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        foreach (var a in new[] { "-C", repo, "cat-file", "--filters", objeto }) psi.ArgumentList.Add(a);
+
+        using var proc = Process.Start(psi) ?? throw new GitException("não foi possível executar o git");
+        using var saida = new MemoryStream();
+        var erro = proc.StandardError.ReadToEndAsync();
+        await proc.StandardOutput.BaseStream.CopyToAsync(saida);
+        await proc.WaitForExitAsync();
+        await erro;
+        return proc.ExitCode == 0 ? saida.ToArray() : null;
+    }
+
+    /// <summary>
     /// Chaves de config do repositório que casam com o padrão. Sem nenhuma, o git sai
     /// com código 1 — aqui isso é só um dicionário vazio.
     /// </summary>
@@ -1173,8 +1198,8 @@ public static class GitService
         return lista;
     }
 
-    public static Task<string> CommitFileDiffAsync(string repo, string hash, string file) =>
-        RunConteudoAsync(repo, new[] { "show", "--no-color", "--format=", "-m", "--first-parent", hash, "--", file });
+    public static Task<string> CommitFileDiffAsync(string repo, string hash, string file, int context = 3) =>
+        RunConteudoAsync(repo, new[] { "show", "--no-color", "--format=", "-m", "--first-parent", $"-U{context}", hash, "--", file });
 
     /// <summary>URL do remoto "origin"; vazio quando o repositório não tem remoto.</summary>
     public static async Task<string> RemoteUrlAsync(string repo)

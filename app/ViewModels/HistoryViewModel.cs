@@ -136,7 +136,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         _repo = repo;
         _main = main;
         _limit = limit;
-        Diff = new DiffViewModel { Split = split };
+        Diff = new DiffViewModel { Split = split, Externo = AbrirNoDiffExternoAsync, Recarregar = RecarregarDiffAsync };
     }
 
     public DiffViewModel Diff { get; }
@@ -320,6 +320,23 @@ public sealed partial class HistoryViewModel : ObservableObject
     private Task AutoriaDoArquivo() =>
         SelectedFile is { } f ? _main.MostrarHistoricoDoArquivoAsync(_repo, f.Path, blame: true) : Task.CompletedTask;
 
+    /// <summary>"Arquivo inteiro" do painel: o mesmo arquivo, com o contexto novo.</summary>
+    private Task RecarregarDiffAsync() => LoadFileDiffAsync(SelectedFile);
+
+    /// <summary>O arquivo antes e depois do commit selecionado, na ferramenta externa.</summary>
+    [RelayCommand]
+    private Task AbrirNoDiffExternoAsync()
+    {
+        if (SelectedCommit is not { } c || SelectedFile is not { } f)
+        {
+            _main.Notify("Selecione um arquivo do commit para comparar.");
+            return Task.CompletedTask;
+        }
+        return _main.AbrirDiffExternoAsync(_repo,
+            VersaoDeArquivo.Em(c.Commit.Hash + "^", f.Path, "antes-de-" + c.Short),
+            VersaoDeArquivo.Em(c.Commit.Hash, f.Path, c.Short));
+    }
+
     /// <summary>Rebase interativo do commit selecionado até o HEAD.</summary>
     [RelayCommand]
     private async Task Reorganizar()
@@ -406,7 +423,8 @@ public sealed partial class HistoryViewModel : ObservableObject
         }
         try
         {
-            var raw = await GitService.CommitFileDiffAsync(_repo.Path, SelectedCommit.Commit.Hash, file.Path);
+            var raw = await GitService.CommitFileDiffAsync(
+                _repo.Path, SelectedCommit.Commit.Hash, file.Path, Diff.LinhasDeContexto);
             Diff.Title = file.Path;
             Diff.Load(raw);
         }

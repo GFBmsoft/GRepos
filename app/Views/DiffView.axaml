@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GRepos.ViewModels"
+             xmlns:controls="using:GRepos.Controls"
              xmlns:local="using:GRepos"
              x:Class="GRepos.Views.DiffView"
              x:DataType="vm:DiffViewModel">
@@ -13,6 +14,14 @@
       <Setter Property="TextWrapping" Value="NoWrap" />
       <Setter Property="TextTrimming" Value="None" />
     </Style>
+    <!-- coluna do + e do −, separada do código como no GitHub: a indentação não anda -->
+    <Style Selector="TextBlock.marcador">
+      <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Padding" Value="0,1" />
+      <Setter Property="TextAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource TextDim}" />
+    </Style>
     <Style Selector="TextBlock.gutter">
       <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
       <Setter Property="FontSize" Value="11.5" />
@@ -21,6 +30,15 @@
       <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
       <Setter Property="Background" Value="{DynamicResource GutterBg}" />
       <Setter Property="Width" Value="46" />
+    </Style>
+    <!-- o número da linha alterada ganha o tom mais forte: acha-se a mudança pela margem -->
+    <Style Selector="TextBlock.gutter.add">
+      <Setter Property="Background" Value="{DynamicResource AddGutter}" />
+      <Setter Property="Foreground" Value="{DynamicResource Text}" />
+    </Style>
+    <Style Selector="TextBlock.gutter.del">
+      <Setter Property="Background" Value="{DynamicResource DelGutter}" />
+      <Setter Property="Foreground" Value="{DynamicResource Text}" />
     </Style>
     <Style Selector="Border.add">
       <Setter Property="Background" Value="{DynamicResource AddBg}" />
@@ -40,13 +58,51 @@
     <Style Selector="Border.linha.sel">
       <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
     </Style>
+    <Style Selector="Border.quadro">
+      <Setter Property="Width" Value="8" />
+      <Setter Property="Height" Value="8" />
+      <Setter Property="CornerRadius" Value="1.5" />
+      <Setter Property="Margin" Value="1,0" />
+    </Style>
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*">
 
     <Border Grid.Row="0" Padding="10,6" Background="{DynamicResource BgPanel}"
             BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
-      <TextBlock Classes="mono dim" FontSize="12" Text="{Binding Title}" />
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+        <TextBlock Grid.Column="0" Classes="mono dim" FontSize="12" Text="{Binding Title}"
+                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+        <!-- +N −N e os cinco quadros: o tamanho da mudança antes de ler o diff -->
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0"
+                    IsVisible="{Binding HasContent}">
+          <TextBlock Classes="mono" FontSize="11.5" FontWeight="SemiBold" Text="{Binding AdicionadasTexto}"
+                     Foreground="{DynamicResource Green}" VerticalAlignment="Center" />
+          <TextBlock Classes="mono" FontSize="11.5" FontWeight="SemiBold" Text="{Binding RemovidasTexto}"
+                     Foreground="{DynamicResource Red}" VerticalAlignment="Center" Margin="6,0,6,0" />
+          <ItemsControl ItemsSource="{Binding Quadros}" VerticalAlignment="Center">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Horizontal" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Classes="quadro"
+                        Background="{Binding Converter={x:Static local:Converters.ResourceBrush}}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+
+        <Button Grid.Column="2" Classes="tiny" Content="{Binding ContextoRotulo}" Margin="10,0,0,0"
+                IsVisible="{Binding TemRecarga}" Command="{Binding AlternarContextoCommand}"
+                ToolTip.Tip="Alterna entre só os blocos alterados e o arquivo inteiro com as alterações marcadas" />
+        <Button Grid.Column="3" Classes="tiny" Content="Diff externo ↗" Margin="6,0,0,0"
+                IsVisible="{Binding TemExterno}" Command="{Binding AbrirExternoCommand}"
+                ToolTip.Tip="Abre o arquivo inteiro na ferramenta de comparação das Preferências" />
+      </Grid>
     </Border>
 
     <TextBlock Grid.Row="1" Text="{Binding EmptyMessage}" Classes="faint"
@@ -66,10 +122,9 @@
         <ItemsControl.DataTemplates>
 
           <DataTemplate DataType="vm:DiffHeaderRow">
-            <Border Background="{DynamicResource BgRaised}" Padding="10,3"
-                    BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,1,0,1">
+            <Border Background="{DynamicResource HunkBg}" Padding="10,3">
               <StackPanel Orientation="Horizontal" Spacing="10">
-                <TextBlock Classes="mono faint" FontSize="11.5" Text="{Binding Header}"
+                <TextBlock Classes="mono dim" FontSize="11.5" Text="{Binding Header}"
                            VerticalAlignment="Center" />
                 <Button Classes="tiny" Content="{Binding ApplyLabel}"
                         Command="{Binding ApplyCommand}"
@@ -88,31 +143,37 @@
 
           <DataTemplate DataType="vm:DiffTextRow">
             <StackPanel Orientation="Horizontal">
-              <TextBlock Classes="gutter" Text="{Binding OldNo}" />
-              <TextBlock Classes="gutter" Text="{Binding NewNo}" />
+              <TextBlock Classes="gutter" Classes.add="{Binding IsAdd}" Classes.del="{Binding IsDel}"
+                         Text="{Binding OldNo}" />
+              <TextBlock Classes="gutter" Classes.add="{Binding IsAdd}" Classes.del="{Binding IsDel}"
+                         Text="{Binding NewNo}" />
               <Border Classes="linha" Tag="U" Classes.sel="{Binding Escolhida}"
                       Classes.add="{Binding IsAdd}" Classes.del="{Binding IsDel}"
                       Width="{Binding $parent[ItemsControl].DataContext.UnifiedWidth}">
-                <TextBlock Classes="code" Text="{Binding Text}"
-                           TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
+                <Grid ColumnDefinitions="18,*">
+                  <TextBlock Grid.Column="0" Classes="marcador" Text="{Binding Marker}" />
+                  <TextBlock Grid.Column="1" Classes="code" Padding="0,1,8,1"
+                             controls:Codigo.Linha="{Binding Codigo}"
+                             TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
+                </Grid>
               </Border>
             </StackPanel>
           </DataTemplate>
 
           <DataTemplate DataType="vm:DiffSplitRow">
             <StackPanel Orientation="Horizontal">
-              <TextBlock Classes="gutter" Width="44" Text="{Binding LeftNo}" />
+              <TextBlock Classes="gutter" Width="44" Classes.del="{Binding LeftIsDel}" Text="{Binding LeftNo}" />
               <Border Classes="linha" Tag="L" Classes.sel="{Binding LeftEscolhida}"
                       Classes.del="{Binding LeftIsDel}" Classes.empty="{Binding LeftEmpty}"
                       Width="{Binding $parent[ItemsControl].DataContext.LeftWidth}">
-                <TextBlock Classes="code" Text="{Binding LeftText}"
+                <TextBlock Classes="code" controls:Codigo.Linha="{Binding LeftCodigo}"
                            TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
               </Border>
-              <TextBlock Classes="gutter" Width="44" Text="{Binding RightNo}" />
+              <TextBlock Classes="gutter" Width="44" Classes.add="{Binding RightIsAdd}" Text="{Binding RightNo}" />
               <Border Classes="linha" Tag="R" Classes.sel="{Binding RightEscolhida}"
                       Classes.add="{Binding RightIsAdd}" Classes.empty="{Binding RightEmpty}"
                       Width="{Binding $parent[ItemsControl].DataContext.RightWidth}">
-                <TextBlock Classes="code" Text="{Binding RightText}"
+                <TextBlock Classes="code" controls:Codigo.Linha="{Binding RightCodigo}"
                            TextWrapping="{Binding $parent[ItemsControl].DataContext.Wrapping}" />
               </Border>
             </StackPanel>

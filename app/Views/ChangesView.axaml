@@ -49,6 +49,7 @@
             <ContextMenu>
               <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
               <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
+              <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}" />
             </ContextMenu>
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
@@ -105,6 +106,7 @@
             <ContextMenu>
               <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
               <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
+              <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}" />
               <Separator />
               <MenuItem Header="Ignorar alterações (só nesta máquina)" Command="{Binding IgnorarArquivoCommand}" />
               <MenuItem Header="Adicionar ao .gitignore" Command="{Binding AdicionarAoGitignoreCommand}" />

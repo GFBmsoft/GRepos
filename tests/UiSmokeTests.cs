@@ -66,6 +66,31 @@ public class UiSmokeTests
         janela.Close();
     }
 
+    /// <summary>Uma seção por vez: escolher na lista troca o painel, e as outras ficam escondidas.</summary>
+    [AvaloniaFact]
+    public void Preferencias_mostra_so_a_secao_escolhida()
+    {
+        var janela = new SettingsWindow(new MainViewModel(new FakeDialogs()));
+        janela.Show();
+
+        var lista = janela.GetVisualDescendants().OfType<ListBox>().First();
+        var secoes = lista.Items.Cast<string>().ToList();
+        Assert.Equal(new[] { "Aparência", "Geral", "Obter e puxar", "Terminal", "Diff externo", "Contas", "Aplicativo" }, secoes);
+
+        bool Visivel(string rotulo) => janela.GetVisualDescendants().OfType<TextBlock>()
+            .Any(t => t.Text == rotulo && t.IsEffectivelyVisible);
+
+        Assert.True(Visivel("Tema"));
+        Assert.False(Visivel("Token de acesso pessoal"));
+
+        lista.SelectedIndex = secoes.IndexOf("Contas");
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.True(Visivel("Token de acesso pessoal"));
+        Assert.True(Visivel("CONTAS"));
+        Assert.False(Visivel("Tema"));
+        janela.Close();
+    }
+
     private static void Render(Control view, object dataContext)
     {
         var window = new Window { Width = 1200, Height = 800, Content = view };

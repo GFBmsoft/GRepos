@@ -156,7 +156,7 @@ public class ScreenshotTests
             // duas contas: a lista de contas é o que a seção de autenticação desenha
             var contaAntes = GitService.CredentialUser;
             main.SetContas(new[] { "GFBmsoft", "bmsoftsistemas" }, "GFBmsoft");
-            try {             ShotJanela(new SettingsWindow(main), "preferencias", 520, 700); }
+            try {             ShotJanela(new SettingsWindow(main), "preferencias", 720, 560); }
             finally { GitService.CredentialUser = contaAntes; }
         }
         finally
@@ -425,6 +425,45 @@ public class ScreenshotTests
         vm.Itens[1].Acao = 1;
         vm.Itens[2].Acao = 4;
         ShotJanela(new RebaseWindow { DataContext = vm }, "rebase", 860, 480);
+    }
+
+    /// <summary>O diff no desenho do GitHub: unificado, com realce, contador e faixa de bloco.</summary>
+    [AvaloniaFact]
+    public void Diff_unificado_com_realce()
+    {
+        var vm = new DiffViewModel { Split = false, Externo = () => Task.CompletedTask, Recarregar = () => Task.CompletedTask };
+        vm.CharWidth = 7.2;
+        vm.ViewportWidth = 1000;
+        vm.Title = "app/App.axaml.cs  (local)";
+        vm.Load(string.Join("\n", new[]
+        {
+            "diff --git a/app/App.axaml.cs b/app/App.axaml.cs",
+            "--- a/app/App.axaml.cs",
+            "+++ b/app/App.axaml.cs",
+            "@@ -1,6 +1,9 @@",
+            " using Avalonia;",
+            "+using Avalonia.Controls;",
+            " using Avalonia.Controls.ApplicationLifetimes;",
+            "+using Avalonia.Interactivity;",
+            " using Avalonia.Markup.Xaml;",
+            "+using GRepos.Services;",
+            " using GRepos.Views;",
+            " ",
+            " namespace GRepos;",
+            "@@ -11,6 +14,9 @@ public partial class App : Application",
+            " ",
+            "     public override void OnFrameworkInitializationCompleted()",
+            "     {",
+            "+        // toda janela, diálogos inclusive: no Windows 10 a barra de título não segue o tema sozinha",
+            "+        Window.WindowOpenedEvent.AddClassHandler<Window>((janela, _) => BarraDeTitulo.Acompanhar(janela));",
+            "+",
+            "         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)",
+            "-            desktop.MainWindow = new MainWindow(\"antiga\", 42);",
+            "+            desktop.MainWindow = new MainWindow();",
+            " ",
+        }) + "\n", "Preparar bloco", _ => Task.CompletedTask);
+
+        Shot(new DiffView(), vm, "diff-unificado");
     }
 
     [AvaloniaFact]

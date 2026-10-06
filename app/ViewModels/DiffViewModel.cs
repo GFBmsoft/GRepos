@@ -55,6 +55,12 @@ public sealed partial class DiffHeaderRow : DiffRowBase
     }
 }
 
+/// <summary>Texto de uma linha de código com os trechos que o realce de sintaxe colore.</summary>
+public sealed record LinhaRealcada(string Texto, IReadOnlyList<Trecho> Trechos)
+{
+    public static readonly IReadOnlyList<Trecho> SemRealce = Array.Empty<Trecho>();
+}
+
 /// <summary>Linha no modo unificado.</summary>
 public sealed partial class DiffTextRow : DiffRowBase
 {
@@ -62,7 +68,10 @@ public sealed partial class DiffTextRow : DiffRowBase
 
     public string OldNo => Line.OldNoText;
     public string NewNo => Line.NewNoText;
-    public string Text => Line.Marker + DiffText.Expand(Line.Text);
+    public string Marker => Line.Marker;
+    public string Text => DiffText.Expand(Line.Text);
+    public IReadOnlyList<Trecho> Trechos { get; init; } = LinhaRealcada.SemRealce;
+    public LinhaRealcada Codigo => new(Text, Trechos);
     public bool IsAdd => Line.Kind == DiffLineKind.Add;
     public bool IsDel => Line.Kind == DiffLineKind.Del;
 
@@ -78,6 +87,11 @@ public sealed partial class DiffSplitRow : DiffRowBase
     public string RightNo => Row.Right?.NewNoText ?? "";
     public string LeftText => DiffText.Expand(Row.Left?.Text ?? "");
     public string RightText => DiffText.Expand(Row.Right?.Text ?? "");
+
+    public IReadOnlyList<Trecho> LeftTrechos { get; init; } = LinhaRealcada.SemRealce;
+    public IReadOnlyList<Trecho> RightTrechos { get; init; } = LinhaRealcada.SemRealce;
+    public LinhaRealcada LeftCodigo => new(LeftText, LeftTrechos);
+    public LinhaRealcada RightCodigo => new(RightText, RightTrechos);
 
     public bool LeftIsDel => Row.Left?.Kind == DiffLineKind.Del;
     public bool RightIsAdd => Row.Right?.Kind == DiffLineKind.Add;
@@ -145,6 +159,17 @@ public sealed partial class DiffViewModel : ObservableObject
 
     public bool HasContent => !IsEmpty;
 
+    /// <summary>
+    /// Abre o arquivo mostrado na ferramenta de comparação externa. Quem monta o diff é
+    /// que sabe quais são os dois lados; sem isto, o botão do cabeçalho não aparece.
+    /// </summary>
+    public Func<Task>? Externo { get; init; }
+
+    public bool TemExterno => Externo is not null;
+
+    [RelayCommand]
+    private Task AbrirExterno() => Externo?.Invoke() ?? Task.CompletedTask;
+
     /// <summary>Quebra de linha do texto do diff, no formato que o TextBlock espera.</summary>
     public Avalonia.Media.TextWrapping Wrapping =>
         Wrap ? Avalonia.Media.TextWrapping.Wrap : Avalonia.Media.TextWrapping.NoWrap;
@@ -173,6 +198,9 @@ public sealed partial class DiffViewModel : ObservableObject
     {
         _parsed = null;
         _escolhidas.Clear();
+        _trechosAntes.Clear();
+        _trechosDepois.Clear();
+        Contar(null);
         _apply = null;
         Rows = new ObservableCollection<DiffRowBase>();
         EmptyMessage = message;
@@ -204,7 +232,121 @@ public sealed partial class DiffViewModel : ObservableObject
         }
 
         _parsed = diff;
+        Realcar(diff);
+        Contar(diff);
         Rebuild();
+    }
+
+    // ------------------------------------------------------------ contexto
+    // "Arquivo inteiro" pede o diff de novo com todas as linhas em volta. Quem monta o
+    // diff informa como recarregar; sem isso, o botão do cabeçalho não aparece.
+
+    public Func<Task>? Recarregar { get; init; }
+
+    public bool TemRecarga => Recarregar is not null;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ContextoRotulo))]
+    private bool _arquivoInteiro;
+
+    /// <summary>Valor do <c>-U</c> do git: as três linhas de sempre, ou o arquivo todo.</summary>
+    public int LinhasDeContexto => ArquivoInteiro ? 99999 : 3;
+
+    public string ContextoRotulo => ArquivoInteiro ? "Só alterações" : "Arquivo inteiro";
+
+    [RelayCommand]
+    private async Task AlternarContexto()
+    {
+        ArquivoInteiro = !ArquivoInteiro;
+        if (Recarregar is not null) await Recarregar();
+    }
+
+    // ------------------------------------------------------------ contagem
+    // O "+6 −2" e os cinco quadrinhos do cabeçalho, como no GitHub.
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AdicionadasTexto), nameof(RemovidasTexto), nameof(Quadros))]
+    private int _adicionadas;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AdicionadasTexto), nameof(RemovidasTexto), nameof(Quadros))]
+    private int _removidas;
+
+    public string AdicionadasTexto => $"+{Adicionadas}";
+    public string RemovidasTexto => $"−{Removidas}";
+
+    /// <summary>Cinco quadros na proporção de linhas novas e removidas; o que sobra fica neutro.</summary>
+    public IReadOnlyList<string> Quadros => QuadrosDe(Adicionadas, Removidas);
+
+    public static IReadOnlyList<string> QuadrosDe(int adicionadas, int removidas)
+    {
+        const int total = 5;
+        var soma = adicionadas + removidas;
+        var verdes = 0;
+        var vermelhos = 0;
+        if (soma > 0)
+        {
+            // até cinco linhas, um quadro por linha; acima disso, proporcional
+            var cheios = Math.Min(total, soma);
+            verdes = (int)Math.Round((double)adicionadas * cheios / soma, MidpointRounding.AwayFromZero);
+            if (adicionadas > 0 && verdes == 0) verdes = 1;
+            if (removidas > 0 && verdes == cheios) verdes = cheios - 1;
+            vermelhos = cheios - verdes;
+        }
+
+        var quadros = new List<string>(total);
+        for (var i = 0; i < total; i++)
+            quadros.Add(i < verdes ? "Green" : i < verdes + vermelhos ? "Red" : "Border");
+        return quadros;
+    }
+
+    private void Contar(ParsedDiff? diff)
+    {
+        var linhas = diff?.Hunks.SelectMany(h => h.Lines).ToList();
+        Adicionadas = linhas?.Count(l => l.Kind == DiffLineKind.Add) ?? 0;
+        Removidas = linhas?.Count(l => l.Kind == DiffLineKind.Del) ?? 0;
+    }
+
+    // -------------------------------------------------------------- realce
+    // Os trechos são calculados uma vez por diff, na ordem das linhas: o comentário de
+    // bloco aberto atravessa as linhas, e cada lado (antes e depois) tem o seu estado.
+
+    private readonly Dictionary<DiffLine, List<Trecho>> _trechosAntes = new();
+    private readonly Dictionary<DiffLine, List<Trecho>> _trechosDepois = new();
+
+    private void Realcar(ParsedDiff diff)
+    {
+        _trechosAntes.Clear();
+        _trechosDepois.Clear();
+        if (Realce.Para(CaminhoDoDiff(diff) ?? Title.Split("  ")[0]) is not { } ling) return;
+
+        foreach (var hunk in diff.Hunks)
+        {
+            var antes = 0;
+            var depois = 0;
+            foreach (var l in hunk.Lines)
+            {
+                if (l.Kind == DiffLineKind.NoNewline) continue;
+                var texto = DiffText.Expand(l.Text);
+                if (l.Kind != DiffLineKind.Add) _trechosAntes[l] = Realce.Linha(texto, ling, ref antes);
+                if (l.Kind != DiffLineKind.Del) _trechosDepois[l] = Realce.Linha(texto, ling, ref depois);
+            }
+        }
+    }
+
+    private IReadOnlyList<Trecho> TrechosDe(DiffLine? linha, bool antigo) =>
+        linha is not null && (antigo ? _trechosAntes : _trechosDepois).TryGetValue(linha, out var t)
+            ? t
+            : LinhaRealcada.SemRealce;
+
+    /// <summary>Caminho do arquivo pelo cabeçalho do diff; é a extensão que escolhe o realce.</summary>
+    private static string? CaminhoDoDiff(ParsedDiff diff)
+    {
+        foreach (var prefixo in new[] { "+++ b/", "--- a/" })
+            foreach (var linha in diff.Head)
+                if (linha.StartsWith(prefixo, StringComparison.Ordinal))
+                    return linha[prefixo.Length..].TrimEnd('\t', '"');
+        return null;
     }
 
     // ----------------------------------------------- escolha de linhas
@@ -278,6 +420,8 @@ public sealed partial class DiffViewModel : ObservableObject
                         Row = r,
                         LeftEscolhida = r.Left is { } esq && escolhidas.Contains(esq),
                         RightEscolhida = r.Right is { } dir && escolhidas.Contains(dir),
+                        LeftTrechos = TrechosDe(r.Left, antigo: true),
+                        RightTrechos = TrechosDe(r.Right, antigo: false),
                     });
             }
             else
@@ -285,7 +429,13 @@ public sealed partial class DiffViewModel : ObservableObject
                 foreach (var l in hunk.Lines)
                 {
                     if (l.Kind == DiffLineKind.NoNewline) continue;
-                    rows.Add(new DiffTextRow { Hunk = hunk, Line = l, Escolhida = escolhidas.Contains(l) });
+                    rows.Add(new DiffTextRow
+                    {
+                        Hunk = hunk,
+                        Line = l,
+                        Escolhida = escolhidas.Contains(l),
+                        Trechos = TrechosDe(l, antigo: l.Kind == DiffLineKind.Del),
+                    });
                 }
             }
         }
@@ -304,6 +454,7 @@ public sealed partial class DiffViewModel : ObservableObject
         const double padding = 18;
         const double splitGutters = 88;   // duas colunas de número, 44 cada
         const double unifiedGutters = 92; // duas colunas de número, 46 cada
+        const double marcador = 18;       // coluna do + e do −, dentro da faixa da linha
 
         var half = Math.Max(0, (ViewportWidth - splitGutters) / 2);
         var full = Math.Max(0, ViewportWidth - unifiedGutters);
@@ -342,6 +493,6 @@ public sealed partial class DiffViewModel : ObservableObject
 
         LeftWidth = Math.Max(minimum, (left + 1) * CharWidth + padding);
         RightWidth = Math.Max(minimum, (right + 1) * CharWidth + padding);
-        UnifiedWidth = Math.Max(Math.Max(120, full), (unified + 1) * CharWidth + padding);
+        UnifiedWidth = Math.Max(Math.Max(120, full), (unified + 1) * CharWidth + padding + marcador);
     }
 }

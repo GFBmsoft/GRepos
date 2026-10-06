@@ -35,6 +35,16 @@
           <SolidColorBrush x:Key="AddBg" Color="#1B3326" />
           <SolidColorBrush x:Key="DelBg" Color="#3A2028" />
           <SolidColorBrush x:Key="GutterBg" Color="#14181F" />
+          <SolidColorBrush x:Key="AddGutter" Color="#23472F" />
+          <SolidColorBrush x:Key="DelGutter" Color="#52262F" />
+          <SolidColorBrush x:Key="HunkBg" Color="#152238" />
+
+          <!-- realce de sintaxe do diff, na paleta do GitHub -->
+          <SolidColorBrush x:Key="SynPalavra" Color="#FF7B72" />
+          <SolidColorBrush x:Key="SynLiteral" Color="#A5D6FF" />
+          <SolidColorBrush x:Key="SynComentario" Color="#8B949E" />
+          <SolidColorBrush x:Key="SynNumero" Color="#79C0FF" />
+          <SolidColorBrush x:Key="SynFuncao" Color="#D2A8FF" />
 
           <!-- cores de estado: claras, para contrastar com o fundo escuro -->
           <SolidColorBrush x:Key="Accent" Color="#4F8CFF" />
@@ -69,6 +79,15 @@
           <SolidColorBrush x:Key="AddBg" Color="#D6F5DE" />
           <SolidColorBrush x:Key="DelBg" Color="#FFE1DE" />
           <SolidColorBrush x:Key="GutterBg" Color="#EDF0F4" />
+          <SolidColorBrush x:Key="AddGutter" Color="#B9EBC6" />
+          <SolidColorBrush x:Key="DelGutter" Color="#FFCDC8" />
+          <SolidColorBrush x:Key="HunkBg" Color="#DDEEFF" />
+
+          <SolidColorBrush x:Key="SynPalavra" Color="#CF222E" />
+          <SolidColorBrush x:Key="SynLiteral" Color="#0A3069" />
+          <SolidColorBrush x:Key="SynComentario" Color="#5F6975" />
+          <SolidColorBrush x:Key="SynNumero" Color="#0550AE" />
+          <SolidColorBrush x:Key="SynFuncao" Color="#7A3FD1" />
 
           <!-- as mesmas cores em tons escuros: sobre branco as claras somem -->
           <SolidColorBrush x:Key="Accent" Color="#1F6FEB" />

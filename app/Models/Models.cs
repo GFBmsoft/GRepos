@@ -97,6 +97,18 @@ public sealed class Settings
     /// </summary>
     public string GitBashPath { get; set; } = "";
 
+    /// <summary>
+    /// Pasta de instalação (ou o .exe) da ferramenta de comparação: Beyond Compare,
+    /// WinMerge, Meld… Vazio procura sozinho nas pastas padrão dos instaladores.
+    /// </summary>
+    public string DiffExternoPath { get; set; } = "";
+
+    /// <summary>
+    /// Linha de comando da ferramenta, com <c>$LOCAL</c> e <c>$REMOTE</c>. Vazio usa a
+    /// padrão da ferramenta reconhecida.
+    /// </summary>
+    public string DiffExternoArgs { get; set; } = "";
+
     /// <summary>Obter traz todas as tags do remoto, não só as dos commits trazidos.</summary>
     public bool BuscarTodasAsTags { get; set; } = true;
 
