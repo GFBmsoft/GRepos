@@ -122,7 +122,11 @@ public sealed partial class ChangesViewModel : ObservableObject
     {
         try
         {
+            // o contador de ignorados custa um processo a mais: corre junto do status, e
+            // fica de fora da recarga disparada pelo disco, que acontece a cada salvamento
+            var ignorados = silent ? null : Ignorados.ListarAsync(_repo.Path);
             var (status, list) = await GitService.StatusAndChangesAsync(_repo.Path);
+            if (ignorados is not null) TotalIgnorados = (await ignorados).Count;
 
             // conflito aparece só em "alterações locais" — é onde se resolve. Antes ele
             // entrava nas duas listas, porque tem índice e working tree marcados.
@@ -313,6 +317,7 @@ public sealed partial class ChangesViewModel : ObservableObject
         OnPropertyChanged(nameof(PrepararRotulo));
         OnPropertyChanged(nameof(RemoverRotulo));
         OnPropertyChanged(nameof(DescartarRotulo));
+        OnPropertyChanged(nameof(IgnorarRotulo));
     }
 
     /// <summary>Alvo dos botões do cabeçalho: os marcados (se 2+) ou a lista toda.</summary>
@@ -322,6 +327,76 @@ public sealed partial class ChangesViewModel : ObservableObject
     public string PrepararRotulo => _marcadosUnstaged.Count >= 2 ? $"Preparar selecionados ({_marcadosUnstaged.Count})" : "Preparar tudo";
     public string RemoverRotulo => _marcadosStaged.Count >= 2 ? $"Remover selecionados ({_marcadosStaged.Count})" : "Remover tudo";
     public string DescartarRotulo => _marcadosUnstaged.Count >= 2 ? $"Descartar selecionados ({_marcadosUnstaged.Count})" : "Descartar tudo";
+
+    // ------------------------------------------------------------- ignorar
+    // Só nesta máquina: skip-worktree no arquivo rastreado, .git/info/exclude no novo.
+    // Nada disso entra em commit, então não precisa de confirmação — e tem volta.
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemIgnorados), nameof(IgnoradosRotulo))]
+    private int _totalIgnorados;
+
+    public bool TemIgnorados => TotalIgnorados > 0;
+    public string IgnoradosRotulo => TotalIgnorados > 0 ? $"Ver ignorados ({TotalIgnorados})…" : "Ver ignorados…";
+    public string IgnorarRotulo => _marcadosUnstaged.Count >= 2 ? $"Ignorar selecionados ({_marcadosUnstaged.Count})" : "Ignorar tudo";
+
+    /// <summary>Alvo do menu de contexto: os marcados (se 2+) ou o arquivo aberto.</summary>
+    private List<FileItemViewModel> AlvoDoMenu() =>
+        _marcadosUnstaged.Count >= 2 ? _marcadosUnstaged.ToList()
+        : SelectedUnstaged is { } s ? new List<FileItemViewModel> { s }
+        : new List<FileItemViewModel>();
+
+    [RelayCommand]
+    private Task IgnorarTodos() => IgnorarAsync(Alvo(_marcadosUnstaged, Unstaged));
+
+    [RelayCommand]
+    private Task IgnorarArquivo() => IgnorarAsync(AlvoDoMenu());
+
+    private Task IgnorarAsync(List<FileItemViewModel> itens)
+    {
+        // conflito não se esconde: fica na lista até ser resolvido
+        var alvo = itens.Where(f => !f.IsConflito).ToList();
+        if (alvo.Count == 0)
+        {
+            _main.Notify("Nenhum arquivo para ignorar.");
+            return Task.CompletedTask;
+        }
+
+        return RunAsync(async () =>
+        {
+            await Ignorados.IgnorarAsync(
+                _repo.Path,
+                alvo.Where(f => f.Change.Kind != ChangeKind.Untracked).Select(f => f.Path),
+                alvo.Where(f => f.Change.Kind == ChangeKind.Untracked).Select(f => f.Path));
+            _main.Notify($"{alvo.Count} arquivo(s) ignorado(s) só nesta máquina. Para voltar: Ignorar ▾ → Ver ignorados.");
+        });
+    }
+
+    [RelayCommand]
+    private Task AdicionarAoGitignore()
+    {
+        var novos = AlvoDoMenu().Where(f => f.Change.Kind == ChangeKind.Untracked).Select(f => f.Path).ToList();
+        if (novos.Count == 0)
+        {
+            _main.Notify("O .gitignore só vale para arquivo novo. Num arquivo que já está no repositório, " +
+                         "use \"Ignorar alterações (só nesta máquina)\".", true);
+            return Task.CompletedTask;
+        }
+
+        return RunAsync(() =>
+        {
+            Ignorados.AdicionarAoGitignore(_repo.Path, novos);
+            _main.Notify($"{novos.Count} arquivo(s) no .gitignore. Faça o commit dele para valer para todos.");
+            return Task.CompletedTask;
+        });
+    }
+
+    [RelayCommand]
+    private async Task VerIgnorados()
+    {
+        await _main.MostrarIgnoradosAsync(_repo);
+        await ReloadAsync();
+    }
 
     // ------------------------------------------------------------ reverter
 

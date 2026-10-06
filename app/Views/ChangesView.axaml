@@ -72,6 +72,20 @@
             <TextBlock Grid.Column="0" Classes="sectionTitle" Text="ALTERAÇÕES LOCAIS" />
             <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
                        VerticalAlignment="Center" Text="{Binding Unstaged.Count}" />
+            <!-- ignorar não descarta nada: só tira da lista, e só nesta máquina -->
+            <Button Grid.Column="2" Classes="tiny" Content="Ignorar ▾" HorizontalAlignment="Right"
+                    ToolTip.Tip="Tira arquivos da lista de alterações só neste computador, sem mexer no repositório">
+              <Button.Flyout>
+                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                  <MenuItem Header="{Binding IgnorarRotulo}" Command="{Binding IgnorarTodosCommand}" />
+                  <MenuItem Header="Ignorar o arquivo selecionado" Command="{Binding IgnorarArquivoCommand}" />
+                  <MenuItem Header="Adicionar o selecionado ao .gitignore"
+                            Command="{Binding AdicionarAoGitignoreCommand}" />
+                  <Separator />
+                  <MenuItem Header="{Binding IgnoradosRotulo}" Command="{Binding VerIgnoradosCommand}" />
+                </MenuFlyout>
+              </Button.Flyout>
+            </Button>
             <!-- botões numa segunda linha: com "selecionados (N)" não cabem ao lado do título -->
             <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6"
                         HorizontalAlignment="Right" Margin="0,6,0,0">
@@ -91,6 +105,9 @@
             <ContextMenu>
               <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
               <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
+              <Separator />
+              <MenuItem Header="Ignorar alterações (só nesta máquina)" Command="{Binding IgnorarArquivoCommand}" />
+              <MenuItem Header="Adicionar ao .gitignore" Command="{Binding AdicionarAoGitignoreCommand}" />
             </ContextMenu>
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>

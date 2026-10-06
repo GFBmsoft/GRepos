@@ -1391,6 +1391,101 @@ public sealed class StashWindow : DialogWindow
     }
 }
 
+// ----------------------------------------------------------------- ignorados
+
+/// <summary>O que está fora da lista de alterações só nesta máquina, e o caminho de volta.</summary>
+public sealed class IgnoradosWindow : DialogWindow
+{
+    private readonly MainViewModel _main;
+    private readonly Repo _repo;
+    private readonly ListBox _list = new() { MaxHeight = 320 };
+    private readonly Button _todos;
+    private readonly TextBlock _empty = new()
+    {
+        Text = "Nenhum arquivo ignorado.",
+        Margin = new Thickness(0, 10, 0, 0),
+        Classes = { "faint" },
+    };
+    private List<Ignorado> _itens = new();
+
+    public IgnoradosWindow(MainViewModel main, Repo repo) : base($"Ignorados — {repo.Name}", 520)
+    {
+        _main = main;
+        _repo = repo;
+
+        _list.ItemTemplate = new FuncDataTemplate<Ignorado>((i, _) =>
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto,Auto"), Height = 26 };
+            var text = new TextBlock
+            {
+                Text = i.Texto,
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            };
+            ToolTip.SetTip(text, i.Texto);
+            var tipo = new TextBlock
+            {
+                Text = i.Rastreado ? "alterado" : "novo",
+                FontSize = 10.5,
+                Margin = new Thickness(8, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Classes = { "faint" },
+            };
+            var voltar = new Button { Content = "Voltar a acompanhar", Classes = { "tiny" } };
+            Grid.SetColumn(tipo, 1);
+            Grid.SetColumn(voltar, 2);
+            voltar.Click += async (_, _) => await VoltarAsync(new[] { i });
+
+            row.Children.Add(text);
+            row.Children.Add(tipo);
+            row.Children.Add(voltar);
+            return row;
+        });
+
+        _todos = Btn("Voltar todos");
+        _todos.Click += async (_, _) => await VoltarAsync(_itens);
+        var close = Btn("Fechar");
+        close.Click += (_, _) => Close();
+
+        Compose($"Ignorados — {repo.Name}",
+            new Control[]
+            {
+                Label("Arquivos que não aparecem nas alterações só neste computador: nada disto vai para o " +
+                      "repositório. Um arquivo alterado e ignorado pode impedir uma troca de branch ou um pull " +
+                      "que mexa nele — nesse caso, volte a acompanhá-lo aqui."),
+                _list, _empty,
+            },
+            new[] { _todos, close });
+
+        Opened += (_, _) => Carga = CarregarAsync();
+    }
+
+    /// <summary>Carga disparada pelo Opened, para o teste poder esperar por ela.</summary>
+    public Task Carga { get; private set; } = Task.CompletedTask;
+
+    private async Task CarregarAsync()
+    {
+        _itens =await Ignorados.ListarAsync(_repo.Path);
+        _list.ItemsSource = _itens;
+        _empty.IsVisible = _itens.Count == 0;
+        _todos.IsEnabled = _itens.Count > 0;
+    }
+
+    private async Task VoltarAsync(IEnumerable<Ignorado> itens)
+    {
+        try
+        {
+            await Ignorados.VoltarAsync(_repo.Path, itens.ToList());
+            await CarregarAsync();
+        }
+        catch (Exception e)
+        {
+            _main.Notify(e.Message, true);
+        }
+    }
+}
+
 // ------------------------------------------------------------------ git-flow
 
 /// <summary>

@@ -38,6 +38,9 @@ public interface IDialogService
 
     /// <summary>Rebase interativo dos commits desde <paramref name="hash"/> até o HEAD.</summary>
     Task ShowRebaseAsync(MainViewModel main, Repo repo, string hash) => Task.CompletedTask;
+
+    /// <summary>Arquivos ignorados só nesta máquina, com a opção de voltar a acompanhar.</summary>
+    Task ShowIgnoradosAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
 }
 
 public sealed partial class MainViewModel : ObservableObject
@@ -701,6 +704,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public Task MostrarHistoricoDoArquivoAsync(Repo repo, string caminho, bool blame) =>
         _dialogs.ShowFileHistoryAsync(repo, caminho, blame, SplitDiff);
+
+    public Task MostrarIgnoradosAsync(Repo repo) => _dialogs.ShowIgnoradosAsync(this, repo);
 
     /// <summary>Depois do rebase a branch mudou: barra e aba visível são recarregadas.</summary>
     public async Task MostrarRebaseAsync(Repo repo, string hash)

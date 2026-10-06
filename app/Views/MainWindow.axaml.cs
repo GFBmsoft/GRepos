@@ -238,6 +238,9 @@ public partial class MainWindow : Window, IDialogService
     public Task ShowFileHistoryAsync(Repo repo, string caminho, bool blame, bool split) =>
         new FileHistoryWindow(repo, caminho, blame, split).ShowDialog(this);
 
+    public Task ShowIgnoradosAsync(MainViewModel main, Repo repo) =>
+        new IgnoradosWindow(main, repo).ShowDialog(this);
+
     public Task ShowRebaseAsync(MainViewModel main, Repo repo, string hash) =>
         new RebaseWindow(main, repo, hash).ShowDialog(this);
 }
