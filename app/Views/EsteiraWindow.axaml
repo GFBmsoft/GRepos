@@ -57,7 +57,7 @@
 
           <TextBlock Grid.Row="1" Text="Carregando…" Classes="faint" Margin="12,10"
                      IsVisible="{Binding Carregando}" />
-          <TextBlock Grid.Row="1" Text="Nenhuma execução encontrada para esta branch."
+          <TextBlock Grid.Row="1" Text="{Binding TextoSemExecucoes}"
                      Classes="faint" Margin="12,10" TextWrapping="Wrap"
                      IsVisible="{Binding SemExecucoes}" />
 

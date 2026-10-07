@@ -1,3 +1,7 @@
+## 1.0.0.33 — 07/10/2026
+- Esteira: filtrar por uma situação sem execuções deixa de mostrar o passo a passo da execução anterior por baixo dos avisos, e o aviso passa a dizer que não há execução naquela situação, em vez de dizer que a branch não tem nenhuma.
+- Esteira: ao trocar de execução, os passos da anterior somem enquanto os novos carregam.
+
 ## 1.0.0.32 — 07/10/2026
 - Terminal embutido: texto fosco aparece apagado, como nos outros terminais. A sugestão que o Claude Code oferece para completar com Tab deixa de se confundir com o que você digitou.
 

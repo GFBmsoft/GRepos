@@ -339,6 +339,46 @@ public class EsteiraTests
         Assert.Equal("", vm.Filtro);
     }
 
+    /// <summary>
+    /// EV12: filtrar por uma situação sem execuções esvaziava a lista e a seleção, mas os
+    /// passos da execução anterior ficavam na tela, por baixo dos avisos.
+    /// </summary>
+    [Fact]
+    public void Filtro_sem_resultado_leva_os_passos_junto()
+    {
+        var vm = new EsteiraViewModel("", "main", "", "Repo", null, visiveis: 20);
+        Alimentar(vm, Execucoes(8));
+        vm.Jobs.Add(new CiJobViewModel { Job = new CiJob { Nome = "build" } });
+
+        vm.Filtro = "falha";
+
+        Assert.Empty(vm.Execucoes);
+        Assert.Null(vm.Selecionada);
+        Assert.Empty(vm.Jobs);
+
+        // um aviso só, e que não negue os contadores ao lado
+        Assert.True(vm.SemExecucoes);
+        Assert.False(vm.SemSelecao);
+        Assert.False(vm.SemJobs);
+        Assert.StartsWith("Nenhuma execução nesta situação", vm.TextoSemExecucoes);
+
+        vm.Filtro = "";
+        Assert.Equal(8, vm.Execucoes.Count);
+        Assert.NotNull(vm.Selecionada);
+    }
+
+    [Fact]
+    public void Trocar_de_execucao_nao_deixa_os_passos_da_anterior()
+    {
+        var vm = new EsteiraViewModel("", "main", "", "Repo", null, visiveis: 20);
+        Alimentar(vm, Execucoes(3));
+        vm.Jobs.Add(new CiJobViewModel { Job = new CiJob { Nome = "build" } });
+
+        vm.Selecionada = vm.Execucoes[1];
+
+        Assert.Empty(vm.Jobs);
+    }
+
     private static CiExecucao[] Execucoes(int quantas) =>
         Enumerable.Range(1, quantas)
             .Reverse()

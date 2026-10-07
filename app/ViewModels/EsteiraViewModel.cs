@@ -200,7 +200,19 @@ public sealed partial class EsteiraViewModel : ObservableObject
 
     public bool TemErro => Erro.Length > 0;
     public bool SemExecucoes => !Carregando && Erro.Length == 0 && Execucoes.Count == 0;
-    public bool SemSelecao => Selecionada is null;
+
+    /// <summary>
+    /// Lista vazia por causa do filtro não é "nenhuma execução": os contadores ao lado
+    /// mostram que elas existem, só não nessa situação.
+    /// </summary>
+    public string TextoSemExecucoes => _todas.Count > 0
+        ? "Nenhuma execução nesta situação. Clique no filtro de novo para ver todas."
+        : SomenteBranch
+            ? "Nenhuma execução encontrada para esta branch."
+            : "Nenhuma execução encontrada.";
+
+    /// <summary>Sem execução na lista não há o que escolher: o aviso da esquerda basta.</summary>
+    public bool SemSelecao => Selecionada is null && Execucoes.Count > 0;
     public bool SemJobs => !CarregandoJobs && Selecionada is not null && Jobs.Count == 0;
 
     // -------------------------------------------------- filtro e recolhimento
@@ -277,12 +289,14 @@ public sealed partial class EsteiraViewModel : ObservableObject
 
         foreach (var p in new[] { nameof(TotalTodas), nameof(TotalSucesso), nameof(TotalFalha),
                                   nameof(TotalRodando), nameof(RotuloTodas), nameof(RotuloSucesso),
-                                  nameof(RotuloFalha), nameof(RotuloRodando), nameof(SemExecucoes) })
+                                  nameof(RotuloFalha), nameof(RotuloRodando), nameof(SemExecucoes),
+                                  nameof(TextoSemExecucoes) })
             OnPropertyChanged(p);
 
         // o cartão aberto pode ter saído pelo filtro
         if (Selecionada is not null && !Execucoes.Contains(Selecionada)) Selecionada = null;
         Selecionada ??= Execucoes.FirstOrDefault();
+        OnPropertyChanged(nameof(SemSelecao));
 
         // a execução escolhida pode ter terminado neste ciclo: Parar some, Reexecutar volta
         AvisarBotoes();
@@ -309,9 +323,16 @@ public sealed partial class EsteiraViewModel : ObservableObject
         OnPropertyChanged(nameof(SemJobs));
         AvisarBotoes();
 
-        // só recarrega ao trocar de cartão; a atualização periódica cuida do resto
-        if (value is not null && value.Execucao.Id != _jobsCarregadosDe)
-            _ = CarregarJobsAsync(value);
+        // mesmo cartão: a atualização periódica cuida do resto, sem mexer na lista
+        if (value is not null && value.Execucao.Id == _jobsCarregadosDe) return;
+
+        // os passos na tela são de outra execução. Ficando ali, apareciam por baixo do
+        // "Escolha uma execução" (filtro sem resultado) e do "Carregando os passos…"
+        Jobs.Clear();
+        _jobsCarregadosDe = 0;
+        OnPropertyChanged(nameof(SemJobs));
+
+        if (value is not null) _ = CarregarJobsAsync(value);
     }
 
     // ------------------------------------------------ disparar e reexecutar
@@ -551,13 +572,15 @@ public sealed partial class EsteiraViewModel : ObservableObject
             {
                 Erro = e.Message;
                 Execucoes.Clear();
-                Jobs.Clear();
+                Selecionada = null; // leva os passos junto
             }
         }
         finally
         {
             if (!silencioso) Carregando = false;
             OnPropertyChanged(nameof(SemExecucoes));
+            OnPropertyChanged(nameof(TextoSemExecucoes));
+            OnPropertyChanged(nameof(SemSelecao));
         }
     }
 
