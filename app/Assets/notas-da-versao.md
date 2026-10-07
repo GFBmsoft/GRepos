@@ -1,3 +1,6 @@
+## 1.0.0.32 — 07/10/2026
+- Terminal embutido: texto fosco aparece apagado, como nos outros terminais. A sugestão que o Claude Code oferece para completar com Tab deixa de se confundir com o que você digitou.
+
 ## 1.0.0.31 — 06/10/2026
 - Com muitos repositórios o aplicativo abre sem travar: o painel aparece na hora e cada repositório mostra a branch e as pendências assim que responde, em vez de todos esperarem o último.
 - **Atualizar** clicado durante a varredura automática deixa de ser ignorado, e o painel passa a acompanhar a varredura automática.
