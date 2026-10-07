@@ -136,6 +136,38 @@ public class ScreenshotTests
         frame?.Save(Path.Combine(dir, nome + ".png"));
     }
 
+    /// <summary>O cartão de aviso nos quatro tipos: a cor diz o que aconteceu antes de se ler.</summary>
+    [AvaloniaFact]
+    public void Avisos_de_sucesso_erro_andamento_e_informacao()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-aviso-" + Path.GetRandomFileName());
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+        try
+        {
+            var janela = new MainWindow();
+            var vm = (MainViewModel)janela.DataContext!;
+
+            foreach (var (tipo, titulo, detalhe) in new[]
+                     {
+                         ("sucesso", "Puxar concluído", "3 commits novos em develop."),
+                         ("erro", "Não foi possível enviar", "O remoto tem commits que você ainda não tem. Use Puxar e envie de novo."),
+                         ("andamento", "Obter em andamento…", "Financeiro"),
+                         ("info", "", "Financeiro foi para DBISAM / Fiscal."),
+                     })
+            {
+                vm.Avisar(tipo, titulo, detalhe);
+                ShotJanela(janela, "aviso-" + tipo, 1000, 300);
+            }
+            janela.Close();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { Directory.Delete(home, true); } catch (Exception) { /* pasta temporária */ }
+        }
+    }
+
     /// <summary>Pasta, subpasta e repositórios na árvore; os caminhos não existem, só o desenho interessa.</summary>
     [AvaloniaFact]
     public async Task Sidebar_com_subgrupos()

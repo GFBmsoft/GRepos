@@ -220,16 +220,29 @@ public sealed partial class HistoryViewModel : ObservableObject
             }
             if (termo != Busca) return; // a busca mudou enquanto o git respondia
             var max = Math.Max(1, GraphBuilder.MaxLanes(rows));
+            var escolhido = SelectedCommit?.Commit.Hash;
 
             Commits = new ObservableCollection<CommitRowViewModel>(
                 rows.Select(r => new CommitRowViewModel { Commit = r.Commit, Row = r, MaxLanes = max }));
             OnPropertyChanged(nameof(ContagemTexto));
 
             OnPropertyChanged(nameof(Count));
-            SelectedCommit = null;
-            HasDetail = false;
-            Files = new ObservableCollection<CommitFileViewModel>();
-            Diff.Clear("Selecione um commit para ver os detalhes.");
+
+            // abre já num commit: o que estava escolhido, se continua na lista, ou o mais
+            // recente. Entrar no histórico e ter de clicar para ver alguma coisa era um
+            // passo a mais toda vez
+            var alvo = Commits.FirstOrDefault(c => c.Commit.Hash == escolhido) ?? Commits.FirstOrDefault();
+            if (alvo is not null)
+            {
+                SelectedCommit = alvo;
+            }
+            else
+            {
+                SelectedCommit = null;
+                HasDetail = false;
+                Files = new ObservableCollection<CommitFileViewModel>();
+                Diff.Clear("Nenhum commit para mostrar.");
+            }
         }
         catch (Exception e)
         {

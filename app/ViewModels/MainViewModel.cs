@@ -98,6 +98,12 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _scanning;
     [ObservableProperty] private string _statusMessage = "";
     [ObservableProperty] private bool _statusIsError;
+
+    /// <summary>Linha em destaque do aviso ("Puxar concluído"); vazia quando o aviso é só um texto.</summary>
+    [ObservableProperty] private string _statusTitulo = "";
+
+    /// <summary>"info", "sucesso", "erro" ou "andamento": decide a cor e o ícone do aviso.</summary>
+    [ObservableProperty] private string _statusTipo = "info";
     [ObservableProperty] private bool _hasStatusMessage;
     [ObservableProperty] private bool _busy;
 
@@ -1020,7 +1026,8 @@ public sealed partial class MainViewModel : ObservableObject
 
         await RunAsync(p => branch.IsRemote
             ? GitService.CheckoutRemotaAsync(p, branch.Name)
-            : GitService.CheckoutAsync(p, branch.Name), "Trocar de branch");
+            : GitService.CheckoutAsync(p, branch.Name), "Troca de branch", "trocar de branch",
+            (_, depois) => new Aviso("Branch trocada", depois is null ? "" : $"Agora em {depois.Branch}."));
         await LoadTabAsync();
     }
 
@@ -1104,9 +1111,16 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ---------------------------------------------------------- inicialização
 
+    /// <summary>
+    /// O workspace do disco já foi lido. Antes disso o que está na memória é um workspace
+    /// vazio, e gravá-lo apagaria o do usuário.
+    /// </summary>
+    private bool _carregado;
+
     public async Task InitAsync()
     {
         _ws = WorkspaceStore.Load();
+        _carregado = true;
         GitService.CredentialUser = _ws.Settings.GithubUser;
         MigrarContas();
         AplicarContasDosRepositorios();
@@ -1150,15 +1164,81 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
-    public string StatusAccent => StatusIsError ? "Red" : "Accent";
+    /// <summary>Verde deu certo, vermelho falhou, amarelo ainda está rodando; o resto é informação.</summary>
+    public string StatusAccent => StatusTipo switch
+    {
+        "sucesso" => "Green",
+        "erro" => "Red",
+        "andamento" => "Yellow",
+        _ => "Accent",
+    };
 
-    partial void OnStatusIsErrorChanged(bool value) => OnPropertyChanged(nameof(StatusAccent));
+    public string StatusIcone => StatusTipo switch
+    {
+        "sucesso" => "✓",
+        "erro" => "✕",
+        "andamento" => "●",
+        _ => "i",
+    };
 
+    public bool TemStatusTitulo => StatusTitulo.Length > 0;
+    public bool TemStatusDetalhe => StatusMessage.Length > 0;
+
+    partial void OnStatusTipoChanged(string value)
+    {
+        OnPropertyChanged(nameof(StatusAccent));
+        OnPropertyChanged(nameof(StatusIcone));
+    }
+
+    partial void OnStatusTituloChanged(string value) => OnPropertyChanged(nameof(TemStatusTitulo));
+    partial void OnStatusMessageChanged(string value) => OnPropertyChanged(nameof(TemStatusDetalhe));
+
+    /// <summary>Quanto um aviso de sucesso ou de informação fica na tela antes de sumir sozinho.</summary>
+    public static readonly TimeSpan DuracaoDoAviso = TimeSpan.FromSeconds(7);
+
+    private DispatcherTimer? _sumirAviso;
+
+    /// <summary>Aviso simples, de uma linha só. Erro fica até ser fechado.</summary>
     public void Notify(string message, bool isError = false)
     {
-        StatusMessage = message;
-        StatusIsError = isError;
+        // erro que veio cru do git (em inglês, com "fatal:") ganha a explicação em português
+        if (isError && MensagensGit.PareceDoGit(message))
+        {
+            var aviso = MensagensGit.Erro("concluir a operação", message);
+            Avisar("erro", aviso.Titulo, aviso.Detalhe);
+            return;
+        }
+
+        Avisar(isError ? "erro" : "info", "", message);
+    }
+
+    /// <summary>
+    /// Mostra o aviso no cartão do rodapé. Sucesso e informação somem sozinhos; erro fica
+    /// até o usuário fechar, e "andamento" fica até a operação trocar por outro.
+    /// </summary>
+    public void Avisar(string tipo, string titulo, string detalhe = "")
+    {
+        StatusTipo = tipo;
+        StatusTitulo = titulo;
+        StatusMessage = detalhe;
+        StatusIsError = tipo == "erro";
         HasStatusMessage = true;
+
+        _sumirAviso?.Stop();
+        if (tipo is "erro" or "andamento") return;
+
+        _sumirAviso ??= new DispatcherTimer { Interval = DuracaoDoAviso };
+        _sumirAviso.Tick -= SumirAviso;
+        _sumirAviso.Tick += SumirAviso;
+        _sumirAviso.Start();
+    }
+
+    private void SumirAviso(object? sender, EventArgs e)
+    {
+        _sumirAviso?.Stop();
+
+        // um erro ou uma operação que entrou depois não some por causa do aviso anterior
+        if (StatusTipo is not ("erro" or "andamento")) HasStatusMessage = false;
     }
 
     public Task<bool> ConfirmAsync(string title, string message) => _dialogs.ConfirmAsync(title, message);
@@ -1562,23 +1642,44 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ----------------------------------------------------- comandos do repo
 
-    private async Task RunAsync(Func<string, Task<string>> action, string label)
+    /// <param name="nome">O nome do botão, como substantivo do aviso: "Obter", "Puxar"…</param>
+    /// <param name="verbo">O mesmo no infinitivo minúsculo, para o erro: "obter", "puxar"…</param>
+    /// <param name="resumo">
+    /// O que dizer no fim, a partir do repositório antes e depois. Sem ele vale a última
+    /// linha que o git escreveu, traduzida.
+    /// </param>
+    private async Task RunAsync(Func<string, Task<string>> action, string nome, string verbo,
+        Func<RepoStatus?, RepoStatus?, Aviso>? resumo = null)
     {
         var repo = CurrentRepo;
         if (repo is null) return;
         Busy = true;
-        Notify($"{label} em andamento…"); // a barra desabilitada precisa dizer por quê
+        var antes = CurrentStatus;
+
+        // a barra desabilitada precisa dizer por quê
+        Avisar("andamento", $"{nome} em andamento…", repo.Name);
         try
         {
             var outp = await action(repo.Path);
             await RefreshRepoAsync(repo.Id);
             if (SelectedTab == 0 && Changes is not null) await Changes.ReloadAsync();
-            var tail = outp.Trim().Split('\n').LastOrDefault()?.Trim() ?? "";
-            Notify(tail.Length > 0 ? $"{label}: {tail}" : $"{label} concluído.");
+
+            var aviso = resumo?.Invoke(antes, CurrentRepo?.Id == repo.Id ? CurrentStatus : null)
+                        ?? new Aviso($"{nome} concluído", MensagensGit.Traduzir(outp));
+
+            // a sincronização das branches acrescenta a própria linha ao que o git escreveu
+            var extra = outp.Trim().Split('\n').LastOrDefault()?.Trim() ?? "";
+            var sincronizou = extra.EndsWith("criada(s).") || extra.EndsWith("atualizada(s).");
+            var detalhe = resumo is not null && sincronizou
+                ? $"{aviso.Detalhe} {char.ToUpperInvariant(extra[0])}{extra[1..]}".Trim()
+                : aviso.Detalhe;
+
+            Avisar("sucesso", aviso.Titulo, detalhe);
         }
         catch (Exception e)
         {
-            Notify(e.Message, true);
+            var aviso = MensagensGit.Erro(verbo, e.Message);
+            Avisar("erro", aviso.Titulo, aviso.Detalhe);
         }
         finally
         {
@@ -1587,10 +1688,14 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task Fetch() => RunAsync(p => ComSincronizacaoAsync(p, GitService.FetchAsync(p, BuscarTodasAsTags)), "Fetch");
+    private Task Fetch() => RunAsync(
+        p => ComSincronizacaoAsync(p, GitService.FetchAsync(p, BuscarTodasAsTags)),
+        "Obter", "obter", (_, depois) => MensagensGit.Obtido(depois));
 
     [RelayCommand]
-    private Task Pull() => RunAsync(p => ComSincronizacaoAsync(p, PullComTagsAsync(p)), "Pull");
+    private Task Pull() => RunAsync(
+        p => ComSincronizacaoAsync(p, PullComTagsAsync(p)),
+        "Puxar", "puxar", MensagensGit.Puxado);
 
     private async Task<string> PullComTagsAsync(string repo)
     {
@@ -1647,7 +1752,9 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task Push() => RunAsync(p => GitService.PushAsync(p, string.IsNullOrEmpty(CurrentStatus?.Upstream)), "Push");
+    private Task Push() => RunAsync(
+        p => GitService.PushAsync(p, string.IsNullOrEmpty(CurrentStatus?.Upstream)),
+        "Enviar", "enviar", MensagensGit.Enviado);
 
     /// <summary>Desfaz a última ação do repositório (commit, reset, merge, checkout…), lida do reflog.</summary>
     [RelayCommand]
@@ -1677,7 +1784,7 @@ public sealed partial class MainViewModel : ObservableObject
             "\n\nClicar em Desfazer de novo refaz o que foi desfeito.");
         if (!ok) return;
 
-        await RunAsync(p => GitService.RunAsync(p, plano.Args), "Desfazer");
+        await RunAsync(p => GitService.RunAsync(p, plano.Args), "Desfazer", "desfazer");
         await LoadTabAsync();
     }
 
@@ -2270,6 +2377,25 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Largura da sidebar escolhida no divisor; volta assim na próxima abertura.</summary>
+    /// <summary>Guarda como a janela ficou, para a próxima abertura. Só grava se mudou.</summary>
+    public void SetJanela(double largura, double altura, bool maximizada)
+    {
+        // janela fechada antes de o workspace ser lido: não há onde guardar sem apagar o resto
+        if (!_carregado) return;
+
+        var s = _ws.Settings;
+        if (largura <= 0 || altura <= 0) (largura, altura) = (s.JanelaLargura, s.JanelaAltura);
+
+        if (Math.Abs(s.JanelaLargura - largura) < 1 && Math.Abs(s.JanelaAltura - altura) < 1 &&
+            s.JanelaMaximizada == maximizada)
+            return;
+
+        s.JanelaLargura = largura;
+        s.JanelaAltura = altura;
+        s.JanelaMaximizada = maximizada;
+        Persist();
+    }
+
     public void SetSidebarWidth(double largura)
     {
         if (largura <= 0 || Math.Abs(_ws.Settings.SidebarWidth - largura) < 1) return;

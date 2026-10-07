@@ -430,17 +430,35 @@
         </Grid>
       </Border>
 
-      <!-- aviso -->
-      <Border Grid.Row="1" Classes="card" IsVisible="{Binding HasStatusMessage}"
+      <!-- aviso: a cor diz o que aconteceu antes de se ler o texto. Verde deu certo,
+           vermelho falhou, amarelo ainda está rodando, azul é só informação -->
+      <Border Grid.Row="1" IsVisible="{Binding HasStatusMessage}"
               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,16"
-              MaxWidth="720" Padding="12,9" BoxShadow="0 8 26 #66000000">
-        <Grid ColumnDefinitions="4,*,Auto">
-          <Border Grid.Column="0" CornerRadius="2" Width="3"
+              MinWidth="300" MaxWidth="720" CornerRadius="9" ClipToBounds="True"
+              Background="{DynamicResource BgRaised}" BorderThickness="1.5"
+              BorderBrush="{Binding StatusAccent, Converter={x:Static local:Converters.ResourceBrush}}"
+              BoxShadow="0 8 26 #66000000">
+        <Panel>
+          <!-- a mesma cor, bem diluída, tinge o fundo do cartão -->
+          <Border Opacity="0.13" IsHitTestVisible="False"
                   Background="{Binding StatusAccent, Converter={x:Static local:Converters.ResourceBrush}}" />
-          <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="10,0"
-                     TextTrimming="None" VerticalAlignment="Center" />
-          <Button Grid.Column="2" Classes="tiny" Content="&#x2715;" Command="{Binding DismissStatusCommand}" />
-        </Grid>
+          <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,10,8,10">
+            <Border Grid.Column="0" Width="24" Height="24" CornerRadius="12" VerticalAlignment="Center"
+                    Background="{Binding StatusAccent, Converter={x:Static local:Converters.ResourceBrush}}">
+              <TextBlock Text="{Binding StatusIcone}" FontSize="12.5" FontWeight="Bold"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Foreground="{DynamicResource BgRaised}" />
+            </Border>
+            <StackPanel Grid.Column="1" Margin="11,0,10,0" VerticalAlignment="Center" Spacing="1">
+              <TextBlock Text="{Binding StatusTitulo}" FontWeight="SemiBold" FontSize="12.5"
+                         TextWrapping="Wrap" TextTrimming="None" IsVisible="{Binding TemStatusTitulo}" />
+              <TextBlock Text="{Binding StatusMessage}" FontSize="12" TextWrapping="Wrap"
+                         TextTrimming="None" IsVisible="{Binding TemStatusDetalhe}" />
+            </StackPanel>
+            <Button Grid.Column="2" Classes="tiny" Content="&#x2715;" VerticalAlignment="Top"
+                    Command="{Binding DismissStatusCommand}" ToolTip.Tip="Fechar o aviso" />
+          </Grid>
+        </Panel>
       </Border>
     </Grid>
   </Grid>

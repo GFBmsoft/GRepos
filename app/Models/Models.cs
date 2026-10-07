@@ -63,6 +63,16 @@ public sealed class Settings
     /// <summary>Largura da sidebar em pixels, como o usuário deixou o divisor.</summary>
     public double SidebarWidth { get; set; } = 280;
 
+    /// <summary>
+    /// Tamanho da janela principal quando não está maximizada, como ficou da última vez.
+    /// Zero é "nunca guardou": vale o tamanho padrão.
+    /// </summary>
+    public double JanelaLargura { get; set; }
+    public double JanelaAltura { get; set; }
+
+    /// <summary>A janela estava maximizada ao fechar; reabre maximizada.</summary>
+    public bool JanelaMaximizada { get; set; }
+
     /// <summary>Aba aberta ao selecionar um repositório: "alteracoes" ou "historico".</summary>
     public string DefaultTab { get; set; } = "alteracoes";
 

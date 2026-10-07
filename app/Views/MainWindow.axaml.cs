@@ -25,6 +25,8 @@ public partial class MainWindow : Window, IDialogService
         _vm = new MainViewModel(this);
         DataContext = _vm;
 
+        RestaurarJanela();
+
         // arrastar um repositório para outro grupo, ou um grupo para dentro de outro. Fica
         // aqui, e não com o resto da árvore, porque precisa do view model já criado
         if (this.FindControl<ListBox>("TreeList") is { } arvore) ArrasteNaArvore.Habilitar(arvore, _vm);
@@ -128,6 +130,52 @@ public partial class MainWindow : Window, IDialogService
     }
 
     /// <summary>Devolve a sidebar à largura que o usuário deixou na última sessão.</summary>
+    /// <summary>Tamanho da janela enquanto não estava maximizada: é o que se guarda ao fechar.</summary>
+    private Size _tamanhoNormal;
+
+    /// <summary>
+    /// Abre como ficou da última vez: maximizada, ou no tamanho guardado e centralizada
+    /// no monitor. As medidas são lidas antes de a janela aparecer — aplicá-las depois
+    /// faria ela abrir num tamanho e pular para outro.
+    /// </summary>
+    private void RestaurarJanela()
+    {
+        var guardado = WorkspaceStore.Load().Settings;
+
+        // área útil do monitor em pontos da tela, que é a unidade de Width e Height
+        var tela = Screens.Primary;
+        var escala = tela is { Scaling: > 0 } ? tela.Scaling : 1;
+        var (largura, altura) = JanelaGuardada.Tamanho(
+            guardado.JanelaLargura, guardado.JanelaAltura, Width, Height, MinWidth, MinHeight,
+            tela is null ? 0 : tela.WorkingArea.Width / escala,
+            tela is null ? 0 : tela.WorkingArea.Height / escala);
+
+        Width = largura;
+        Height = altura;
+        _tamanhoNormal = new Size(largura, altura);
+
+        // sempre no centro: a posição não é guardada, e uma janela que reabre num canto
+        // (ou num monitor que não está mais ligado) é pior que uma no meio
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        if (guardado.JanelaMaximizada) WindowState = WindowState.Maximized;
+
+        // maximizada, o tamanho da janela é o do monitor: o que interessa guardar é o de antes
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == ClientSizeProperty && WindowState == WindowState.Normal &&
+                ClientSize is { Width: > 0, Height: > 0 } tamanho)
+                _tamanhoNormal = tamanho;
+        };
+
+        Closing += (_, _) =>
+        {
+            // minimizada ao fechar não diz nada sobre como o usuário quer abrir
+            var maximizada = WindowState is WindowState.Maximized or WindowState.FullScreen ||
+                             (WindowState == WindowState.Minimized && guardado.JanelaMaximizada);
+            _vm.SetJanela(_tamanhoNormal.Width, _tamanhoNormal.Height, maximizada);
+        };
+    }
+
     private void AplicarLarguraSidebar()
     {
         var coluna = Coluna();

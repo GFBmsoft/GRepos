@@ -1,3 +1,9 @@
+## 1.0.0.38 — 07/10/2026
+- **Avisos repaginados**: o cartão ganhou cor por resultado (verde deu certo, vermelho falhou, amarelo ainda está rodando, azul é informação), ícone, título e detalhe. Sucesso e informação somem sozinhos; erro fica até ser fechado.
+- Obter, Puxar e Enviar dizem em português o que aconteceu: quantos commits chegaram, quantos foram enviados, ou que já estava em dia. Os erros mais comuns do git vêm explicados, com o que fazer.
+- O histórico abre já no commit mais recente, com o detalhe carregado, e mantém o commit escolhido ao recarregar.
+- A janela reabre como ficou da última vez: maximizada, ou no mesmo tamanho e centralizada no monitor.
+
 ## 1.0.0.37 — 07/10/2026
 - **Arrastar e soltar na árvore**: arraste um repositório para cima de outro grupo para mudá-lo de grupo, ou um grupo para cima de outro para virar subgrupo dele. Soltar um grupo na linha **Painel** o leva ao nível principal. O grupo que vai receber fica destacado enquanto você arrasta.
 - O cartão de perfil do painel aparece na hora, com o que foi mostrado da última vez, e se atualiza por trás. O botão **Atualizar** busca os dados novos.
