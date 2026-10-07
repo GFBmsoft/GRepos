@@ -1,3 +1,9 @@
+## 1.0.0.36 — 07/10/2026
+- **Grupos dentro de grupos**: pasta, subpasta e repositórios, em quantos níveis quiser. Crie um subgrupo pelo clique direito no grupo, pelo campo **Dentro de** do diálogo de grupo ou pelo botão **Subgrupo** nas Preferências. O mesmo campo serve para mudar um grupo de lugar.
+- O contador, o painel e o lote de um grupo passam a incluir os subgrupos. Excluir um grupo sobe os subgrupos e os repositórios dele um nível.
+- **Painel de cores**: a amostra ao lado do código da cor abre uma paleta para escolher. Vale para a cor de destaque, que agora aceita qualquer cor, e para a cor de cada grupo.
+- Esteira: passo que o workflow pula de propósito aparece como pulado, em vez de sem informação e com "0s".
+
 ## 1.0.0.35 — 07/10/2026
 - **Issues** dentro do aplicativo: botão na barra, no cartão do painel e na paleta. Lista as abertas e as fechadas, filtra pelas etiquetas e por texto, e permite criar, editar (título, descrição e etiquetas), comentar, fechar e reabrir.
 - Pull requests ganharam as abas **Conversa**, **Commits** e **Arquivos**, com os comentários e as revisões em ordem de tempo e o diff de cada arquivo.

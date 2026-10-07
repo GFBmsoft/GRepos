@@ -662,6 +662,7 @@ public class UiSmokeTests
             {
                 new CiEtapaViewModel { Etapa = new GRepos.Services.CiEtapa { Numero = 1, Nome = "Checkout", Situacao = "sucesso", Duracao = System.TimeSpan.FromSeconds(4) } },
                 new CiEtapaViewModel { Etapa = new GRepos.Services.CiEtapa { Numero = 2, Nome = "dotnet test", Situacao = "falha", Duracao = System.TimeSpan.FromSeconds(83) } },
+                new CiEtapaViewModel { Etapa = new GRepos.Services.CiEtapa { Numero = 3, Nome = "Artefato (runtime)", Situacao = "pulado" } },
             },
         });
 

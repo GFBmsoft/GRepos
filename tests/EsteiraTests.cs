@@ -367,6 +367,36 @@ public class EsteiraTests
         Assert.NotNull(vm.Selecionada);
     }
 
+    /// <summary>
+    /// EV14: os passos de artefato num build de tag têm "if:" e não rodam. Apareciam com
+    /// um ponto e "0s", como se faltasse informação; são passos pulados de propósito.
+    /// </summary>
+    [Fact]
+    public void Passo_pulado_aparece_como_pulado_e_nao_como_sem_informacao()
+    {
+        var job = GitHubService.LerJobs("""
+            {"jobs":[{"name":"build","status":"completed","conclusion":"success","steps":[
+              {"name":"Nomear os executáveis","status":"completed","conclusion":"success","number":8,
+               "started_at":"2026-10-07T14:00:00Z","completed_at":"2026-10-07T14:00:01Z"},
+              {"name":"Artefato (runtime)","status":"completed","conclusion":"skipped","number":9,
+               "started_at":"2026-10-07T14:00:01Z","completed_at":"2026-10-07T14:00:01Z"}
+            ]}]}
+            """).Single();
+
+        Assert.Equal(new[] { "sucesso", "pulado" }, job.Etapas.Select(e => e.Situacao));
+
+        var passou = new CiEtapaViewModel { Etapa = job.Etapas[0] };
+        var pulado = new CiEtapaViewModel { Etapa = job.Etapas[1] };
+
+        Assert.Equal("⊘", pulado.Simbolo);
+        Assert.Equal("pulado", pulado.DuracaoTexto); // e não "0s"
+        Assert.Equal("TextFaint", pulado.CorDoNome);
+
+        Assert.Equal("✓", passou.Simbolo);
+        Assert.Equal("1s", passou.DuracaoTexto);
+        Assert.Equal("Text", passou.CorDoNome);
+    }
+
     [Fact]
     public void Trocar_de_execucao_nao_deixa_os_passos_da_anterior()
     {

@@ -1577,6 +1577,9 @@ public static class GitHubService
             "success" => "sucesso",
             "failure" or "timed_out" or "startup_failure" => "falha",
             "cancelled" => "cancelado",
+            // passo com "if:" que não se aplicou (o artefato num build de tag): não rodou
+            // de propósito, o que é diferente de não ter informação
+            "skipped" => "pulado",
             "" => "rodando",
             _ => "indisponivel",
         },

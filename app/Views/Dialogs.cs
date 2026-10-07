@@ -8,6 +8,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using GRepos.Controls;
 using GRepos.Models;
 using GRepos.Services;
 using GRepos.ViewModels;
@@ -294,21 +295,21 @@ public sealed class PromptWindow : DialogWindow
 /// <summary>Nome e cor do grupo. Devolve null quando o usuário cancela.</summary>
 public sealed class GroupWindow : DialogWindow
 {
-    public GroupWindow(string titulo, string nome, string cor) : base(titulo, 420)
+    /// <param name="pais">
+    /// Grupos que podem conter este, em ordem de árvore. Nulo esconde a escolha — o
+    /// diálogo antigo, só com nome e cor.
+    /// </param>
+    public GroupWindow(string titulo, string nome, string cor,
+        string? paiId = null, IReadOnlyList<GrupoNaArvore>? pais = null) : base(titulo, 420)
     {
         var escolhida = GroupPalette.Normalizar(cor) ?? GroupPalette.Padrao;
 
         var nomeBox = new TextBox { Text = nome, Watermark = "Ex.: Módulos BMSoft" };
         var hexBox = new TextBox { Text = escolhida, Width = 96 };
 
-        var amostra = new Border
-        {
-            Width = 26,
-            Height = 26,
-            CornerRadius = new CornerRadius(13),
-            Background = new SolidColorBrush(Color.Parse(escolhida)),
-            Margin = new Thickness(8, 0, 0, 0),
-        };
+        // a amostra abre o painel com a paleta inteira; as bolinhas acima são o atalho
+        // para as cores de grupo, que aparecem bem nos dois temas
+        var seletor = new SeletorDeCor { Cor = escolhida, Margin = new Thickness(8, 0, 0, 0) };
 
         var swatches = new WrapPanel();
         var botoes = new List<Button>();
@@ -316,11 +317,11 @@ public sealed class GroupWindow : DialogWindow
         void Selecionar(string valor, bool atualizaHex)
         {
             escolhida = valor;
-            amostra.Background = new SolidColorBrush(Color.Parse(valor));
+            if (seletor.Cor != valor) seletor.Cor = valor;
             if (atualizaHex) hexBox.Text = valor;
             foreach (var b in botoes)
                 b.BorderThickness = new Thickness(
-                    b.Tag as string == valor ? 3 : 0);
+                    string.Equals(b.Tag as string, valor, StringComparison.OrdinalIgnoreCase) ? 3 : 0);
         }
 
         foreach (var c in GroupPalette.Cores)
@@ -342,6 +343,8 @@ public sealed class GroupWindow : DialogWindow
             swatches.Children.Add(b);
         }
 
+        seletor.Escolhida += valor => Selecionar(GroupPalette.Normalizar(valor) ?? escolhida, true);
+
         hexBox.LostFocus += (_, _) =>
         {
             var v = GroupPalette.Normalizar(hexBox.Text);
@@ -351,7 +354,13 @@ public sealed class GroupWindow : DialogWindow
 
         var linhaCor = new StackPanel { Orientation = Orientation.Horizontal };
         linhaCor.Children.Add(hexBox);
-        linhaCor.Children.Add(amostra);
+        linhaCor.Children.Add(seletor);
+
+        // "dentro de": é o que faz pasta e subpasta. O primeiro item é o nível principal
+        var opcoes = pais ?? Array.Empty<GrupoNaArvore>();
+        var dentroDe = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        dentroDe.ItemsSource = new[] { "(nível principal)" }.Concat(opcoes.Select(p => p.Recuado)).ToList();
+        dentroDe.SelectedIndex = Math.Max(0, opcoes.ToList().FindIndex(p => p.Grupo.Id == paiId) + 1);
 
         var cancelar = Btn("Cancelar");
         var salvar = Btn("Salvar", true);
@@ -359,23 +368,25 @@ public sealed class GroupWindow : DialogWindow
         salvar.Click += (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(nomeBox.Text)) return;
-            Close(new GroupResult(nomeBox.Text!.Trim(), escolhida));
+
+            // sem a lista de pais o grupo fica onde estava
+            var pai = pais is null ? paiId
+                : dentroDe.SelectedIndex > 0 ? opcoes[dentroDe.SelectedIndex - 1].Grupo.Id : null;
+            Close(new GroupResult(nomeBox.Text!.Trim(), escolhida, pai));
         };
 
-        Compose(titulo,
-            new Control[]
-            {
-                Field("Nome do grupo", nomeBox),
-                Field("Cor", swatches),
-                Field("…ou informe o código da cor", linhaCor),
-            },
-            new[] { cancelar, salvar });
+        var corpo = new List<Control> { Field("Nome do grupo", nomeBox) };
+        if (pais is not null) corpo.Add(Field("Dentro de", dentroDe));
+        corpo.Add(Field("Cor", swatches));
+        corpo.Add(Field("…ou escolha na paleta, ou informe o código", linhaCor));
+
+        Compose(titulo, corpo, new[] { cancelar, salvar });
 
         Opened += (_, _) => nomeBox.Focus();
     }
 }
 
-public sealed record GroupResult(string Nome, string Cor);
+public sealed record GroupResult(string Nome, string Cor, string? PaiId = null);
 
 // ------------------------------------------------------------ adicionar repo
 
@@ -398,8 +409,10 @@ public sealed class AddRepoWindow : DialogWindow
         var group = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         var newGroup = new TextBox { Watermark = "Ex.: Financeiro" };
 
-        var groups = main.Groups.ToList();
-        group.ItemsSource = new[] { "Sem grupo" }.Concat(groups.Select(g => g.Name)).ToList();
+        // em ordem de árvore, com o subgrupo recuado sob o pai
+        var arvore = main.GruposEmArvore();
+        var groups = arvore.Select(a => a.Grupo).ToList();
+        group.ItemsSource = new[] { "Sem grupo" }.Concat(arvore.Select(a => a.Recuado)).ToList();
         group.SelectedIndex = 0;
 
         var browse = Btn("Procurar");
@@ -618,8 +631,10 @@ public sealed class RepoConfigWindow : DialogWindow
             SelectedIndex = repo.Role == "destino" ? 1 : 0,
         };
 
-        var groups = main.Groups.ToList();
-        group.ItemsSource = new[] { "Sem grupo" }.Concat(groups.Select(g => g.Name)).ToList();
+        // em ordem de árvore, com o subgrupo recuado sob o pai
+        var arvore = main.GruposEmArvore();
+        var groups = arvore.Select(a => a.Grupo).ToList();
+        group.ItemsSource = new[] { "Sem grupo" }.Concat(arvore.Select(a => a.Recuado)).ToList();
         group.SelectedIndex = repo.GroupId is null ? 0 : groups.FindIndex(g => g.Id == repo.GroupId) + 1;
 
         var known = main.Repos.Where(r => !string.IsNullOrEmpty(r.PairKey))
@@ -1063,8 +1078,23 @@ public sealed class SettingsWindow : DialogWindow
         linhaDiff.Children.Add(diffExterno);
         linhaDiff.Children.Add(procurarDiff);
 
-        var accent = s.Accent;
-        var swatches = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        // o campo com o código e, ao lado, a amostra que abre a paleta — como no WinDock.
+        // As bolinhas continuam como atalho para os destaques de sempre
+        var accent = GroupPalette.Normalizar(s.Accent) ?? Accents[0];
+        var hexDestaque = new TextBox { Text = accent, Width = 96 };
+        var seletorDestaque = new SeletorDeCor { Cor = accent, Margin = new Thickness(8, 0, 12, 0) };
+        var swatches = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+
+        void Destacar(string valor, bool atualizaHex)
+        {
+            accent = valor;
+            if (seletorDestaque.Cor != valor) seletorDestaque.Cor = valor;
+            if (atualizaHex) hexDestaque.Text = valor;
+            foreach (var child in swatches.Children.OfType<Button>())
+                child.BorderThickness = new Thickness(
+                    string.Equals(child.Tag as string, valor, StringComparison.OrdinalIgnoreCase) ? 2 : 0);
+        }
+
         foreach (var color in Accents)
         {
             var dot = new Button
@@ -1073,64 +1103,97 @@ public sealed class SettingsWindow : DialogWindow
                 Height = 26,
                 CornerRadius = new CornerRadius(13),
                 Background = new SolidColorBrush(Color.Parse(color)),
-                BorderThickness = new Thickness(color == accent ? 2 : 0),
+                BorderThickness = new Thickness(string.Equals(color, accent, StringComparison.OrdinalIgnoreCase) ? 2 : 0),
                 BorderBrush = Brushes.White,
                 Padding = new Thickness(0),
+                Tag = color,
             };
-            dot.Click += (_, _) =>
-            {
-                accent = color;
-                foreach (var child in swatches.Children.OfType<Button>())
-                    child.BorderThickness = new Thickness(
-                        child.Background is SolidColorBrush b && b.Color == Color.Parse(accent) ? 2 : 0);
-            };
+            dot.Click += (_, _) => Destacar(color, true);
             swatches.Children.Add(dot);
         }
 
-        var groupsPanel = new StackPanel { Spacing = 5 };
-        foreach (var g in main.Groups.ToList())
+        seletorDestaque.Escolhida += valor => Destacar(GroupPalette.Normalizar(valor) ?? accent, true);
+        hexDestaque.LostFocus += (_, _) =>
         {
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto") };
+            var v = GroupPalette.Normalizar(hexDestaque.Text);
+            if (v is null) hexDestaque.Text = accent; // texto inválido volta ao que valia
+            else Destacar(v, false);
+        };
 
-            var ponto = new Border
-            {
-                Width = 12,
-                Height = 12,
-                CornerRadius = new CornerRadius(6),
-                Background = new SolidColorBrush(Color.Parse(GroupPalette.Normalizar(g.Color) ?? GroupPalette.Padrao)),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(2, 0, 8, 0),
-            };
-            var nome = new TextBlock { Text = g.Name, VerticalAlignment = VerticalAlignment.Center };
-            var editar = BtnDiscreto("Editar");
-            var del = BtnDiscreto("Excluir", perigo: true);
-            editar.Margin = new Thickness(6, 0, 0, 0);
-            del.Margin = new Thickness(6, 0, 0, 0);
-            Grid.SetColumn(nome, 1);
-            Grid.SetColumn(editar, 2);
-            Grid.SetColumn(del, 3);
+        var linhaDestaque = new StackPanel { Orientation = Orientation.Horizontal };
+        linhaDestaque.Children.Add(hexDestaque);
+        linhaDestaque.Children.Add(seletorDestaque);
+        linhaDestaque.Children.Add(swatches);
 
-            editar.Click += async (_, _) =>
-            {
-                await main.EditGroupAsync(g.Id);
-                var atual = main.Groups.FirstOrDefault(x => x.Id == g.Id);
-                if (atual is null) return;
-                nome.Text = atual.Name;
-                ponto.Background = new SolidColorBrush(
-                    Color.Parse(GroupPalette.Normalizar(atual.Color) ?? GroupPalette.Padrao));
-            };
-            del.Click += (_, _) =>
-            {
-                main.RemoveGroup(g.Id);
-                groupsPanel.Children.Remove(row);
-            };
+        // os grupos em árvore, cada subgrupo recuado sob o pai. A amostra de cada linha é o
+        // próprio seletor: clicar nela abre a paleta e a cor troca na hora
+        var groupsPanel = new StackPanel { Spacing = 5 };
 
-            row.Children.Add(ponto);
-            row.Children.Add(nome);
-            row.Children.Add(editar);
-            row.Children.Add(del);
-            groupsPanel.Children.Add(row);
+        void MontarGrupos()
+        {
+            groupsPanel.Children.Clear();
+            foreach (var item in main.GruposEmArvore())
+            {
+                var g = item.Grupo;
+                var row = new Grid
+                {
+                    ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto"),
+                    Margin = new Thickness(item.Nivel * 18, 0, 0, 0),
+                };
+
+                var cor = new SeletorDeCor
+                {
+                    Cor = GroupPalette.Normalizar(g.Color) ?? GroupPalette.Padrao,
+                    Width = 24, Height = 20, Margin = new Thickness(0, 0, 8, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                cor.Escolhida += valor =>
+                {
+                    var atual = main.Groups.FirstOrDefault(x => x.Id == g.Id);
+                    if (atual is not null) main.UpdateGroup(g.Id, atual.Name, GroupPalette.Normalizar(valor) ?? atual.Color);
+                };
+
+                var nome = new TextBlock { Text = g.Name, VerticalAlignment = VerticalAlignment.Center };
+                var sub = BtnDiscreto("Subgrupo");
+                var editar = BtnDiscreto("Editar");
+                var del = BtnDiscreto("Excluir", perigo: true);
+                ToolTip.SetTip(sub, "Criar um grupo dentro deste");
+                ToolTip.SetTip(del, "Exclui só o grupo: os subgrupos e os repositórios dele sobem um nível");
+                sub.Margin = new Thickness(6, 0, 0, 0);
+                editar.Margin = new Thickness(6, 0, 0, 0);
+                del.Margin = new Thickness(6, 0, 0, 0);
+                Grid.SetColumn(nome, 1);
+                Grid.SetColumn(sub, 2);
+                Grid.SetColumn(editar, 3);
+                Grid.SetColumn(del, 4);
+
+                // nome, cor e lugar na árvore podem ter mudado: a lista é refeita
+                sub.Click += async (_, _) =>
+                {
+                    await main.NovoGrupoAsync(g.Id);
+                    MontarGrupos();
+                };
+                editar.Click += async (_, _) =>
+                {
+                    await main.EditGroupAsync(g.Id);
+                    MontarGrupos();
+                };
+                del.Click += (_, _) =>
+                {
+                    main.RemoveGroup(g.Id);
+                    MontarGrupos();
+                };
+
+                row.Children.Add(cor);
+                row.Children.Add(nome);
+                row.Children.Add(sub);
+                row.Children.Add(editar);
+                row.Children.Add(del);
+                groupsPanel.Children.Add(row);
+            }
         }
+
+        MontarGrupos();
 
         // ---------------------------------------------------- autenticação
 
@@ -1389,7 +1452,7 @@ public sealed class SettingsWindow : DialogWindow
         var aparencia = new List<Control>
         {
             Field("Tema", theme),
-            Field("Cor de destaque", swatches),
+            Field("Cor de destaque", linhaDestaque),
             Field("Densidade das listas", density),
             Field("Estilo da árvore", estiloArvore),
         };

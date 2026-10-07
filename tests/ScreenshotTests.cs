@@ -136,6 +136,84 @@ public class ScreenshotTests
         frame?.Save(Path.Combine(dir, nome + ".png"));
     }
 
+    /// <summary>Pasta, subpasta e repositórios na árvore; os caminhos não existem, só o desenho interessa.</summary>
+    [AvaloniaFact]
+    public async Task Sidebar_com_subgrupos()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-sub-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(home);
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+
+        try
+        {
+            var ws = new Workspace
+            {
+                Groups =
+                {
+                    new Group { Id = "db", Name = "DBISAM", Color = "#E07B00" },
+                    new Group { Id = "fis", Name = "Fiscal", Color = "#1F9D55", ParentId = "db" },
+                    new Group { Id = "nfe", Name = "Notas", Color = "#2F7BE8", ParentId = "fis" },
+                    new Group { Id = "my", Name = "MySQL", Color = "#8B5CF6" },
+                },
+            };
+            foreach (var (nome, grupo) in new[]
+                     {
+                         ("Financeiro", "db"), ("Master", "db"), ("SPED", "fis"), ("NFCe", "nfe"), ("NFSe - PWS", "nfe"),
+                         ("Financeiro MySQL", "my"),
+                     })
+                ws.Repos.Add(new Repo { Id = nome, Name = nome, Path = Path.Combine(home, nome), GroupId = grupo });
+            WorkspaceStore.Save(ws);
+
+            var janela = new MainWindow { Width = 300, Height = 420 };
+            var principal = (MainViewModel)janela.DataContext!;
+            await principal.InitAsync();
+            ShotJanela(janela, "sidebar-subgrupos", 300, 420);
+
+            Assert.Equal(new[] { 0, 1, 2, 0 }, principal.Tree.OfType<GroupNode>().Select(g => g.Nivel));
+            janela.Close();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { Directory.Delete(home, true); } catch (Exception) { /* pasta temporária */ }
+        }
+    }
+
+    /// <summary>Diálogo de grupo com a escolha do pai, e o painel de cores aberto.</summary>
+    [AvaloniaFact]
+    public void Dialogo_de_grupo_com_pai_e_painel_de_cores()
+    {
+        var pais = GrupoArvore.EmOrdem(new[]
+        {
+            new Group { Id = "db", Name = "DBISAM" },
+            new Group { Id = "fis", Name = "Fiscal", ParentId = "db" },
+            new Group { Id = "my", Name = "MySQL" },
+        });
+
+        var janela = new GroupWindow("Novo subgrupo de Fiscal", "Notas", "#1F9D55", "fis", pais);
+        ShotJanela(janela, "dialogo-grupo-pai", 420, 330);
+
+        var seletor = janela.GetVisualDescendants().OfType<GRepos.Controls.SeletorDeCor>().Single();
+        var combo = janela.GetVisualDescendants().OfType<ComboBox>().Single();
+        Assert.Equal(2, combo.SelectedIndex); // "(nível principal)", DBISAM, Fiscal
+
+        // escolher no painel acompanha o campo e as bolinhas
+        seletor.Escolher("#0078D7");
+        var hex = janela.GetVisualDescendants().OfType<TextBox>().Single(t => t.Text == "#0078D7");
+        Assert.NotNull(hex);
+
+        // o painel em si, fora do popup, para conferir o desenho da grade
+        var painel = new Window
+        {
+            Content = new Border { Padding = new Thickness(12), Child = (Control)((Flyout)seletor.Flyout!).Content! },
+        };
+        seletor.Flyout = null;
+        ShotJanela(painel, "painel-de-cores", 280, 330);
+        painel.Close();
+        janela.Close();
+    }
+
     [AvaloniaFact]
     public void Issues_com_etiquetas()
     {

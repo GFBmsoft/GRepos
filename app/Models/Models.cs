@@ -9,6 +9,11 @@ public sealed class Group
     public string Name { get; set; } = "";
     public string Color { get; set; } = "#4F8CFF";
     public bool Collapsed { get; set; }
+
+    /// <summary>
+    /// Grupo em que este fica dentro (pasta e subpasta). Nulo é o nível principal.
+    /// </summary>
+    public string? ParentId { get; set; }
 }
 
 public sealed class Repo

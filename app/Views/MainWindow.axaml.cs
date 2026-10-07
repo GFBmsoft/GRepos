@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -9,6 +10,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using GRepos.Models;
+using GRepos.Services;
 using GRepos.ViewModels;
 
 namespace GRepos.Views;
@@ -54,6 +56,9 @@ public partial class MainWindow : Window, IDialogService
         // Tunnel: o atalho precisa chegar antes do controle com o foco. Pelo caminho
         // normal (bubble) um TextBox no meio da tela poderia engolir a tecla.
         AddHandler(KeyDownEvent, AtalhoDeFiltro, RoutingStrategies.Tunnel);
+
+        // clique direito num grupo da árvore: subgrupo, editar e lote, sem ir às Preferências
+        if (this.FindControl<ListBox>("TreeList") is { } arvore) arvore.ContextRequested += MenuDoGrupo;
     }
 
     /// <summary>Ctrl+F leva o foco ao filtro; Esc, estando nele, limpa e devolve a lista.</summary>
@@ -169,6 +174,34 @@ public partial class MainWindow : Window, IDialogService
         return luminancia > 0.55 ? Color.Parse("#08121F") : Colors.White;
     }
 
+    private void MenuDoGrupo(object? sender, ContextRequestedEventArgs e)
+    {
+        GroupNode? grupo = null;
+        for (var v = e.Source as Visual; v is not null && grupo is null; v = v.GetVisualParent())
+            grupo = (v as StyledElement)?.DataContext as GroupNode;
+
+        // "Sem grupo" não é um grupo de verdade: não tem o que editar nem onde pôr subgrupo
+        if (grupo is null || grupo.Id.Length == 0 || e.Source is not Control onde) return;
+
+        var id = grupo.Id;
+        var nome = grupo.Name;
+        var menu = new MenuFlyout();
+
+        var sub = new MenuItem { Header = $"Novo subgrupo em {nome}…" };
+        sub.Click += async (_, _) => await _vm.NovoGrupoAsync(id);
+        var editar = new MenuItem { Header = "Editar grupo… (nome, cor e onde fica)" };
+        editar.Click += async (_, _) => await _vm.EditGroupAsync(id);
+        var lote = new MenuItem { Header = "Em lote… (obter, puxar, enviar, trocar de branch)" };
+        lote.Click += async (_, _) => await _vm.AbrirLoteAsync(nome, _vm.ReposDoGrupo(id));
+
+        menu.Items.Add(sub);
+        menu.Items.Add(editar);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(lote);
+        menu.ShowAt(onde, showAtPointer: true);
+        e.Handled = true;
+    }
+
     // a ListBox mistura grupos, pares e repositórios: só repositório vira seleção
     private void OnTreeSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
@@ -219,6 +252,13 @@ public partial class MainWindow : Window, IDialogService
     {
         var r = await new GroupWindow(titulo, nome, cor).ShowDialog<GroupResult?>(this);
         return r is null ? null : (r.Nome, r.Cor);
+    }
+
+    public async Task<(string Nome, string Cor, string? PaiId)?> ShowGrupoAsync(
+        string titulo, string nome, string cor, string? paiId, IReadOnlyList<GrupoNaArvore> pais)
+    {
+        var r = await new GroupWindow(titulo, nome, cor, paiId, pais).ShowDialog<GroupResult?>(this);
+        return r is null ? null : (r.Nome, r.Cor, r.PaiId);
     }
 
     public Task ShowAddRepoAsync(MainViewModel main) => new AddRepoWindow(main, this).ShowDialog(this);

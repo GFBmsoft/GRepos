@@ -22,6 +22,17 @@ public interface IDialogService
 
     /// <summary>Nome e cor do grupo; null quando o usuário cancela.</summary>
     Task<(string Nome, string Cor)?> ShowGroupAsync(string titulo, string nome, string cor);
+
+    /// <summary>
+    /// Nome, cor e o grupo em que este fica dentro (nulo: nível principal). Quem não
+    /// implementa cai no diálogo antigo e mantém o pai que veio.
+    /// </summary>
+    async Task<(string Nome, string Cor, string? PaiId)?> ShowGrupoAsync(
+        string titulo, string nome, string cor, string? paiId, IReadOnlyList<GrupoNaArvore> pais)
+    {
+        var r = await ShowGroupAsync(titulo, nome, cor);
+        return r is null ? null : (r.Value.Nome, r.Value.Cor, paiId);
+    }
     Task ShowAddRepoAsync(MainViewModel main);
     Task ShowRepoConfigAsync(MainViewModel main, Repo repo);
     Task ShowSettingsAsync(MainViewModel main);
@@ -146,7 +157,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         var repos = grupoId is null
             ? _ws.Repos.ToList()
-            : _ws.Repos.Where(r => (r.GroupId ?? "") == grupoId).ToList();
+            : ReposDoGrupo(grupoId);
 
         var grupo = grupoId is null ? null : _ws.Groups.FirstOrDefault(g => g.Id == grupoId);
         var titulo = grupo?.Name ?? (grupoId is null ? "Todos os repositórios" : "Sem grupo");
@@ -164,11 +175,14 @@ public sealed partial class MainViewModel : ObservableObject
 
         // no painel geral, cada grupo é uma seção; no de um grupo, uma seção só e sem
         // título, que seria repetir o cabeçalho logo acima
-        var geral = grupoId is null;
+        // grupo com subgrupos também ganha uma seção por subgrupo, com título; as seções
+        // seguem a ordem da árvore
+        var ordem = GruposEmArvore().Select((g, i) => (g.Grupo.Id, i)).ToDictionary(x => x.Id, x => x.i);
+        var geral = grupoId is null || painel.Cartoes.Select(c => c.Repo.GroupId ?? "").Distinct().Count() > 1;
         painel.Secoes = new ObservableCollection<SecaoPainelViewModel>(
             painel.Cartoes
                 .GroupBy(c => c.Repo.GroupId ?? "")
-                .OrderBy(g => NomeDoGrupo(g.Key), StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(g => ordem.TryGetValue(g.Key, out var posicao) ? posicao : int.MaxValue)
                 .Select(g => new SecaoPainelViewModel
                 {
                     GrupoId = g.Key,
@@ -257,8 +271,11 @@ public sealed partial class MainViewModel : ObservableObject
     public Task AbrirEsteiraDeAsync(string slug, string branch, string usuario, string nome) =>
         _dialogs.ShowEsteiraAsync(slug, branch, usuario, nome, _ws.Settings.EsteirasVisiveis);
 
-    private string NomeDoGrupo(string? grupoId) =>
-        _ws.Groups.FirstOrDefault(g => g.Id == (grupoId ?? ""))?.Name ?? "Sem grupo";
+    /// <summary>O nome com o caminho ("Pasta / Subpasta"): no painel não há recuo que mostre o nível.</summary>
+    private string NomeDoGrupo(string? grupoId) => GrupoArvore.Caminho(_ws.Groups, grupoId);
+
+    /// <summary>Os grupos em ordem de árvore, com nível e caminho — para as caixas de escolha.</summary>
+    public IReadOnlyList<GrupoNaArvore> GruposEmArvore() => GrupoArvore.EmOrdem(_ws.Groups);
 
     private string CorDoGrupo(string? grupoId) =>
         _ws.Groups.FirstOrDefault(g => g.Id == (grupoId ?? ""))?.Color ?? "#5D6675";
@@ -276,12 +293,10 @@ public sealed partial class MainViewModel : ObservableObject
             var repo = _ws.Repos.FirstOrDefault(r => r.Id == id);
             if (repo is null) return;
 
-            var grupo = _ws.Groups.FirstOrDefault(g => g.Id == (repo.GroupId ?? ""));
-            if (grupo is { Collapsed: true })
-            {
-                grupo.Collapsed = false;
-                Persist();
-            }
+            // qualquer nível recolhido acima dele o esconde: abre todos até a raiz
+            var recolhidos = GrupoArvore.Ancestrais(_ws.Groups, repo.GroupId).Where(g => g.Collapsed).ToList();
+            foreach (var g in recolhidos) g.Collapsed = false;
+            if (recolhidos.Count > 0) Persist();
 
             // o filtro também esconde nós; limpá-lo garante que o repositório apareça
             if (Filter.Length > 0) Filter = "";
@@ -360,6 +375,7 @@ public sealed partial class MainViewModel : ObservableObject
         "falha" => "Esteira quebrou",
         "rodando" => "Esteira rodando",
         "cancelado" => "Esteira cancelada",
+        "pulado" => "Esteira pulada",
         _ => "Esteira",
     };
 
@@ -811,7 +827,7 @@ public sealed partial class MainViewModel : ObservableObject
             .Select(r => new LoteItemViewModel
             {
                 Repo = r,
-                CorDoGrupo = _ws.Groups.FirstOrDefault(g => g.Id == (r.GroupId ?? ""))?.Color ?? "TextDim",
+                CorDoGrupo = CorDoGrupo(r.GroupId),
                 Status = _nodes.TryGetValue(r.Id, out var no) ? no.Status : null,
             }), this);
 
@@ -927,10 +943,10 @@ public sealed partial class MainViewModel : ObservableObject
 
         foreach (var grupo in _ws.Groups)
         {
-            var doGrupo = _ws.Repos.Where(r => (r.GroupId ?? "") == grupo.Id).ToList();
+            var doGrupo = ReposDoGrupo(grupo.Id);
             if (doGrupo.Count < 2) continue;
 
-            var nome = grupo.Name;
+            var nome = NomeDoGrupo(grupo.Id);
             itens.Add(new ItemDaPaleta
             {
                 Tipo = "lote", Titulo = "Em lote: " + nome,
@@ -1192,35 +1208,60 @@ public sealed partial class MainViewModel : ObservableObject
             nodes.Add(new SeparadorNode());
         }
 
-        var groups = _ws.Groups.Select(g => (g.Id, g.Name, g.Color, g.Collapsed)).ToList();
-        groups.Add(("", "Sem grupo", "#5D6675", false));
+        var minimalista = _ws.Settings.ArvoreMinimalista;
+        var conhecidos = _ws.Groups.Select(g => g.Id).ToHashSet();
 
-        foreach (var (id, name, color, collapsed) in groups)
+        // os repositórios de um grupo, com os pares sob um título só — é o que evita a
+        // duplicação de abas quando o mesmo módulo existe em dois bancos
+        void Repositorios(List<Repo> list, string color, int nivel)
         {
-            var list = visible.Where(r => (r.GroupId ?? "") == id)
-                              .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)
-                              .ToList();
-            if (list.Count == 0 && id == "") continue;
-
-            var showCollapsed = collapsed && string.IsNullOrEmpty(q);
-            nodes.Add(new GroupNode { Id = id, Name = name, Color = color, Collapsed = showCollapsed, Count = list.Count, Minimalista = _ws.Settings.ArvoreMinimalista });
-            if (showCollapsed) continue;
-
-            // repositórios pareados aparecem sob um único título — é o que evita a
-            // duplicação de abas quando o mesmo módulo existe em dois bancos
             var pairs = list.Where(r => !string.IsNullOrEmpty(r.PairKey))
                             .GroupBy(r => r.PairKey!)
                             .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
 
             foreach (var pair in pairs)
             {
-                nodes.Add(new PairNode { Key = pair.Key });
+                nodes.Add(new PairNode { Key = pair.Key, Nivel = nivel });
                 foreach (var r in pair.OrderBy(RoleOrder))
-                    nodes.Add(MakeNode(r, true, color));
+                    nodes.Add(MakeNode(r, true, color, nivel));
             }
 
             foreach (var r in list.Where(r => string.IsNullOrEmpty(r.PairKey)))
-                nodes.Add(MakeNode(r, false, color));
+                nodes.Add(MakeNode(r, false, color, nivel));
+        }
+
+        // pasta, subpasta e repositórios: cada grupo desenha os subgrupos e depois os
+        // repositórios que estão direto nele. Recolhido, esconde tudo que está abaixo
+        void Grupos(string? paiId, int nivel)
+        {
+            foreach (var g in GrupoArvore.Filhos(_ws.Groups, paiId))
+            {
+                var abaixo = GrupoArvore.ComDescendentes(_ws.Groups, g.Id);
+                var total = visible.Count(r => r.GroupId is { } gid && abaixo.Contains(gid));
+
+                var showCollapsed = g.Collapsed && string.IsNullOrEmpty(q);
+                nodes.Add(new GroupNode
+                {
+                    Id = g.Id, Name = g.Name, Color = g.Color, Collapsed = showCollapsed,
+                    Count = total, Minimalista = minimalista, Nivel = nivel,
+                });
+                if (showCollapsed) continue;
+
+                Grupos(g.Id, nivel + 1);
+                Repositorios(visible.Where(r => r.GroupId == g.Id)
+                    .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList(), g.Color, nivel);
+            }
+        }
+
+        Grupos(null, 0);
+
+        // sem grupo: os que nunca tiveram um, e os de um grupo que não existe mais
+        var soltos = visible.Where(r => string.IsNullOrEmpty(r.GroupId) || !conhecidos.Contains(r.GroupId))
+            .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        if (soltos.Count > 0)
+        {
+            nodes.Add(new GroupNode { Id = "", Name = "Sem grupo", Color = "#5D6675", Count = soltos.Count, Minimalista = minimalista });
+            Repositorios(soltos, "#5D6675", 0);
         }
 
         Tree = nodes;
@@ -1229,11 +1270,12 @@ public sealed partial class MainViewModel : ObservableObject
 
     private static int RoleOrder(Repo r) => r.Role switch { "origem" => 0, "destino" => 1, _ => 2 };
 
-    private RepoNode MakeNode(Repo r, bool paired, string groupColor)
+    private RepoNode MakeNode(Repo r, bool paired, string groupColor, int nivel = 0)
     {
         var node = new RepoNode
         {
             Repo = r,
+            Nivel = nivel,
             IsPaired = paired,
             GroupColor = groupColor,
             Minimalista = _ws.Settings.ArvoreMinimalista,
@@ -1683,11 +1725,25 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task AddGroupAsync()
     {
         // já abre numa cor livre: com vários grupos, repetir a mesma cor não ajuda ninguém
-        var sugerida = GroupPalette.ProximaLivre(_ws.Groups.Select(g => g.Color));
-        var r = await _dialogs.ShowGroupAsync("Novo grupo", "", sugerida);
+        await NovoGrupoAsync(null);
+    }
+
+    /// <summary>Novo grupo no nível principal ou, com <paramref name="paiId"/>, dentro de outro.</summary>
+    public async Task NovoGrupoAsync(string? paiId)
+    {
+        var pai = _ws.Groups.FirstOrDefault(g => g.Id == paiId);
+
+        // subgrupo nasce com a cor do pai: a pasta inteira fica do mesmo tom, e quem quiser muda
+        var sugerida = pai?.Color ?? GroupPalette.ProximaLivre(_ws.Groups.Select(g => g.Color));
+        var r = await _dialogs.ShowGrupoAsync(
+            pai is null ? "Novo grupo" : $"Novo subgrupo de {pai.Name}", "", sugerida, pai?.Id, GruposEmArvore());
         if (r is null) return;
 
-        CreateGroup(r.Value.Nome, r.Value.Cor);
+        CreateGroup(r.Value.Nome, r.Value.Cor, r.Value.PaiId);
+
+        // pai recolhido esconderia o subgrupo que acabou de nascer
+        foreach (var g in GrupoArvore.Ancestrais(_ws.Groups, r.Value.PaiId).Where(g => g.Collapsed)) g.Collapsed = false;
+        Persist();
         RebuildTree();
     }
 
@@ -1697,10 +1753,14 @@ public sealed partial class MainViewModel : ObservableObject
         var g = _ws.Groups.FirstOrDefault(x => x.Id == id);
         if (g is null) return;
 
-        var r = await _dialogs.ShowGroupAsync("Editar grupo", g.Name, g.Color);
+        // ele mesmo e o que está abaixo dele não podem ser o pai
+        var abaixo = GrupoArvore.ComDescendentes(_ws.Groups, id);
+        var pais = GruposEmArvore().Where(x => !abaixo.Contains(x.Grupo.Id)).ToList();
+
+        var r = await _dialogs.ShowGrupoAsync("Editar grupo", g.Name, g.Color, g.ParentId, pais);
         if (r is null) return;
 
-        UpdateGroup(id, r.Value.Nome, r.Value.Cor);
+        UpdateGroup(id, r.Value.Nome, r.Value.Cor, r.Value.PaiId, mudarPai: true);
     }
 
     [RelayCommand]
@@ -1711,11 +1771,26 @@ public sealed partial class MainViewModel : ObservableObject
 
     // ------------------------------------------------ mutações do workspace
 
-    public string CreateGroup(string name, string? cor = null)
+    /// <summary>Repositórios do grupo e de tudo que está dentro dele. Vazio ("") são os sem grupo.</summary>
+    public List<Repo> ReposDoGrupo(string grupoId)
+    {
+        if (grupoId.Length == 0)
+        {
+            var conhecidos = _ws.Groups.Select(g => g.Id).ToHashSet();
+            return _ws.Repos.Where(r => string.IsNullOrEmpty(r.GroupId) || !conhecidos.Contains(r.GroupId)).ToList();
+        }
+
+        var abaixo = GrupoArvore.ComDescendentes(_ws.Groups, grupoId);
+        return _ws.Repos.Where(r => r.GroupId is { } gid && abaixo.Contains(gid)).ToList();
+    }
+
+    /// <param name="paiId">Grupo em que o novo fica dentro; nulo é o nível principal.</param>
+    public string CreateGroup(string name, string? cor = null, string? paiId = null)
     {
         var g = new Group
         {
             Id = NewId(),
+            ParentId = string.IsNullOrEmpty(paiId) || _ws.Groups.All(x => x.Id != paiId) ? null : paiId,
             Name = name,
             Color = GroupPalette.Normalizar(cor) ?? GroupPalette.ProximaLivre(_ws.Groups.Select(x => x.Color)),
         };
@@ -1788,20 +1863,30 @@ public sealed partial class MainViewModel : ObservableObject
         RebuildTree();
     }
 
-    public void UpdateGroup(string id, string name, string color)
+    public void UpdateGroup(string id, string name, string color) => UpdateGroup(id, name, color, null, false);
+
+    /// <param name="mudarPai">Sem isto o grupo fica onde está, e <paramref name="paiId"/> é ignorado.</param>
+    public void UpdateGroup(string id, string name, string color, string? paiId, bool mudarPai)
     {
         var g = _ws.Groups.FirstOrDefault(x => x.Id == id);
         if (g is null) return;
         g.Name = name;
         g.Color = color;
+
+        // dentro de si mesmo ou de um descendente viraria um ciclo: fica onde estava
+        if (mudarPai && GrupoArvore.PodeFicarDentro(_ws.Groups, id, paiId))
+            g.ParentId = string.IsNullOrEmpty(paiId) || _ws.Groups.All(x => x.Id != paiId) ? null : paiId;
         Persist();
         RebuildTree();
     }
 
     public void RemoveGroup(string id)
     {
+        // o que estava dentro sobe um nível: subgrupos e repositórios vão para o pai dele
+        var pai = _ws.Groups.FirstOrDefault(g => g.Id == id)?.ParentId;
         _ws.Groups.RemoveAll(g => g.Id == id);
-        foreach (var r in _ws.Repos.Where(r => r.GroupId == id)) r.GroupId = null;
+        foreach (var g in _ws.Groups.Where(g => g.ParentId == id)) g.ParentId = pai;
+        foreach (var r in _ws.Repos.Where(r => r.GroupId == id)) r.GroupId = pai;
         Persist();
         RebuildTree();
     }

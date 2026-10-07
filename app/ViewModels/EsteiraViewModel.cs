@@ -19,6 +19,7 @@ public static class CiVisual
         "falha" => "Red",
         "rodando" => "Yellow",
         "cancelado" => "TextDim",
+        "pulado" => "TextDim",
         _ => "TextDim",
     };
 
@@ -28,6 +29,7 @@ public static class CiVisual
         "falha" => "✕",
         "rodando" => "●",
         "cancelado" => "—",
+        "pulado" => "⊘",
         _ => "·",
     };
 
@@ -37,6 +39,7 @@ public static class CiVisual
         "falha" => "quebrou",
         "rodando" => "rodando",
         "cancelado" => "cancelada",
+        "pulado" => "pulada",
         _ => "sem informação",
     };
 }
@@ -48,7 +51,12 @@ public sealed partial class CiEtapaViewModel : ObservableObject
     public string Nome => $"{Etapa.Numero}. {Etapa.Nome}";
     public string Simbolo => CiVisual.Simbolo(Etapa.Situacao);
     public string Cor => CiVisual.Cor(Etapa.Situacao);
-    public string DuracaoTexto => Rotulos.Duracao(Etapa.Duracao);
+    /// <summary>Passo pulado não tem duração a mostrar: "0s" parecia que ele tinha rodado.</summary>
+    public string DuracaoTexto => Pulado ? "pulado" : Rotulos.Duracao(Etapa.Duracao);
+    public bool Pulado => Etapa.Situacao == "pulado";
+
+    /// <summary>O nome do passo pulado fica apagado, como no GitHub.</summary>
+    public string CorDoNome => Pulado ? "TextFaint" : "Text";
     public bool Quebrou => Etapa.Situacao == "falha";
 
     /// <summary>O passo que quebrou vem em negrito: é o que se procura ao abrir a janela.</summary>
@@ -57,7 +65,7 @@ public sealed partial class CiEtapaViewModel : ObservableObject
     partial void OnEtapaChanged(CiEtapa value)
     {
         foreach (var p in new[] { nameof(Nome), nameof(Simbolo), nameof(Cor), nameof(DuracaoTexto),
-                                  nameof(Quebrou), nameof(Peso) })
+                                  nameof(Quebrou), nameof(Peso), nameof(Pulado), nameof(CorDoNome) })
             OnPropertyChanged(p);
     }
 }
@@ -69,7 +77,7 @@ public sealed partial class CiJobViewModel : ObservableObject
     public string Nome => Job.Nome;
     public string Simbolo => CiVisual.Simbolo(Job.Situacao);
     public string Cor => CiVisual.Cor(Job.Situacao);
-    public string DuracaoTexto => Rotulos.Duracao(Job.Duracao);
+    public string DuracaoTexto => Job.Situacao == "pulado" ? "pulado" : Rotulos.Duracao(Job.Duracao);
 
     public ObservableCollection<CiEtapaViewModel> Etapas { get; } = new();
 

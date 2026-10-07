@@ -316,6 +316,7 @@
                                       <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11"
                                                  Margin="6,0" VerticalAlignment="Center"
                                                  TextTrimming="CharacterEllipsis"
+                                                 Foreground="{Binding CorDoNome, Converter={x:Static local:Converters.ResourceBrush}}"
                                                  FontWeight="{Binding Peso}" />
                                       <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
                                                  FontSize="10" VerticalAlignment="Center" />

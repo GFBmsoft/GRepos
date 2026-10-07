@@ -82,6 +82,7 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
         "falha" => "esteira quebrou",
         "rodando" => "esteira rodando",
         "cancelado" => "esteira cancelada",
+        "pulado" => "esteira pulada",
         _ => "sem esteira",
     };
 

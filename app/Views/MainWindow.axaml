@@ -96,7 +96,7 @@
 
             <!-- cabeçalho do grupo: pílula com a cor do grupo como acento suave -->
             <DataTemplate DataType="vm:GroupNode">
-              <Panel>
+              <Panel Margin="{Binding Recuo}">
               <!-- a pílula some no estilo minimalista; o resto da linha é o mesmo -->
               <Border Classes="pilula" Margin="8,4,8,1" CornerRadius="13" ClipToBounds="True"
                       BorderThickness="1"
@@ -140,16 +140,19 @@
 
             <DataTemplate DataType="vm:PairNode">
               <Border Classes="linha" CornerRadius="5" Margin="8,0">
+              <Panel Margin="{Binding Recuo}">
               <Grid ColumnDefinitions="Auto,*" Height="24" Margin="12,0,10,0">
                 <TextBlock Grid.Column="0" Text="&#x21C4;" Classes="faint" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="{Binding Key}" Classes="dim" FontSize="11"
                            Margin="6,0" VerticalAlignment="Center" />
               </Grid>
+              </Panel>
               </Border>
             </DataTemplate>
 
             <DataTemplate DataType="vm:RepoNode">
               <Border Classes="linha" CornerRadius="5" Margin="8,0" ToolTip.Tip="{Binding Tooltip}">
+              <Panel Margin="{Binding Recuo}">
               <Grid ColumnDefinitions="Auto,Auto,*,Auto" Height="26" Margin="6,0,4,0">
                 <!-- traço da cor do grupo liga o repositório ao cabeçalho -->
                 <Border Grid.Column="0" Width="2" Margin="0,3,10,3" CornerRadius="1"
@@ -195,6 +198,7 @@
                              Foreground="{Binding BranchCor, Converter={x:Static local:Converters.ResourceBrush}}" />
                 </Button>
               </Grid>
+              </Panel>
               </Border>
             </DataTemplate>
 
