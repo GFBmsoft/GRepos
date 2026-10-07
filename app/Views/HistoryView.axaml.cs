@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using GRepos.Services;
@@ -33,5 +34,29 @@ public partial class HistoryView : UserControl
         var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
         if (clipboard is null) return;
         await clipboard.SetTextAsync(row.Commit.Hash);
+    }
+
+    /// <summary>A mensagem como foi escrita, com os sinais do Markdown.</summary>
+    private async void CopiarTexto_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HistoryViewModel { HasDetail: true } vm) return;
+        if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return;
+
+        await clipboard.SetTextAsync(vm.MensagemCompleta);
+        vm.AvisarCopia("Mensagem copiada como texto.");
+    }
+
+    /// <summary>
+    /// A mensagem renderizada. Vai em dois formatos de uma vez: HTML, que o Word, o
+    /// Outlook e o Teams colam com título, lista e link; e texto limpo, para o Bloco de
+    /// Notas e qualquer lugar que só aceite texto.
+    /// </summary>
+    private async void CopiarFormatado_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not HistoryViewModel { HasDetail: true } vm) return;
+        if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return;
+
+        var formatado = await CopiaFormatada.CopiarAsync(clipboard, vm.MensagemEmHtml, vm.MensagemEmTextoLimpo);
+        vm.AvisarCopia(formatado ? "Mensagem copiada com formatação." : "Mensagem copiada como texto limpo.");
     }
 }

@@ -194,6 +194,38 @@
     <Setter Property="BorderThickness" Value="0" />
   </Style>
 
+  <!-- ação em pílula: botão pequeno, mas com corpo — contorno, fundo e cantos redondos —
+       para uma fileira de ações que precisa se destacar do texto em volta -->
+  <Style Selector="Button.acao">
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Padding" Value="12,0" />
+    <Setter Property="FontSize" Value="11.5" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Background" Value="{DynamicResource BgHover}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+
+  <Style Selector="Button.acao:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BgActive}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <!-- a pílula ligada (o Markdown ativo): contorno e texto na cor de destaque -->
+  <Style Selector="Button.acao.destacado">
+    <Setter Property="Background" Value="{DynamicResource BgActive}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <Style Selector="Button.acao.destacado:pointerover /template/ ContentPresenter">
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <Style Selector="Button.acao.danger:pointerover /template/ ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource Red}" />
+  </Style>
+
   <!-- a opção em vigor entre botões pequenos lado a lado (o lado escolhido num conflito) -->
   <Style Selector="Button.tiny.destacado">
     <Setter Property="Background" Value="{DynamicResource BgActive}" />

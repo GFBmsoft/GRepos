@@ -1,10 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using GRepos.Services;
 
 namespace GRepos.Views;
@@ -21,7 +27,214 @@ public class MarkdownView : UserControl
 
     private readonly StackPanel _pilha = new() { Spacing = 0 };
 
-    public MarkdownView() => Content = _pilha;
+    /// <summary>Os textos do documento, na ordem em que aparecem: é por eles que a seleção anda.</summary>
+    private readonly List<SelectableTextBlock> _textos = new();
+
+    /// <summary>Onde começa cada link dentro do texto do bloco, para o clique acertar o link e não a linha.</summary>
+    private readonly Dictionary<SelectableTextBlock, List<(int Inicio, int Fim, string Url)>> _links = new();
+
+    /// <summary>Bloco em que o arraste da seleção começou; -1 sem arraste em curso.</summary>
+    private int _ancora = -1;
+
+    /// <summary>O caractere do bloco de partida em que o botão foi apertado.</summary>
+    private int _indiceDaAncora;
+    private Point _apertou;
+    private bool _arrastou;
+
+    public MarkdownView()
+    {
+        Content = _pilha;
+        Focusable = true;
+
+        // cada parágrafo é um texto separado, e a seleção de cada um parava na borda dele.
+        // Aqui ela atravessa: o arraste que sai de um bloco continua nos seguintes, e o
+        // Ctrl+C leva tudo que está marcado
+        AddHandler(PointerPressedEvent, AoApertar, RoutingStrategies.Tunnel);
+        AddHandler(PointerMovedEvent, AoMover, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, AoSoltar, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(KeyDownEvent, AoTeclar, RoutingStrategies.Tunnel);
+        ContextRequested += (_, e) => AbrirMenu(e);
+    }
+
+    // ---------------------------------------------------------------- seleção
+
+    private static int Tamanho(SelectableTextBlock t) => (t.Inlines?.Text ?? t.Text ?? "").Length;
+
+    /// <summary>O caractere do bloco que está sob o ponto (em coordenadas deste controle).</summary>
+    private int IndiceEm(SelectableTextBlock bloco, Point pontoAqui)
+    {
+        var p = this.TranslatePoint(pontoAqui, bloco) ?? default;
+        var acerto = bloco.TextLayout.HitTestPoint(new Point(p.X - bloco.Padding.Left, p.Y - bloco.Padding.Top));
+        return Math.Clamp(acerto.TextPosition + (acerto.IsTrailing ? 1 : 0), 0, Tamanho(bloco));
+    }
+
+    /// <summary>O bloco na altura do ponto; acima do primeiro vale o primeiro, abaixo do último, o último.</summary>
+    private int BlocoEm(Point pontoAqui)
+    {
+        var melhor = -1;
+        var distancia = double.MaxValue;
+        for (var i = 0; i < _textos.Count; i++)
+        {
+            var topo = _textos[i].TranslatePoint(default, this)?.Y ?? 0;
+            var base_ = topo + _textos[i].Bounds.Height;
+            if (pontoAqui.Y >= topo && pontoAqui.Y <= base_) return i;
+
+            var d = Math.Min(Math.Abs(pontoAqui.Y - topo), Math.Abs(pontoAqui.Y - base_));
+            if (d < distancia) (melhor, distancia) = (i, d);
+        }
+        return melhor;
+    }
+
+    private static void Limpar(SelectableTextBlock t)
+    {
+        if (t.SelectionStart != t.SelectionEnd) t.SelectionEnd = t.SelectionStart;
+    }
+
+    private void AoApertar(object? sender, PointerPressedEventArgs e)
+    {
+        _ancora = -1;
+        _arrastou = false;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+        var origem = (e.Source as Visual)?.FindAncestorOfType<SelectableTextBlock>(includeSelf: true);
+        _ancora = origem is null ? -1 : _textos.IndexOf(origem);
+        _apertou = e.GetPosition(this);
+        _indiceDaAncora = origem is null ? 0 : IndiceEm(origem, _apertou);
+
+        // um clique novo começa uma seleção nova: a dos outros blocos sai
+        for (var i = 0; i < _textos.Count; i++)
+            if (i != _ancora) Limpar(_textos[i]);
+    }
+
+    private void AoMover(object? sender, PointerEventArgs e)
+    {
+        if (_ancora < 0 || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+
+        var agora = e.GetPosition(this);
+        if (Math.Abs(agora.X - _apertou.X) > 3 || Math.Abs(agora.Y - _apertou.Y) > 3) _arrastou = true;
+        if (!_arrastou) return;
+
+        var atual = BlocoEm(agora);
+        if (atual < 0) return;
+
+        // do ponto em que apertou até o ponteiro: o bloco de partida vai dali até a borda
+        // dele, os do meio entram inteiros, e o da ponta vai da borda até o ponteiro
+        for (var i = 0; i < _textos.Count; i++)
+        {
+            var t = _textos[i];
+
+            if (i == _ancora)
+            {
+                var ate = atual == _ancora ? IndiceEm(t, agora) : atual > _ancora ? Tamanho(t) : 0;
+                (t.SelectionStart, t.SelectionEnd) = (_indiceDaAncora, ate);
+            }
+            else if (i > Math.Min(_ancora, atual) && i < Math.Max(_ancora, atual))
+            {
+                t.SelectAll();
+            }
+            else if (i == atual)
+            {
+                var indice = IndiceEm(t, agora);
+                (t.SelectionStart, t.SelectionEnd) = atual > _ancora ? (0, indice) : (indice, Tamanho(t));
+            }
+            else
+            {
+                Limpar(t);
+            }
+        }
+    }
+
+    private void AoSoltar(object? sender, PointerReleasedEventArgs e)
+    {
+        var clicado = _ancora >= 0 && _ancora < _textos.Count ? _textos[_ancora] : null;
+        _ancora = -1;
+
+        // clique sem arrastar em cima de um link: abre. Antes qualquer clique na linha
+        // abria o link, e tentar selecionar o texto dela já levava ao navegador
+        if (clicado is null || _arrastou || e.InitialPressMouseButton != MouseButton.Left) return;
+        if (!_links.TryGetValue(clicado, out var links)) return;
+
+        var indice = IndiceEm(clicado, e.GetPosition(this));
+        foreach (var (inicio, fim, url) in links)
+        {
+            if (indice < inicio || indice > fim) continue;
+            try { ShellService.AbrirUrl(url); }
+            catch (Exception) { /* link quebrado no documento não é erro do app */ }
+            return;
+        }
+    }
+
+    /// <summary>O que está marcado, bloco a bloco, na ordem do documento.</summary>
+    public string TextoSelecionado() => string.Join(Environment.NewLine,
+        _textos.Select(t => t.SelectedText ?? "").Where(s => s.Length > 0));
+
+    public bool TudoSelecionado => _textos.Count > 0 &&
+        _textos.All(t => Tamanho(t) == 0 || Math.Abs(t.SelectionEnd - t.SelectionStart) == Tamanho(t));
+
+    public void SelecionarTudo()
+    {
+        foreach (var t in _textos) t.SelectAll();
+    }
+
+    /// <summary>
+    /// Copia o que está marcado. Com o documento inteiro marcado vai formatado (HTML mais
+    /// texto limpo), que é o que se espera de "selecionar tudo e copiar" numa tela
+    /// renderizada; com um trecho, vai o texto do trecho.
+    /// </summary>
+    public async Task CopiarSelecaoAsync()
+    {
+        if (TopLevel.GetTopLevel(this)?.Clipboard is not { } clipboard) return;
+
+        if (TudoSelecionado)
+        {
+            await CopiaFormatada.CopiarAsync(clipboard, MarkdownExport.ParaHtml(Markdown), MarkdownExport.ParaTexto(Markdown));
+            return;
+        }
+
+        var texto = TextoSelecionado();
+        if (texto.Length > 0) await clipboard.SetTextAsync(texto);
+    }
+
+    private async void AoTeclar(object? sender, KeyEventArgs e)
+    {
+        if (e.KeyModifiers != KeyModifiers.Control) return;
+
+        if (e.Key == Key.A)
+        {
+            SelecionarTudo();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.C && TextoSelecionado().Length > 0)
+        {
+            e.Handled = true; // senão o bloco com o foco copiaria só o pedaço dele
+            await CopiarSelecaoAsync();
+        }
+    }
+
+    private void AbrirMenu(ContextRequestedEventArgs e)
+    {
+        if (_textos.Count == 0 || e.Source is not Control onde) return;
+
+        var copiar = new MenuItem { Header = "Copiar", IsEnabled = TextoSelecionado().Length > 0 };
+        copiar.Click += async (_, _) => await CopiarSelecaoAsync();
+
+        var tudo = new MenuItem { Header = "Selecionar tudo" };
+        tudo.Click += (_, _) => SelecionarTudo();
+
+        var copiarTudo = new MenuItem { Header = "Copiar tudo (formatado)" };
+        copiarTudo.Click += async (_, _) =>
+        {
+            SelecionarTudo();
+            await CopiarSelecaoAsync();
+        };
+
+        var menu = new MenuFlyout();
+        menu.Items.Add(copiar);
+        menu.Items.Add(tudo);
+        menu.Items.Add(copiarTudo);
+        menu.ShowAt(onde, showAtPointer: true);
+        e.Handled = true;
+    }
 
     public string Markdown
     {
@@ -38,6 +251,9 @@ public class MarkdownView : UserControl
     private void Montar()
     {
         _pilha.Children.Clear();
+        _textos.Clear();
+        _links.Clear();
+        _ancora = -1;
 
         foreach (var bloco in MarkdownParser.Blocos(Markdown))
             _pilha.Children.Add(Desenhar(bloco));
@@ -109,7 +325,7 @@ public class MarkdownView : UserControl
         return linha;
     }
 
-    private static Control Codigo(string texto)
+    private Control Codigo(string texto)
     {
         var caixa = new Border
         {
@@ -125,7 +341,9 @@ public class MarkdownView : UserControl
             FontSize = 11.5,
             TextWrapping = TextWrapping.NoWrap,
             Classes = { "mono" },
+            ContextFlyout = null, // o menu é o do documento, que copia a seleção inteira
         };
+        _textos.Add(texto1);
 
         caixa.Child = new ScrollViewer
         {
@@ -209,7 +427,14 @@ public class MarkdownView : UserControl
             FontSize = tamanho,
             TextWrapping = TextWrapping.Wrap,
             Inlines = new InlineCollection(),
+
+            // com fundo, o bloco inteiro recebe o clique — não só onde há letra. Sem isso o
+            // arraste que começava no espaço entre duas palavras não selecionava nada
+            Background = Brushes.Transparent,
         };
+
+        var links = new List<(int Inicio, int Fim, string Url)>();
+        var posicao = 0;
 
         foreach (var trecho in bloco.Trechos)
         {
@@ -231,19 +456,20 @@ public class MarkdownView : UserControl
                 corrida.Foreground = this.TryFindResource("Accent", out var a) && a is IBrush pincel
                     ? pincel
                     : Brushes.SteelBlue;
+                corrida.TextDecorations = TextDecorations.Underline;
 
-                // link é clicável no bloco inteiro: Run não recebe evento por si
-                alvo.Cursor = new Avalonia.Input.Cursor(Avalonia.Input.StandardCursorType.Hand);
-                var destino = trecho.Link;
-                alvo.PointerPressed += (_, _) =>
-                {
-                    try { ShellService.AbrirUrl(destino); }
-                    catch (Exception) { /* link quebrado no documento não é erro do app */ }
-                };
+                // Run não recebe evento por si: guarda-se onde o link fica no texto, e o
+                // clique confere se caiu ali
+                links.Add((posicao, posicao + trecho.Texto.Length, trecho.Link));
             }
 
+            posicao += trecho.Texto.Length;
             alvo.Inlines!.Add(corrida);
         }
+
+        alvo.ContextFlyout = null; // o menu é o do documento, que copia a seleção inteira
+        _textos.Add(alvo);
+        if (links.Count > 0) _links[alvo] = links;
 
         return alvo;
     }

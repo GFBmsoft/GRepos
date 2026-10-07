@@ -1,3 +1,10 @@
+## 1.0.0.39 — 07/10/2026
+- Histórico: botão **Markdown** mostra a mensagem do commit renderizada (título, lista, link clicável). A escolha é lembrada.
+- **Copiar texto** leva a mensagem como foi escrita; **Copiar formatado** leva a renderizada, que cola com título, lista e link no Word, no Outlook e no Teams — e como texto limpo onde a formatação não chega.
+- No Markdown renderizado a seleção atravessa os parágrafos: dá para arrastar pela mensagem inteira, usar Ctrl+A e Ctrl+C, ou o clique direito. Vale também para o Leia-me, as Novidades e as descrições de PR e de issue.
+- Clicar numa linha com link não abre mais o navegador: só o clique em cima do próprio link, que agora aparece sublinhado.
+- As ações do commit viraram botões em pílula, separados da mensagem.
+
 ## 1.0.0.38 — 07/10/2026
 - **Avisos repaginados**: o cartão ganhou cor por resultado (verde deu certo, vermelho falhou, amarelo ainda está rodando, azul é informação), ícone, título e detalhe. Sucesso e informação somem sozinhos; erro fica até ser fechado.
 - Obter, Puxar e Enviar dizem em português o que aconteceu: quantos commits chegaram, quantos foram enviados, ou que já estava em dia. Os erros mais comuns do git vêm explicados, com o que fazer.

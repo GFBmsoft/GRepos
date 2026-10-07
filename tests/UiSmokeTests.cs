@@ -182,6 +182,87 @@ public class UiSmokeTests
         Render(new HistoryView(), vm);
     }
 
+    /// <summary>
+    /// No Markdown renderizado cada parágrafo é um texto à parte, e a seleção parava na
+    /// borda de cada um: não dava para marcar e copiar a mensagem inteira. Agora o arraste
+    /// atravessa os blocos, e "selecionar tudo" pega o documento todo.
+    /// </summary>
+    [AvaloniaFact]
+    public void Selecao_no_markdown_renderizado_atravessa_os_blocos()
+    {
+        var view = new MarkdownView { Markdown = "# TESTE\n\nPrimeiro parágrafo.\n\nSegundo parágrafo, o último." };
+        var window = new Window { Width = 600, Height = 400, Content = view };
+        window.Show();
+        window.Measure(new Size(600, 400));
+        window.Arrange(new Rect(0, 0, 600, 400));
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var blocos = view.GetVisualDescendants().OfType<SelectableTextBlock>().ToList();
+        Assert.Equal(3, blocos.Count);
+
+        Point Em(SelectableTextBlock b, double x, double y) => b.TranslatePoint(new Point(x, y), window)!.Value;
+
+        // aperta no começo do título e arrasta até o meio do último parágrafo
+        window.MouseDown(Em(blocos[0], 1, 6), MouseButton.Left);
+        window.MouseMove(Em(blocos[1], 40, 6), RawInputModifiers.LeftMouseButton);
+        window.MouseMove(Em(blocos[2], 60, 6), RawInputModifiers.LeftMouseButton);
+        window.MouseUp(Em(blocos[2], 60, 6), MouseButton.Left);
+
+        Assert.Equal("TESTE", blocos[0].SelectedText);
+        Assert.Equal("Primeiro parágrafo.", blocos[1].SelectedText); // o do meio entra inteiro
+        Assert.StartsWith("Segundo", blocos[2].SelectedText);        // o da ponta, até o ponteiro
+        Assert.NotEqual("Segundo parágrafo, o último.", blocos[2].SelectedText);
+        Assert.False(view.TudoSelecionado);
+        Assert.StartsWith("TESTE" + System.Environment.NewLine + "Primeiro parágrafo." + System.Environment.NewLine + "Segundo",
+            view.TextoSelecionado());
+
+        // um clique novo começa do zero: a seleção dos outros blocos sai
+        window.MouseDown(Em(blocos[1], 1, 6), MouseButton.Left);
+        window.MouseUp(Em(blocos[1], 1, 6), MouseButton.Left);
+        Assert.Equal("", blocos[0].SelectedText);
+        Assert.Equal("", blocos[2].SelectedText);
+
+        // Ctrl+A marca o documento inteiro
+        blocos[1].Focus();
+        window.KeyPressQwerty(PhysicalKey.A, RawInputModifiers.Control);
+        Assert.True(view.TudoSelecionado);
+        Assert.Equal(
+            string.Join(System.Environment.NewLine, "TESTE", "Primeiro parágrafo.", "Segundo parágrafo, o último."),
+            view.TextoSelecionado());
+
+        window.Close();
+    }
+
+    /// <summary>A mensagem do commit nos dois modos: como foi escrita e renderizada como Markdown.</summary>
+    [AvaloniaFact]
+    public void HistoryView_monta_a_mensagem_como_texto_e_como_markdown()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new HistoryViewModel(DemoRepo(), main, 50, split: true)
+        {
+            DetailSubject = "Dav 1.44.0.0 [auto] [cooldown=0]",
+            DetailBody = "# TESTE\n\n- [Pedido 6443](http://bmsoft.ddns.net:8088/mantis/view.php?id=6443):\n  - Voltando modulo para versão em produção após teste",
+            HasDetail = true,
+        };
+
+        var view = new HistoryView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        foreach (var markdown in new[] { false, true })
+        {
+            vm.CorpoEmMarkdown = markdown;
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs(); // o painel que ficou visível só é montado no ciclo de layout
+            window.Measure(new Size(1200, 800));
+            window.Arrange(new Rect(0, 0, 1200, 800));
+        }
+
+        // renderizado, o link vira texto clicável: o endereço cru não aparece mais na tela
+        var renderizado = view.GetVisualDescendants().OfType<MarkdownView>().Single(m => m.Markdown.Contains("Pedido 6443"));
+        Assert.Contains("# TESTE", renderizado.Markdown);
+        Assert.True(vm.CorpoComoMarkdown);
+        window.Close();
+    }
+
     /// <summary>Menu de contexto e flyouts só constroem os bindings quando abrem.</summary>
     [AvaloniaFact]
     public void HistoryView_abre_o_menu_de_acoes_do_commit()

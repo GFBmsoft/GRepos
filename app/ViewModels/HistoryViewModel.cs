@@ -136,6 +136,7 @@ public sealed partial class HistoryViewModel : ObservableObject
         _repo = repo;
         _main = main;
         _limit = limit;
+        _corpoEmMarkdown = main.MensagemEmMarkdown;
         Diff = new DiffViewModel { Split = split, Externo = AbrirNoDiffExternoAsync, Recarregar = RecarregarDiffAsync };
     }
 
@@ -167,7 +168,50 @@ public sealed partial class HistoryViewModel : ObservableObject
     public bool HasBody => !string.IsNullOrWhiteSpace(DetailBody);
     public string DetailParentsText => string.IsNullOrEmpty(DetailParents) ? "" : $"pais: {DetailParents}";
 
-    partial void OnDetailBodyChanged(string value) => OnPropertyChanged(nameof(HasBody));
+    partial void OnDetailBodyChanged(string value) => AvisarCorpo();
+
+    // ------------------------------------------------- mensagem em Markdown
+
+    /// <summary>
+    /// As mensagens de commit da equipe são escritas em Markdown. Ligado, o corpo aparece
+    /// renderizado (título, lista, link clicável); desligado, o texto como foi escrito.
+    /// </summary>
+    [ObservableProperty] private bool _corpoEmMarkdown;
+
+    public bool CorpoComoTexto => HasBody && !CorpoEmMarkdown;
+    public bool CorpoComoMarkdown => HasBody && CorpoEmMarkdown;
+
+    partial void OnCorpoEmMarkdownChanged(bool value)
+    {
+        _main.MensagemEmMarkdown = value; // a escolha acompanha o usuário nos outros repositórios
+        AvisarCorpo();
+    }
+
+    private void AvisarCorpo()
+    {
+        foreach (var p in new[] { nameof(HasBody), nameof(CorpoComoTexto), nameof(CorpoComoMarkdown) })
+            OnPropertyChanged(p);
+    }
+
+    [RelayCommand]
+    private void AlternarMarkdown() => CorpoEmMarkdown = !CorpoEmMarkdown;
+
+    /// <summary>A mensagem inteira como foi escrita: assunto, linha vazia e corpo.</summary>
+    public string MensagemCompleta => string.IsNullOrWhiteSpace(DetailBody)
+        ? DetailSubject
+        : DetailSubject + Environment.NewLine + Environment.NewLine + DetailBody.Trim();
+
+    /// <summary>A mensagem para colar formatada: o assunto em negrito e o corpo renderizado.</summary>
+    public string MensagemEmHtml =>
+        $"<p><b>{MarkdownExport.Escapar(DetailSubject)}</b></p>" + MarkdownExport.ParaHtml(DetailBody);
+
+    /// <summary>A mesma, sem os sinais do Markdown, para onde a formatação não chega.</summary>
+    public string MensagemEmTextoLimpo => string.IsNullOrWhiteSpace(DetailBody)
+        ? DetailSubject
+        : DetailSubject + Environment.NewLine + Environment.NewLine + MarkdownExport.ParaTexto(DetailBody);
+
+    /// <summary>O aviso de que a cópia foi feita; quem copia é a tela, que tem a área de transferência.</summary>
+    public void AvisarCopia(string texto) => _main.Avisar("sucesso", texto);
 
     partial void OnDetailParentsChanged(string value) => OnPropertyChanged(nameof(DetailParentsText));
 

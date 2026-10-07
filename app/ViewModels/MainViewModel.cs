@@ -2377,6 +2377,19 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>Largura da sidebar escolhida no divisor; volta assim na próxima abertura.</summary>
+    /// <summary>Mensagem de commit renderizada como Markdown; a escolha vale para todos os repositórios.</summary>
+    public bool MensagemEmMarkdown
+    {
+        get => _ws.Settings.MensagemEmMarkdown;
+        set
+        {
+            if (_ws.Settings.MensagemEmMarkdown == value) return;
+            _ws.Settings.MensagemEmMarkdown = value;
+            OnPropertyChanged();
+            if (_carregado) Persist();
+        }
+    }
+
     /// <summary>Guarda como a janela ficou, para a próxima abertura. Só grava se mudou.</summary>
     public void SetJanela(double largura, double altura, bool maximizada)
     {

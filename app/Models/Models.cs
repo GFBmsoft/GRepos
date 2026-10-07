@@ -73,6 +73,9 @@ public sealed class Settings
     /// <summary>A janela estava maximizada ao fechar; reabre maximizada.</summary>
     public bool JanelaMaximizada { get; set; }
 
+    /// <summary>A mensagem do commit aparece renderizada como Markdown, e não como texto cru.</summary>
+    public bool MensagemEmMarkdown { get; set; }
+
     /// <summary>Aba aberta ao selecionar um repositório: "alteracoes" ou "historico".</summary>
     public string DefaultTab { get; set; } = "alteracoes";
 

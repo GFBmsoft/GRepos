@@ -136,6 +136,20 @@ public class ScreenshotTests
         frame?.Save(Path.Combine(dir, nome + ".png"));
     }
 
+    /// <summary>EV15: a mensagem do commit como foi escrita e renderizada como Markdown.</summary>
+    [AvaloniaFact]
+    public void Mensagem_do_commit_em_texto_e_em_markdown()
+    {
+        foreach (var markdown in new[] { false, true })
+        {
+            var vm = HistoricoDeExemplo();
+            vm.DetailSubject = "Dav 1.44.0.0 [auto] [cooldown=0]";
+            vm.DetailBody = "# TESTE\n\n- [Pedido 6443](http://bmsoft.ddns.net:8088/mantis/view.php?id=6443):\n  - Voltando modulo para versão em produção após teste";
+            vm.CorpoEmMarkdown = markdown;
+            Shot(new HistoryView(), vm, markdown ? "mensagem-markdown" : "mensagem-texto", 1200, 420);
+        }
+    }
+
     /// <summary>O cartão de aviso nos quatro tipos: a cor diz o que aconteceu antes de se ler.</summary>
     [AvaloniaFact]
     public void Avisos_de_sucesso_erro_andamento_e_informacao()

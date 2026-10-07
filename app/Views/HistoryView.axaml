@@ -136,27 +136,43 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <TextBlock Text="{Binding DetailBody}" Classes="dim" FontSize="12" TextWrapping="Wrap"
-                       TextTrimming="None" MaxHeight="90" Margin="0,4,0,0"
-                       IsVisible="{Binding HasBody}" />
+            <!-- o corpo da mensagem: como foi escrito, ou renderizado como Markdown. Nos dois
+                 dá para selecionar com o mouse; os botões abaixo copiam a mensagem inteira -->
+            <ScrollViewer MaxHeight="110" Margin="0,4,0,0" IsVisible="{Binding CorpoComoTexto}">
+              <SelectableTextBlock Text="{Binding DetailBody}" Classes="dim" FontSize="12"
+                                   TextWrapping="Wrap" TextTrimming="None" />
+            </ScrollViewer>
+            <ScrollViewer MaxHeight="190" Margin="0,4,0,0" IsVisible="{Binding CorpoComoMarkdown}">
+              <views:MarkdownView Markdown="{Binding DetailBody}" />
+            </ScrollViewer>
 
-            <!-- as mesmas ações do clique direito na lista, para quem não sabe que ele existe -->
-            <WrapPanel Margin="0,6,0,0" IsEnabled="{Binding !Busy}">
-              <Button Classes="tiny" Content="Copiar hash" Margin="0,0,6,4" Click="CopiarHash_Click" />
-              <Button Classes="tiny" Content="Criar branch aqui" Margin="0,0,6,4"
+            <!-- as mesmas ações do clique direito na lista, para quem não sabe que ele existe.
+                 Uma linha separa a barra da mensagem, e as ações são pílulas: precisam se
+                 destacar do texto do commit logo acima -->
+            <Border Height="1" Margin="0,10,0,8" Background="{DynamicResource BorderSoft}" />
+            <WrapPanel IsEnabled="{Binding !Busy}">
+              <Button Classes="acao" Content="Copiar hash" Margin="0,0,6,6" Click="CopiarHash_Click" />
+              <Button Classes="acao" Content="Markdown" Margin="0,0,6,6"
+                      Classes.destacado="{Binding CorpoEmMarkdown}" Command="{Binding AlternarMarkdownCommand}"
+                      ToolTip.Tip="Mostrar a mensagem renderizada como Markdown, ou como foi escrita" />
+              <Button Classes="acao" Content="Copiar texto" Margin="0,0,6,6" Click="CopiarTexto_Click"
+                      ToolTip.Tip="Copia a mensagem como foi escrita, com os sinais do Markdown" />
+              <Button Classes="acao" Content="Copiar formatado" Margin="0,0,6,6" Click="CopiarFormatado_Click"
+                      ToolTip.Tip="Copia a mensagem renderizada: cola com título, lista e link no e-mail, no Word ou no Teams" />
+              <Button Classes="acao" Content="Criar branch aqui" Margin="0,0,6,6"
                       Command="{Binding CriarBranchAquiCommand}" />
-              <Button Classes="tiny" Content="Criar tag" Margin="0,0,6,4"
+              <Button Classes="acao" Content="Criar tag" Margin="0,0,6,6"
                       Command="{Binding CriarTagAquiCommand}" />
-              <Button Classes="tiny" Content="Cherry-pick" Margin="0,0,6,4"
+              <Button Classes="acao" Content="Cherry-pick" Margin="0,0,6,6"
                       ToolTip.Tip="Aplica este commit na branch atual"
                       Command="{Binding CherryPickCommand}" />
-              <Button Classes="tiny" Content="Reverter commit" Margin="0,0,6,4"
+              <Button Classes="acao" Content="Reverter commit" Margin="0,0,6,6"
                       ToolTip.Tip="Cria um commit que desfaz este, sem reescrever o histórico"
                       Command="{Binding ReverterCommitCommand}" />
-              <Button Classes="tiny" Content="Reorganizar daqui..." Margin="0,0,6,4"
+              <Button Classes="acao" Content="Reorganizar daqui..." Margin="0,0,6,6"
                       ToolTip.Tip="Rebase interativo: juntar, renomear, apagar ou reordenar os commits daqui até o HEAD"
                       Command="{Binding ReorganizarCommand}" />
-              <Button Classes="tiny danger" Content="Resetar para cá ▾" Margin="0,0,6,4"
+              <Button Classes="acao danger" Content="Resetar para cá ▾" Margin="0,0,6,6"
                       ToolTip.Tip="Move a branch atual para este commit">
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedLeft">
