@@ -155,60 +155,107 @@ public sealed partial class PerfilViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => CarregarAsync(forcar: false);
+
+    /// <summary>
+    /// Mostra na hora o que ficou guardado da última vez e só então vai ao GitHub — e nem
+    /// vai, se o guardado é recente. Abrir o painel repetia quatro consultas a cada vez.
+    /// </summary>
+    /// <param name="forcar">O botão Atualizar do painel: busca mesmo com o guardado recente.</param>
+    public async Task CarregarAsync(bool forcar)
     {
         if (Carregando) return;
 
+        var guardado = PerfilCache.Ler(_login);
+        if (guardado is not null)
+        {
+            Aplicar(guardado);
+            if (!forcar && PerfilCache.Atual(guardado)) return;
+        }
+
         Carregando = true;
         Erro = "";
-        var contribuicoes = CarregarContribuicoesAsync();
         try
         {
-            Perfil = await GitHubService.PerfilAsync(_login);
-            await CarregarFotoAsync(Perfil.AvatarUrl);
+            // tudo junto: o cartão esperava a conta, depois a foto, e as contribuições à parte
+            var contribuicoes = BuscarContribuicoesAsync();
+            var perfil = await GitHubService.PerfilAsync(_login);
+            Perfil = perfil;
+
+            var foto = await GitHubService.FotoAsync(perfil.AvatarUrl);
+            if (foto is not null) Foto = Imagem(foto) ?? Foto;
+
+            var c = await contribuicoes;
+            if (c is not null)
+            {
+                TotalContribuicoes = c.Total;
+                Dias = c.Dias;
+            }
+
+            PerfilCache.Guardar(_login, new PerfilGuardado
+            {
+                Perfil = perfil,
+                // sem resposta nova, as contribuições e a foto de antes continuam valendo
+                TotalContribuicoes = c?.Total ?? guardado?.TotalContribuicoes ?? 0,
+                Dias = (c?.Dias ?? guardado?.Dias ?? (IReadOnlyList<DiaContribuicao>)Array.Empty<DiaContribuicao>()).ToList(),
+                Foto = foto is not null ? Convert.ToBase64String(foto) : guardado?.Foto ?? "",
+                Quando = DateTime.UtcNow,
+            });
         }
         catch (Exception e)
         {
-            Erro = e.Message;
+            // com o cartão já preenchido pelo guardado, falha de rede não vira erro na tela
+            if (guardado is null) Erro = e.Message;
         }
         finally
         {
             Carregando = false;
         }
+    }
 
-        await contribuicoes;
+    /// <summary>Põe na tela o que estava guardado. Separado para ser testado sem rede.</summary>
+    public void Aplicar(PerfilGuardado guardado)
+    {
+        Perfil = guardado.Perfil;
+        TotalContribuicoes = guardado.TotalContribuicoes;
+        if (guardado.Dias.Count > 0) Dias = guardado.Dias;
+
+        if (guardado.Foto.Length > 0)
+        {
+            try
+            {
+                Foto = Imagem(Convert.FromBase64String(guardado.Foto)) ?? Foto;
+            }
+            catch (FormatException)
+            {
+                // foto guardada ilegível: fica a inicial até a nova chegar
+            }
+        }
     }
 
     /// <summary>Falha aqui é silenciosa: o quadriculado é enfeite, o perfil não depende dele.</summary>
-    private async Task CarregarContribuicoesAsync()
+    private async Task<Contribuicoes?> BuscarContribuicoesAsync()
     {
         try
         {
-            var c = await GitHubService.ContribuicoesAsync(_login);
-            if (c is null) return;
-
-            TotalContribuicoes = c.Total;
-            Dias = c.Dias;
+            return await GitHubService.ContribuicoesAsync(_login);
         }
         catch (Exception)
         {
-            // sem rede ou sem permissão: o cartão fica sem o quadriculado
+            return null; // sem rede ou sem permissão: o cartão fica sem o quadriculado
         }
     }
 
-    private async Task CarregarFotoAsync(string avatarUrl)
+    private static Avalonia.Media.Imaging.Bitmap? Imagem(byte[] bytes)
     {
-        var bytes = await GitHubService.FotoAsync(avatarUrl);
-        if (bytes is null) return;
-
         try
         {
             using var ms = new System.IO.MemoryStream(bytes);
-            Foto = new Avalonia.Media.Imaging.Bitmap(ms);
+            return new Avalonia.Media.Imaging.Bitmap(ms);
         }
         catch (Exception)
         {
-            // imagem ilegível: fica a inicial
+            return null; // imagem ilegível: fica a inicial
         }
     }
 

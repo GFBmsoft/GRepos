@@ -151,9 +151,13 @@ public sealed partial class MainViewModel : ObservableObject
     /// Monta o painel de um grupo — ou do workspace inteiro, com grupoId nulo.
     /// Some com a seleção de repositório: são duas visões do mesmo espaço.
     /// </summary>
+    /// <summary>De qual grupo é o painel aberto (nulo: o geral). Serve para refazê-lo quando a árvore muda.</summary>
+    private string? _grupoDoPainel;
+
     public void MostrarPainel(string? grupoId)
     {
         SelectedNode = null;
+        _grupoDoPainel = grupoId;
 
         var repos = grupoId is null
             ? _ws.Repos.ToList()
@@ -1878,6 +1882,86 @@ public sealed partial class MainViewModel : ObservableObject
             g.ParentId = string.IsNullOrEmpty(paiId) || _ws.Groups.All(x => x.Id != paiId) ? null : paiId;
         Persist();
         RebuildTree();
+    }
+
+    // ------------------------------------------ arrastar e soltar na árvore
+
+    /// <summary>
+    /// Para onde vai o que foi arrastado, se couber: um repositório solto num grupo (ou
+    /// num repositório, que vale o grupo dele) muda de grupo; um grupo solto noutro vira
+    /// subgrupo. Soltar um grupo no Painel o leva ao nível principal.
+    /// </summary>
+    /// <returns>
+    /// Falso quando não há o que fazer — o destino é onde ele já está, ou um grupo iria
+    /// para dentro de si mesmo. <paramref name="destino"/> nulo é "sem grupo" (ou a raiz).
+    /// </returns>
+    public bool PodeSoltar(SidebarNode? origem, SidebarNode? alvo, out string? destino)
+    {
+        destino = null;
+        if (origem is null || alvo is null || ReferenceEquals(origem, alvo)) return false;
+
+        var conhecidos = _ws.Groups.Select(g => g.Id).ToHashSet();
+        string? Existente(string? id) => !string.IsNullOrEmpty(id) && conhecidos.Contains(id) ? id : null;
+
+        switch (alvo)
+        {
+            case GroupNode g:
+                destino = Existente(g.Id); // "Sem grupo" tem Id vazio
+                break;
+            case RepoNode r:
+                destino = Existente(r.Repo.GroupId);
+                break;
+            case PainelNode when origem is GroupNode:
+                break; // raiz
+            default:
+                return false;
+        }
+
+        switch (origem)
+        {
+            case RepoNode repo:
+                return Existente(repo.Repo.GroupId) != destino;
+
+            case GroupNode grupo when grupo.Id.Length > 0:
+                var atual = _ws.Groups.FirstOrDefault(x => x.Id == grupo.Id);
+                return atual is not null &&
+                       Existente(atual.ParentId) != destino &&
+                       GrupoArvore.PodeFicarDentro(_ws.Groups, grupo.Id, destino);
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Move o que foi arrastado. O destino é aberto, para o resultado ficar à vista.</summary>
+    public bool Soltar(SidebarNode? origem, SidebarNode? alvo)
+    {
+        if (!PodeSoltar(origem, alvo, out var destino)) return false;
+
+        string nome;
+        if (origem is RepoNode repo)
+        {
+            repo.Repo.GroupId = destino;
+            nome = repo.Name;
+        }
+        else
+        {
+            var grupo = _ws.Groups.First(g => g.Id == ((GroupNode)origem!).Id);
+            grupo.ParentId = destino;
+            nome = grupo.Name;
+        }
+
+        foreach (var g in GrupoArvore.Ancestrais(_ws.Groups, destino).Where(g => g.Collapsed)) g.Collapsed = false;
+        Persist();
+        RebuildTree();
+
+        // o painel aberto agrupa pelos mesmos grupos: refeito, mostra o repositório no lugar novo
+        if (Painel is not null) MostrarPainel(_grupoDoPainel);
+
+        Notify(destino is null
+            ? origem is RepoNode ? $"{nome} ficou sem grupo." : $"{nome} foi para o nível principal."
+            : $"{nome} foi para {NomeDoGrupo(destino)}.");
+        return true;
     }
 
     public void RemoveGroup(string id)

@@ -144,7 +144,7 @@ public class ArvoreComSubgruposTests
         .ToArray();
 
     [Fact]
-    public Task Arvore_desenha_subgrupo_dentro_do_grupo_com_recuo_e_contagem_do_ramo() => Com((main, _) =>
+    public Task Arvore_desenha_subgrupo_dentro_do_grupo_com_recuo_e_contagem_do_ramo() => Com((main, d) =>
     {
         Montar(main);
 
@@ -165,7 +165,7 @@ public class ArvoreComSubgruposTests
     });
 
     [Fact]
-    public Task Recolher_o_pai_esconde_tudo_que_esta_abaixo_e_selecionar_reabre_o_caminho() => Com((main, _) =>
+    public Task Recolher_o_pai_esconde_tudo_que_esta_abaixo_e_selecionar_reabre_o_caminho() => Com((main, d) =>
     {
         var (dbisam, fiscal, _) = Montar(main);
 
@@ -183,7 +183,7 @@ public class ArvoreComSubgruposTests
     });
 
     [Fact]
-    public Task Painel_e_lote_do_grupo_incluem_os_subgrupos() => Com((main, _) =>
+    public Task Painel_e_lote_do_grupo_incluem_os_subgrupos() => Com((main, d) =>
     {
         var (dbisam, fiscal, _) = Montar(main);
 
@@ -201,7 +201,7 @@ public class ArvoreComSubgruposTests
     });
 
     [Fact]
-    public Task Remover_um_grupo_sobe_os_subgrupos_e_os_repositorios_um_nivel() => Com((main, _) =>
+    public Task Remover_um_grupo_sobe_os_subgrupos_e_os_repositorios_um_nivel() => Com((main, d) =>
     {
         var (dbisam, fiscal, nfe) = Montar(main);
 
@@ -245,6 +245,106 @@ public class ArvoreComSubgruposTests
         // mesmo que alguém force, um ciclo não é gravado
         main.UpdateGroup(dbisam, "DBISAM", "#E07B00", dbisam, mudarPai: true);
         Assert.Null(main.Groups.Single(g => g.Id == dbisam).ParentId);
+    });
+
+    // ------------------------------------------------ arrastar e soltar
+
+    private static GroupNode NoDoGrupo(MainViewModel main, string nome) =>
+        main.Tree.OfType<GroupNode>().Single(g => g.Name == nome);
+
+    private static RepoNode NoDoRepo(MainViewModel main, string nome) =>
+        main.Tree.OfType<RepoNode>().Single(r => r.Name == nome);
+
+    [Fact]
+    public Task Soltar_um_repositorio_num_grupo_muda_ele_de_grupo() => Com((main, d) =>
+    {
+        var (dbisam, fiscal, _) = Montar(main);
+
+        Assert.True(main.Soltar(NoDoRepo(main, "Financeiro"), NoDoGrupo(main, "Fiscal")));
+        Assert.Equal(fiscal, main.Repos.Single(r => r.Name == "Financeiro").GroupId);
+
+        // soltar em cima de um repositório vale o grupo dele
+        Assert.True(main.Soltar(NoDoRepo(main, "Solto"), NoDoRepo(main, "SPED")));
+        Assert.Equal(fiscal, main.Repos.Single(r => r.Name == "Solto").GroupId);
+
+        // e no "Sem grupo" ele sai do grupo; o cabeçalho existe porque sobrou alguém lá
+        main.AddRepository(@"C:\repos\Outro", "Outro", null);
+        Assert.True(main.Soltar(NoDoRepo(main, "Financeiro"), NoDoGrupo(main, "Sem grupo")));
+        Assert.Null(main.Repos.Single(r => r.Name == "Financeiro").GroupId);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Soltar_onde_ja_esta_nao_faz_nada() => Com((main, d) =>
+    {
+        Montar(main);
+
+        Assert.False(main.PodeSoltar(NoDoRepo(main, "SPED"), NoDoGrupo(main, "Fiscal"), out _));
+        Assert.False(main.PodeSoltar(NoDoGrupo(main, "Fiscal"), NoDoGrupo(main, "DBISAM"), out _));
+        Assert.False(main.PodeSoltar(NoDoGrupo(main, "Fiscal"), NoDoGrupo(main, "Fiscal"), out _));
+        Assert.False(main.Soltar(null, NoDoGrupo(main, "Fiscal")));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Soltar_um_grupo_noutro_o_torna_subgrupo_e_leva_o_que_tem_dentro() => Com((main, d) =>
+    {
+        var (dbisam, fiscal, nfe) = Montar(main);
+        var mysql = main.CreateGroup("MySQL", "#8B5CF6");
+        main.RebuildTree();
+
+        Assert.True(main.Soltar(NoDoGrupo(main, "Fiscal"), NoDoGrupo(main, "MySQL")));
+
+        Assert.Equal(mysql, main.Groups.Single(g => g.Id == fiscal).ParentId);
+        Assert.Equal(fiscal, main.Groups.Single(g => g.Id == nfe).ParentId);
+        Assert.Equal(new[]
+        {
+            "[DBISAM 1]", "Financeiro",
+            "[MySQL 2]", "  [Fiscal 2]", "    [NFe 1]", "    NFCe", "  SPED",
+            "[Sem grupo 1]", "Solto",
+        }, Linhas(main));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Grupo_nao_cai_dentro_de_si_mesmo_nem_de_um_descendente() => Com((main, d) =>
+    {
+        var (dbisam, _, _) = Montar(main);
+
+        Assert.False(main.Soltar(NoDoGrupo(main, "DBISAM"), NoDoGrupo(main, "NFe")));
+        Assert.False(main.Soltar(NoDoGrupo(main, "DBISAM"), NoDoRepo(main, "NFCe"))); // repositório de um descendente
+        Assert.Null(main.Groups.Single(g => g.Id == dbisam).ParentId);
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Soltar_um_grupo_no_painel_o_leva_ao_nivel_principal() => Com((main, d) =>
+    {
+        var (_, _, nfe) = Montar(main);
+        var painel = main.Tree.OfType<PainelNode>().Single();
+
+        Assert.True(main.Soltar(NoDoGrupo(main, "NFe"), painel));
+        Assert.Null(main.Groups.Single(g => g.Id == nfe).ParentId);
+
+        // repositório no Painel não quer dizer nada: não é destino para ele
+        Assert.False(main.PodeSoltar(NoDoRepo(main, "SPED"), painel, out _));
+        // e "Sem grupo" não é um grupo que se arraste
+        Assert.False(main.PodeSoltar(NoDoGrupo(main, "Sem grupo"), NoDoGrupo(main, "DBISAM"), out _));
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Destino_recolhido_abre_para_mostrar_o_que_chegou() => Com((main, d) =>
+    {
+        var (_, fiscal, _) = Montar(main);
+        main.ToggleGroupCommand.Execute(NoDoGrupo(main, "Fiscal"));
+        Assert.DoesNotContain("  SPED", Linhas(main));
+
+        Assert.True(main.Soltar(NoDoRepo(main, "Solto"), NoDoGrupo(main, "Fiscal")));
+
+        Assert.False(main.Groups.Single(g => g.Id == fiscal).Collapsed);
+        Assert.Contains("  Solto", Linhas(main));
+        return Task.CompletedTask;
     });
 
     [Fact]

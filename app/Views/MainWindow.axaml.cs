@@ -25,6 +25,10 @@ public partial class MainWindow : Window, IDialogService
         _vm = new MainViewModel(this);
         DataContext = _vm;
 
+        // arrastar um repositório para outro grupo, ou um grupo para dentro de outro. Fica
+        // aqui, e não com o resto da árvore, porque precisa do view model já criado
+        if (this.FindControl<ListBox>("TreeList") is { } arvore) ArrasteNaArvore.Habilitar(arvore, _vm);
+
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.TerminalVisivel)) AjustarTerminal();

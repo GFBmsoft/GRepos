@@ -673,6 +673,90 @@ public class UiSmokeTests
         window.Close();
     }
 
+    /// <summary>
+    /// Com o arraste na árvore, o clique passou a valer ao soltar o botão. Precisa
+    /// continuar selecionando o repositório e recolhendo o grupo como antes — e o aperto
+    /// sozinho não pode mais fazer nada, senão arrastar um grupo já o recolheria.
+    /// </summary>
+    [AvaloniaFact]
+    public void Clique_na_arvore_vale_ao_soltar_e_o_destino_do_arraste_fica_destacado()
+    {
+        var window = new MainWindow { Width = 900, Height = 600 };
+        var vm = (MainViewModel)window.DataContext!;
+        var grupo = vm.CreateGroup("DBISAM", "#E07B00");
+        vm.AddRepository(@"C:\repos\Financeiro", "Financeiro", grupo);
+        vm.AddRepository(@"C:\repos\Solto", "Solto", null);
+        vm.RebuildTree();
+
+        window.Show();
+        window.Measure(new Size(900, 600));
+        window.Arrange(new Rect(0, 0, 900, 600));
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var arvore = window.FindControl<ListBox>("TreeList")!;
+
+        Point CentroDe(SidebarNode no)
+        {
+            var item = arvore.ContainerFromItem(no)!;
+            return item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), window)!.Value;
+        }
+
+        // repositório: apertar não seleciona, soltar seleciona
+        var repo = vm.Tree.OfType<RepoNode>().Single(r => r.Name == "Financeiro");
+        window.MouseDown(CentroDe(repo), MouseButton.Left);
+        Assert.Null(vm.SelectedNode);
+        window.MouseUp(CentroDe(repo), MouseButton.Left);
+        Assert.Equal("Financeiro", vm.SelectedNode?.Name);
+
+        // grupo: o clique inteiro recolhe, como antes
+        var no = vm.Tree.OfType<GroupNode>().Single(g => g.Name == "DBISAM");
+        window.MouseDown(CentroDe(no), MouseButton.Left);
+        Assert.False(vm.Groups.Single(g => g.Id == grupo).Collapsed);
+        window.MouseUp(CentroDe(no), MouseButton.Left);
+        Assert.True(vm.Groups.Single(g => g.Id == grupo).Collapsed);
+
+        // a moldura de destino é só um estado do nó: liga e a linha é redesenhada sem erro
+        var destino = vm.Tree.OfType<GroupNode>().Single(g => g.Name == "DBISAM");
+        destino.AlvoDeSoltar = true;
+        vm.Tree.OfType<PainelNode>().Single().AlvoDeSoltar = true;
+        window.Measure(new Size(900, 600));
+        window.Arrange(new Rect(0, 0, 900, 600));
+
+        window.Close();
+    }
+
+    /// <summary>
+    /// Digitar o código da cor muda a amostra na hora. Antes só mudava ao sair do campo,
+    /// e parecia que o valor digitado não fazia nada.
+    /// </summary>
+    [AvaloniaFact]
+    public void Digitar_o_codigo_da_cor_muda_a_amostra_sem_sair_do_campo()
+    {
+        var janela = new GroupWindow("Editar grupo", "Fiscal", "#1F9D55");
+        janela.Show();
+        janela.Measure(new Size(420, 330));
+        janela.Arrange(new Rect(0, 0, 420, 330));
+
+        var seletor = janela.GetVisualDescendants().OfType<GRepos.Controls.SeletorDeCor>().Single();
+        var hex = janela.GetVisualDescendants().OfType<TextBox>().Single(t => t.Text == "#1F9D55");
+        var bolinhas = janela.GetVisualDescendants().OfType<Button>().Where(b => b.Tag is string).ToList();
+
+        hex.Text = "#0078d7"; // minúsculas também valem
+        Assert.Equal("#0078D7", seletor.Cor);
+        Assert.DoesNotContain(bolinhas, b => b.BorderThickness.Top > 0); // não é uma das cores de atalho
+
+        // código pela metade não é cor: fica valendo a última válida
+        hex.Text = "#0078";
+        Assert.Equal("#0078D7", seletor.Cor);
+
+        // uma das cores de atalho, digitada: a bolinha dela acende
+        hex.Text = "#D93F3F";
+        Assert.Equal("#D93F3F", seletor.Cor);
+        Assert.Equal("#D93F3F", bolinhas.Single(b => b.BorderThickness.Top > 0).Tag);
+
+        janela.Close();
+    }
+
     internal static IssuesViewModel IssuesPopulado()
     {
         var bug = new GRepos.Services.Etiqueta("bug", "#d73a4a");

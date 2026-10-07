@@ -529,8 +529,13 @@ public sealed partial class PainelViewModel : ObservableObject
         if (_main is null) return;
 
         GitHubService.LimparCache();
+
+        // o cartão de perfil também: Atualizar é o pedido explícito de dados novos
+        var perfil = Perfil?.CarregarAsync(forcar: true);
+
         await _main.RefreshAllAsync();
         _main.AtualizarCartoesDoPainel();
         await CarregarEsteirasAsync();
+        if (perfil is not null) await perfil;
     }
 }

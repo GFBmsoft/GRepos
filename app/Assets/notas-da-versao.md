@@ -1,3 +1,8 @@
+## 1.0.0.37 — 07/10/2026
+- **Arrastar e soltar na árvore**: arraste um repositório para cima de outro grupo para mudá-lo de grupo, ou um grupo para cima de outro para virar subgrupo dele. Soltar um grupo na linha **Painel** o leva ao nível principal. O grupo que vai receber fica destacado enquanto você arrasta.
+- O cartão de perfil do painel aparece na hora, com o que foi mostrado da última vez, e se atualiza por trás. O botão **Atualizar** busca os dados novos.
+- Cores: digitar o código muda a cor imediatamente, sem precisar sair do campo.
+
 ## 1.0.0.36 — 07/10/2026
 - **Grupos dentro de grupos**: pasta, subpasta e repositórios, em quantos níveis quiser. Crie um subgrupo pelo clique direito no grupo, pelo campo **Dentro de** do diálogo de grupo ou pelo botão **Subgrupo** nas Preferências. O mesmo campo serve para mudar um grupo de lugar.
 - O contador, o painel e o lote de um grupo passam a incluir os subgrupos. Excluir um grupo sobe os subgrupos e os repositórios dele um nível.

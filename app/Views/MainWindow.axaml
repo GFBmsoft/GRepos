@@ -75,6 +75,9 @@
 
             <!-- painel geral, no topo -->
             <DataTemplate DataType="vm:PainelNode">
+              <Panel>
+              <Border Margin="8,4,8,2" CornerRadius="6" BorderThickness="1.5" IsHitTestVisible="False"
+                      BorderBrush="{DynamicResource Accent}" IsVisible="{Binding AlvoDeSoltar}" />
               <Border Classes="linha" CornerRadius="5" Margin="8,4,8,2"
                       ToolTip.Tip="Ver todos os repositórios em cartões">
                 <Grid ColumnDefinitions="Auto,*" Height="28" Margin="10,0">
@@ -87,6 +90,7 @@
                   </StackPanel>
                 </Grid>
               </Border>
+              </Panel>
             </DataTemplate>
 
             <!-- divisória: não é item clicável, só separa o painel dos grupos -->
@@ -97,6 +101,9 @@
             <!-- cabeçalho do grupo: pílula com a cor do grupo como acento suave -->
             <DataTemplate DataType="vm:GroupNode">
               <Panel Margin="{Binding Recuo}">
+              <!-- destino de um arraste: é para este grupo que o item vai se for solto agora -->
+              <Border Margin="8,5,8,1" CornerRadius="6" BorderThickness="1.5" IsHitTestVisible="False"
+                      BorderBrush="{DynamicResource Accent}" IsVisible="{Binding AlvoDeSoltar}" />
               <!-- a pílula some no estilo minimalista; o resto da linha é o mesmo -->
               <Border Classes="pilula" Margin="8,4,8,1" CornerRadius="13" ClipToBounds="True"
                       BorderThickness="1"

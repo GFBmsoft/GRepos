@@ -345,12 +345,14 @@ public sealed class GroupWindow : DialogWindow
 
         seletor.Escolhida += valor => Selecionar(GroupPalette.Normalizar(valor) ?? escolhida, true);
 
-        hexBox.LostFocus += (_, _) =>
+        // a cor acompanha o que se digita: assim que o código vira uma cor válida, a
+        // amostra e as bolinhas já mudam, sem precisar sair do campo
+        hexBox.PropertyChanged += (_, e) =>
         {
-            var v = GroupPalette.Normalizar(hexBox.Text);
-            if (v is null) hexBox.Text = escolhida; // texto inválido volta ao que valia
-            else Selecionar(v, false);
+            if (e.Property != TextBox.TextProperty) return;
+            if (GroupPalette.Normalizar(hexBox.Text) is { } v && v != escolhida) Selecionar(v, false);
         };
+        hexBox.LostFocus += (_, _) => hexBox.Text = escolhida; // inválido volta ao que valia; válido fica por extenso
 
         var linhaCor = new StackPanel { Orientation = Orientation.Horizontal };
         linhaCor.Children.Add(hexBox);
@@ -1113,12 +1115,13 @@ public sealed class SettingsWindow : DialogWindow
         }
 
         seletorDestaque.Escolhida += valor => Destacar(GroupPalette.Normalizar(valor) ?? accent, true);
-        hexDestaque.LostFocus += (_, _) =>
+        // a cor acompanha o que se digita, sem precisar sair do campo
+        hexDestaque.PropertyChanged += (_, e) =>
         {
-            var v = GroupPalette.Normalizar(hexDestaque.Text);
-            if (v is null) hexDestaque.Text = accent; // texto inválido volta ao que valia
-            else Destacar(v, false);
+            if (e.Property != TextBox.TextProperty) return;
+            if (GroupPalette.Normalizar(hexDestaque.Text) is { } v && v != accent) Destacar(v, false);
         };
+        hexDestaque.LostFocus += (_, _) => hexDestaque.Text = accent; // inválido volta ao que valia; válido fica por extenso
 
         var linhaDestaque = new StackPanel { Orientation = Orientation.Horizontal };
         linhaDestaque.Children.Add(hexDestaque);

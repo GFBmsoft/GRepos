@@ -11,6 +11,9 @@ public abstract partial class SidebarNode : ObservableObject
 
     /// <summary>Recuo da linha, 14px por nível — o mesmo passo do marcador dos repositórios.</summary>
     public Avalonia.Thickness Recuo => new(Nivel * 14, 0, 0, 0);
+
+    /// <summary>Durante um arraste: é aqui que o item vai cair se for solto agora.</summary>
+    [ObservableProperty] private bool _alvoDeSoltar;
 }
 
 /// <summary>Entrada do painel geral, no topo da árvore.</summary>

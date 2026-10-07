@@ -726,12 +726,17 @@ public static class GitHubService
                 "Informe o usuário do GitHub em Preferências → Autenticação.");
 
         login = login.Trim();
-        var perfil = LerPerfil(await BaixarAsync($"https://api.github.com/users/{login}", login));
+        // as duas consultas saem juntas: uma não depende da outra, e em sequência o
+        // cartão esperava a soma das duas
+        var conta = BaixarAsync($"https://api.github.com/users/{login}", login, "o perfil");
+        var lista = BaixarAsync(
+            $"https://api.github.com/users/{login}/repos?per_page=100&type=owner", login, "os repositórios");
+
+        var perfil = LerPerfil(await conta);
 
         try
         {
-            var repos = await BaixarAsync(
-                $"https://api.github.com/users/{login}/repos?per_page=100&type=owner", login);
+            var repos = await lista;
             var (estrelas, linguagens) = LerEstatisticasDeRepos(repos);
 
             return new Perfil
