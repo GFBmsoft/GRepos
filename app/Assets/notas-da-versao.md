@@ -1,3 +1,11 @@
+## 1.0.0.35 — 07/10/2026
+- **Issues** dentro do aplicativo: botão na barra, no cartão do painel e na paleta. Lista as abertas e as fechadas, filtra pelas etiquetas e por texto, e permite criar, editar (título, descrição e etiquetas), comentar, fechar e reabrir.
+- Pull requests ganharam as abas **Conversa**, **Commits** e **Arquivos**, com os comentários e as revisões em ordem de tempo e o diff de cada arquivo.
+- Na conversa do pull request dá para comentar, aprovar, pedir mudanças e editar o título e a descrição. Seus próprios comentários podem ser editados e excluídos, no PR e nas issues.
+- O pull request acompanha o GitHub Actions sozinho: avisa quando está aguardando começar, quantas verificações já terminaram, o passo que está rodando e o tempo de cada uma.
+- Alterações: a coluna de arquivos tem largura mínima e os botões não saem mais por cima do painel de diferenças.
+- Alterações: num repositório sem pendências o painel fica vazio de verdade, sem o nome do último arquivo que tinha aparecido.
+
 ## 1.0.0.34 — 07/10/2026
 - **Pull requests** dentro do aplicativo: botão **PRs** na barra e no cartão do painel. Lista os abertos com a situação das verificações, cria o da branch atual, mescla (merge, squash ou rebase) e fecha. Tudo que escreve no GitHub confirma antes.
 - **Resolver conflito bloco a bloco**: botão **Resolver** no arquivo em conflito mostra o seu lado, o deles e o resultado, que pode ser editado. O arquivo é salvo no mesmo encoding e já marcado como resolvido.

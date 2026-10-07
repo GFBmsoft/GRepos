@@ -140,6 +140,11 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private Task AbrirIssues() => _main is null || Slug.Length == 0
+        ? Task.CompletedTask
+        : _main.AbrirIssuesDeAsync(Repo, Slug, Usuario);
+
     public string Tooltip
     {
         get

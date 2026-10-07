@@ -137,6 +137,42 @@ public class ScreenshotTests
     }
 
     [AvaloniaFact]
+    public void Issues_com_etiquetas()
+    {
+        var vm = UiSmokeTests.IssuesPopulado();
+        var meu = new ComentarioViewModel
+        {
+            Comentario = new Comentario { Id = 9, Autor = "GFBmsoft", Corpo = "Vou olhar isso hoje.", Quando = DateTime.UtcNow.AddMinutes(-20) },
+            Proprio = true,
+        };
+        vm.Editor.Itens.Add(meu);
+        vm.Editor.Novo = "Resolvido na 1.0.0.35.";
+        var janela = new IssuesWindow { DataContext = vm };
+        ShotJanela(janela, "issues", 1080, 760);
+        janela.Close();
+
+        var form = UiSmokeTests.IssuesPopulado();
+        form.EditarIssueCommand.Execute(null);
+        var janelaForm = new IssuesWindow { DataContext = form };
+        ShotJanela(janelaForm, "issues-editar", 1080, 700);
+        janelaForm.Close();
+    }
+
+    [AvaloniaFact]
+    public void Pull_request_nas_abas_de_conversa_e_arquivos()
+    {
+        var conversa = new PullRequestsWindow { DataContext = UiSmokeTests.PullRequestsComAbas() };
+        ShotJanela(conversa, "pr-conversa", 1120, 720);
+        conversa.Close();
+
+        var vm = UiSmokeTests.PullRequestsComAbas();
+        vm.Aba = 2;
+        var arquivos = new PullRequestsWindow { DataContext = vm };
+        ShotJanela(arquivos, "pr-arquivos", 1120, 720);
+        arquivos.Close();
+    }
+
+    [AvaloniaFact]
     public void Comparar_branches()
     {
         var janela = new CompararWindow { DataContext = UiSmokeTests.CompararPopulado() };
@@ -442,6 +478,42 @@ public class ScreenshotTests
             lista.SelectedItems.Add(vm.Unstaged[1]);
         };
         Shot(view, vm, "alteracoes-marcados");
+    }
+
+    /// <summary>
+    /// EV13: com a coluna de arquivos no mínimo, os botões continuam dentro dela — os de
+    /// "selecionados (N)", que são os mais largos, descem de linha.
+    /// </summary>
+    [AvaloniaFact]
+    public void Alteracoes_com_a_coluna_de_arquivos_no_minimo()
+    {
+        var vm = new ChangesViewModel(new Repo { Id = "r1", Name = "Financeiro", Path = "" },
+            new MainViewModel(new FakeDialogs()), split: true);
+        vm.Staged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "src/Unit1.pas", Index = "M", Worktree = ".", Kind = ChangeKind.Tracked },
+            Staged = true,
+        });
+        foreach (var nome in new[] { "src/Juros.pas", "src/Juros.dfm" })
+            vm.Unstaged.Add(new FileItemViewModel
+            {
+                Change = new FileChange { Path = nome, Index = ".", Worktree = "M", Kind = ChangeKind.Tracked },
+            });
+
+        var view = new ChangesView();
+        var grade = (Grid)view.Content!;
+        grade.ColumnDefinitions[0].Width = new GridLength(60); // menos que o mínimo: vale o mínimo
+        Shot(view, vm, "alteracoes-coluna-minima", 900, 700);
+
+        Assert.Equal(260, grade.ColumnDefinitions[0].ActualWidth);
+
+        // nenhum botão da coluna passa da borda dela
+        var painel = grade.Children[0];
+        foreach (var botao in painel.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible))
+        {
+            var direita = botao.TranslatePoint(new Point(botao.Bounds.Width, 0), painel)!.Value.X;
+            Assert.True(direita <= painel.Bounds.Width + 0.5, $"\"{botao.Content}\" sai da coluna ({direita:0} > {painel.Bounds.Width:0})");
+        }
     }
 
     [AvaloniaFact]

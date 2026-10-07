@@ -45,14 +45,55 @@ public sealed record MetodoDeMesclagem(string Id, string Nome)
     public override string ToString() => Nome;
 }
 
-public sealed class VerificacaoViewModel
+/// <summary>
+/// Uma verificação do PR. Atualizada no lugar a cada ciclo, como as linhas da esteira:
+/// quem está olhando um build rodar não pode ver a lista piscar.
+/// </summary>
+public sealed partial class VerificacaoViewModel : ObservableObject
 {
-    public Verificacao Verificacao { get; init; } = new();
+    [ObservableProperty] private Verificacao _verificacao = new();
+
+    /// <summary>"passo 4 de 10: Testes" enquanto roda; vazio quando não se sabe ou já terminou.</summary>
+    [ObservableProperty] private string _passo = "";
 
     public string Nome => Verificacao.Nome;
     public string Simbolo => CiVisual.Simbolo(Verificacao.Situacao);
     public string Cor => CiVisual.Cor(Verificacao.Situacao);
-    public string Texto => CiVisual.Texto(Verificacao.Situacao);
+    public bool Rodando => Verificacao.Situacao == "rodando";
+    public bool TemPasso => Rodando && Passo.Length > 0;
+
+    /// <summary>"passou · 1m 29s", "rodando há 40s", "na fila".</summary>
+    public string Texto
+    {
+        get
+        {
+            var texto = CiVisual.Texto(Verificacao.Situacao);
+            if (Rodando)
+                return Verificacao.Iniciada is { } inicio
+                    ? $"rodando há {Rotulos.Duracao(DateTime.UtcNow - inicio)}"
+                    : "na fila";
+
+            return Verificacao is { Iniciada: { } i, Concluida: { } f } && f >= i
+                ? $"{texto} · {Rotulos.Duracao(f - i)}"
+                : texto;
+        }
+    }
+
+    partial void OnVerificacaoChanged(Verificacao value) => OnPropertyChanged(string.Empty);
+    partial void OnPassoChanged(string value) => OnPropertyChanged(nameof(TemPasso));
+
+    /// <summary>O tempo decorrido anda sozinho: a linha se redesenha sem resposta nova da API.</summary>
+    public void Tique() => OnPropertyChanged(nameof(Texto));
+
+    /// <summary>O passo em andamento de um job, no formato da linha.</summary>
+    public static string PassoDe(CiJob job)
+    {
+        if (job.Etapas.Count == 0) return "";
+
+        var atual = job.Etapas.FirstOrDefault(e => e.Situacao == "rodando")
+                    ?? job.Etapas.FirstOrDefault(e => e.Situacao is not ("sucesso" or "falha" or "cancelado"));
+        return atual is null ? "" : $"passo {job.Etapas.IndexOf(atual) + 1} de {job.Etapas.Count}: {atual.Nome}";
+    }
 }
 
 /// <summary>Um pull request na lista da esquerda.</summary>
@@ -121,6 +162,17 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         _ctx = contexto;
         _dialogs = dialogs;
 
+        Editor = new ConversaViewModel(contexto.Slug, contexto.Usuario)
+        {
+            AoFalhar = mensagem => Erro = mensagem,
+            AoMudar = RecarregarEscolhidoAsync,
+            Confirmar = dialogs is null ? null : dialogs.ConfirmAsync,
+        };
+        Editor.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ConversaViewModel.Novo)) OnPropertyChanged(nameof(PodePedirMudancas));
+        };
+
         Title = contexto.RepoNome.Length > 0 ? $"Pull requests — {contexto.RepoNome}" : "Pull requests";
         Subtitulo = contexto.Slug;
         NovoTitulo = contexto.TituloSugerido;
@@ -178,7 +230,7 @@ public sealed partial class PullRequestsViewModel : ObservableObject
 
     public IReadOnlyList<MetodoDeMesclagem> Metodos => MetodoDeMesclagem.Todos;
 
-    public bool MostraDetalhe => !Criando && Selecionada is not null;
+    public bool MostraDetalhe => !Criando && !EditandoPr && Selecionada is not null;
     public bool SemSelecao => !Criando && Selecionada is null && Lista.Count > 0;
 
     public string DetalheTitulo => Selecionada is null ? "" : $"{Selecionada.Titulo} {Selecionada.Numero}";
@@ -203,10 +255,14 @@ public sealed partial class PullRequestsViewModel : ObservableObject
     }
 
     /// <summary>A situação de mesclagem em português, que é o que decide o botão Mesclar.</summary>
-    public string MesclagemTexto => SituacaoDeMesclagem(Selecionada?.Pr, Detalhe).Texto;
-    public string MesclagemCor => SituacaoDeMesclagem(Selecionada?.Pr, Detalhe).Cor;
+    public string MesclagemTexto => SituacaoDeMesclagem(Selecionada?.Pr, Detalhe, ResumoCi).Texto;
+    public string MesclagemCor => SituacaoDeMesclagem(Selecionada?.Pr, Detalhe, ResumoCi).Cor;
 
-    public static (string Texto, string Cor, bool Mesclavel) SituacaoDeMesclagem(PullRequest? item, PullRequest? detalhe)
+    private string ResumoCi => GitHubService.ResumoDasVerificacoes(Verificacoes.Select(v => v.Verificacao).ToList());
+
+    /// <param name="verificacoes">Resumo das verificações, para dizer por que o GitHub chama o PR de instável.</param>
+    public static (string Texto, string Cor, bool Mesclavel) SituacaoDeMesclagem(
+        PullRequest? item, PullRequest? detalhe, string verificacoes = "")
     {
         if (item is null) return ("", "TextDim", false);
         if (item.Estado == "mesclado") return ("Mesclado", "Purple", false);
@@ -217,8 +273,14 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         {
             "clean" or "has_hooks" => ("Pronto para mesclar", "Green", true),
             "dirty" => ("Em conflito com o destino: resolva na branch antes de mesclar", "Red", false),
+            "blocked" when verificacoes == "rodando" =>
+                ("Bloqueado até as verificações obrigatórias terminarem", "Yellow", false),
             "blocked" => ("Bloqueado pelas regras da branch (revisão ou verificação obrigatória)", "Yellow", false),
             "behind" => ("Atrás do destino: pode mesclar, mas vale atualizar a branch antes", "Yellow", true),
+            "unstable" when verificacoes == "rodando" =>
+                ("Dá para mesclar, mas as verificações ainda estão rodando", "Yellow", true),
+            "unstable" when verificacoes == "falha" =>
+                ("Dá para mesclar, mas há verificação quebrada: confira antes", "Red", true),
             "unstable" => ("Verificações quebradas ou ainda rodando", "Yellow", true),
             "" => ("Consultando a situação…", "TextDim", false),
             _ => ("O GitHub ainda está calculando se dá para mesclar", "TextDim", true),
@@ -232,7 +294,9 @@ public sealed partial class PullRequestsViewModel : ObservableObject
 
     private void AvisarBotoes()
     {
-        foreach (var p in new[] { nameof(PodeMesclar), nameof(PodeFechar), nameof(PodeCriar), nameof(AvisoNovo) })
+        foreach (var p in new[] { nameof(PodeMesclar), nameof(PodeFechar), nameof(PodeCriar), nameof(AvisoNovo),
+                                  nameof(PodeRevisar), nameof(PodePedirMudancas), nameof(RevisarDica),
+                                  nameof(PodeEditarPr), nameof(PodeSalvarPr) })
             OnPropertyChanged(p);
     }
 
@@ -240,7 +304,9 @@ public sealed partial class PullRequestsViewModel : ObservableObject
     {
         foreach (var p in new[] { nameof(MostraDetalhe), nameof(SemSelecao), nameof(DetalheTitulo),
                                   nameof(DetalheCaminho), nameof(DetalheCorpo), nameof(DetalheResumo),
-                                  nameof(MesclagemTexto), nameof(MesclagemCor), nameof(TemVerificacoes) })
+                                  nameof(MesclagemTexto), nameof(MesclagemCor), nameof(TemVerificacoes),
+                                  nameof(CiTexto), nameof(CiCor), nameof(TemCiTexto),
+                                  nameof(AbaConversaRotulo), nameof(AbaCommitsRotulo), nameof(AbaArquivosRotulo) })
             OnPropertyChanged(p);
         AvisarBotoes();
     }
@@ -250,6 +316,8 @@ public sealed partial class PullRequestsViewModel : ObservableObject
     partial void OnSelecionadaChanged(PrViewModel? value)
     {
         // o detalhe na tela é de outro PR: não pode ficar por baixo do novo
+        _verificacoesConsultadas = false;
+        LimparAbas();
         Detalhe = null;
         Verificacoes.Clear();
         AvisarDetalhe();
@@ -261,11 +329,15 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         }
     }
 
-    private async Task CarregarDetalheAsync(PrViewModel item)
+    /// <param name="silencioso">
+    /// Ciclo automático: não mostra "carregando", não espera a mesclagem ser calculada e
+    /// falha de rede não vira erro na tela — o que já está lá continua valendo.
+    /// </param>
+    private async Task CarregarDetalheAsync(PrViewModel item, bool silencioso = false)
     {
         if (_ctx.Slug.Length == 0) return;
 
-        CarregandoDetalhe = true;
+        if (!silencioso) CarregandoDetalhe = true;
         try
         {
             var detalhe = await GitHubService.PullRequestAsync(_ctx.Slug, item.Pr.Numero, _ctx.Usuario);
@@ -273,7 +345,7 @@ public sealed partial class PullRequestsViewModel : ObservableObject
 
             // o GitHub calcula a mesclagem em segundo plano: a primeira consulta de um PR
             // recém-criado costuma voltar "unknown", e a segunda já traz a resposta
-            if (detalhe is { Mesclagem: "unknown" or "" } && item.Pr.Aberto)
+            if (!silencioso && detalhe is { Mesclagem: "unknown" or "" } && item.Pr.Aberto)
             {
                 await Task.Delay(TimeSpan.FromSeconds(2));
                 if (!ReferenceEquals(Selecionada, item)) return;
@@ -285,10 +357,389 @@ public sealed partial class PullRequestsViewModel : ObservableObject
                 _ctx.Slug, detalhe?.Sha ?? item.Pr.Sha, _ctx.Usuario);
             if (!ReferenceEquals(Selecionada, item)) return;
 
-            Verificacoes = new ObservableCollection<VerificacaoViewModel>(
-                verificacoes.Select(v => new VerificacaoViewModel { Verificacao = v }));
+            AplicarVerificacoes(verificacoes);
             item.CiSituacao = GitHubService.ResumoDasVerificacoes(verificacoes);
             Detalhe = detalhe;
+
+            await CarregarPassosAsync(item);
+
+            // a conversa entra junto do detalhe, mas não em todo ciclo rápido: ela muda
+            // pouco, e são três consultas
+            if (!silencioso || _ciclos % 3 == 1) await CarregarConversaAsync(item);
+            if (!silencioso) await CarregarAbaAsync(item);
+        }
+        catch (Exception e)
+        {
+            if (!silencioso && ReferenceEquals(Selecionada, item)) Erro = e.Message;
+        }
+        finally
+        {
+            if (!silencioso) CarregandoDetalhe = false;
+            AvisarDetalhe();
+            AjustarRitmo();
+        }
+    }
+
+    // ------------------------------------------------- verificações (Actions)
+
+    /// <summary>As verificações do PR escolhido já foram consultadas ao menos uma vez.</summary>
+    private bool _verificacoesConsultadas;
+
+    /// <summary>
+    /// Atualiza as verificações no lugar. Trocar a coleção recriaria as linhas a cada
+    /// ciclo, bem enquanto o usuário acompanha o build.
+    /// </summary>
+    public void AplicarVerificacoes(IReadOnlyList<Verificacao> verificacoes)
+    {
+        ListaSync.AplicarModelos(
+            Verificacoes, verificacoes,
+            item => item.Verificacao.Nome + "#" + item.Verificacao.RunId,
+            modelo => modelo.Nome + "#" + modelo.RunId,
+            (item, modelo) => item.Verificacao = modelo,
+            modelo => new VerificacaoViewModel { Verificacao = modelo });
+
+        _verificacoesConsultadas = true;
+        AvisarVerificacoes();
+    }
+
+    private void AvisarVerificacoes()
+    {
+        foreach (var p in new[] { nameof(TemVerificacoes), nameof(CiTexto), nameof(CiCor), nameof(TemCiTexto),
+                                  nameof(MesclagemTexto), nameof(MesclagemCor) })
+            OnPropertyChanged(p);
+    }
+
+    /// <summary>
+    /// A frase que responde "e o Actions?": aguardando começar, rodando (quantas já
+    /// terminaram e qual está em andamento), quebrou ou passou.
+    /// </summary>
+    public string CiTexto => SituacaoDasVerificacoes(
+        Selecionada?.Pr, Detalhe, Verificacoes.Select(v => v.Verificacao).ToList(),
+        _verificacoesConsultadas, DateTime.UtcNow).Texto;
+
+    public string CiCor => SituacaoDasVerificacoes(
+        Selecionada?.Pr, Detalhe, Verificacoes.Select(v => v.Verificacao).ToList(),
+        _verificacoesConsultadas, DateTime.UtcNow).Cor;
+
+    public bool TemCiTexto => CiTexto.Length > 0;
+
+    /// <summary>PR mexido há menos que isto e ainda sem verificação: o Actions deve estar para começar.</summary>
+    public static readonly TimeSpan EsperaPeloActions = TimeSpan.FromMinutes(3);
+
+    public static (string Texto, string Cor, bool Acompanhar) SituacaoDasVerificacoes(
+        PullRequest? item, PullRequest? detalhe, IReadOnlyList<Verificacao> verificacoes, bool consultado, DateTime agora)
+    {
+        if (item is null || !item.Aberto) return ("", "TextDim", false);
+        if (!consultado) return ("Consultando as verificações…", "TextDim", false);
+
+        var total = verificacoes.Count;
+        if (total == 0)
+        {
+            // o GitHub leva alguns segundos entre o push (ou a criação do PR) e a
+            // verificação aparecer; depois disso, é porque o repositório não roda nenhuma
+            var mexido = (detalhe ?? item).Atualizado ?? item.Atualizado;
+            return mexido is { } m && agora - m < EsperaPeloActions
+                ? ("Aguardando o GitHub Actions começar…", "Yellow", true)
+                : ("Nenhuma verificação rodou neste pull request.", "TextDim", false);
+        }
+
+        var quebradas = verificacoes.Count(v => v.Situacao == "falha");
+        var rodando = verificacoes.Where(v => v.Situacao == "rodando").ToList();
+        var concluidas = total - rodando.Count;
+
+        if (rodando.Count > 0)
+        {
+            var nomes = string.Join(", ", rodando.Take(3).Select(v => v.Nome)) + (rodando.Count > 3 ? "…" : "");
+            var falhas = quebradas == 0 ? "" : quebradas == 1 ? ", 1 já quebrou" : $", {quebradas} já quebraram";
+            return ($"Actions rodando: {concluidas} de {total} concluída(s){falhas} — agora: {nomes}",
+                quebradas > 0 ? "Red" : "Yellow", true);
+        }
+
+        if (quebradas > 0)
+            return (quebradas == 1 && total == 1 ? "A verificação quebrou."
+                : $"{quebradas} de {total} verificações quebraram.", "Red", false);
+
+        return (total == 1 ? "A verificação passou." : $"As {total} verificações passaram.", "Green", false);
+    }
+
+    /// <summary>
+    /// Para cada verificação rodando que é um job do Actions, o passo em andamento. Uma
+    /// consulta por execução, não por job; sem permissão ou fora da cota, a linha só
+    /// fica sem o passo.
+    /// </summary>
+    private async Task CarregarPassosAsync(PrViewModel item)
+    {
+        var runs = Verificacoes.Where(v => v.Rodando && v.Verificacao.RunId > 0)
+            .Select(v => v.Verificacao.RunId).Distinct().ToList();
+
+        foreach (var v in Verificacoes.Where(v => !v.Rodando)) v.Passo = "";
+
+        foreach (var run in runs)
+        {
+            try
+            {
+                var jobs = await GitHubService.JobsAsync(_ctx.Slug, run, _ctx.Usuario);
+                if (!ReferenceEquals(Selecionada, item)) return;
+
+                foreach (var v in Verificacoes.Where(v => v.Rodando && v.Verificacao.RunId == run))
+                    if (jobs.FirstOrDefault(j => j.Nome == v.Nome) is { } job)
+                        v.Passo = VerificacaoViewModel.PassoDe(job);
+            }
+            catch (Exception)
+            {
+                // o passo é um extra
+            }
+        }
+    }
+
+    // -------------------------------------- escrever no PR: revisar e editar
+
+    /// <summary>Depois de comentar ou revisar: a conversa e a contagem da aba, sem piscar a tela.</summary>
+    private async Task RecarregarEscolhidoAsync()
+    {
+        if (Selecionada is not { } item || _ctx.Slug.Length == 0) return;
+        await CarregarConversaAsync(item);
+        await CarregarDetalheAsync(item, silencioso: true);
+    }
+
+    /// <summary>O PR é de quem está usando o app: o GitHub não deixa revisar o próprio.</summary>
+    private bool Proprio => Selecionada is { } s && _ctx.Usuario.Length > 0 &&
+                            s.Pr.Autor.Equals(_ctx.Usuario, StringComparison.OrdinalIgnoreCase);
+
+    public bool PodeRevisar => !Executando && Selecionada is { Pr.Aberto: true } && !Proprio;
+
+    /// <summary>Pedir mudanças exige dizer quais: o texto vem da caixa de comentário.</summary>
+    public bool PodePedirMudancas => PodeRevisar && Editor.Novo.Trim().Length > 0;
+
+    public string RevisarDica => Proprio
+        ? "O GitHub não deixa aprovar nem pedir mudanças no próprio pull request"
+        : "O texto da caixa de comentário vai junto com a revisão";
+
+    private async Task RevisarAsync(string evento)
+    {
+        if (Selecionada is not { } item || !PodeRevisar) return;
+
+        Executando = true;
+        Erro = "";
+        try
+        {
+            await GitHubService.RevisarPullRequestAsync(_ctx.Slug, item.Pr.Numero, evento, Editor.Novo.Trim(), _ctx.Usuario);
+            if (ReferenceEquals(Selecionada, item)) Editor.Novo = "";
+            await RecarregarEscolhidoAsync();
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            Executando = false;
+        }
+    }
+
+    [RelayCommand] private Task Aprovar() => RevisarAsync("APPROVE");
+    [RelayCommand] private Task PedirMudancas() => PodePedirMudancas ? RevisarAsync("REQUEST_CHANGES") : Task.CompletedTask;
+
+    /// <summary>O painel da direita mostra o título e a descrição em caixas, para editar.</summary>
+    [ObservableProperty] private bool _editandoPr;
+    [ObservableProperty] private string _edicaoTitulo = "";
+    [ObservableProperty] private string _edicaoCorpo = "";
+
+    public bool PodeEditarPr => !Executando && Selecionada is not null;
+    public bool PodeSalvarPr => !Executando && EdicaoTitulo.Trim().Length > 0;
+
+    partial void OnEdicaoTituloChanged(string value) => OnPropertyChanged(nameof(PodeSalvarPr));
+
+    partial void OnEditandoPrChanged(bool value)
+    {
+        OnPropertyChanged(nameof(MostraDetalhe));
+        OnPropertyChanged(nameof(SemSelecao));
+    }
+
+    [RelayCommand]
+    private void EditarPr()
+    {
+        if (Selecionada is not { } item) return;
+        EdicaoTitulo = item.Pr.Titulo;
+        EdicaoCorpo = (Detalhe ?? item.Pr).Corpo;
+        EditandoPr = true;
+    }
+
+    [RelayCommand]
+    private void CancelarEdicaoPr() => EditandoPr = false;
+
+    [RelayCommand]
+    private async Task SalvarPrAsync()
+    {
+        if (Selecionada is not { } item || !PodeSalvarPr) return;
+
+        Executando = true;
+        Erro = "";
+        try
+        {
+            await GitHubService.EditarPullRequestAsync(_ctx.Slug, item.Pr.Numero, EdicaoTitulo, EdicaoCorpo, _ctx.Usuario);
+            EditandoPr = false;
+            await CarregarAsync();
+            if (Selecionada is { } atual) await CarregarDetalheAsync(atual, silencioso: true);
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            Executando = false;
+        }
+    }
+
+    // ---------------------------------- abas: conversa, commits e arquivos
+
+    /// <summary>0 conversa, 1 commits, 2 arquivos — como as abas do PR no GitHub.</summary>
+    [ObservableProperty] private int _aba;
+
+    /// <summary>A conversa do PR escolhido e o que se faz nela (comentar, editar, excluir).</summary>
+    public ConversaViewModel Editor { get; }
+
+    public ObservableCollection<ComentarioViewModel> Conversa => Editor.Itens;
+    [ObservableProperty] private ObservableCollection<CommitDoPrViewModel> _commitsDoPr = new();
+    [ObservableProperty] private ObservableCollection<CommitFileViewModel> _arquivos = new();
+    [ObservableProperty] private CommitFileViewModel? _arquivoSelecionado;
+    [ObservableProperty] private bool _carregandoAba;
+
+    /// <summary>Diff do arquivo escolhido na aba Arquivos; só leitura.</summary>
+    public DiffViewModel DiffDoArquivo { get; } = new() { Split = false };
+
+    private readonly Dictionary<string, ArquivoDoPr> _patches = new();
+
+    /// <summary>De qual PR são os commits e os arquivos carregados (0: nenhum).</summary>
+    private int _commitsDe;
+    private int _arquivosDe;
+
+    public bool SemConversa => !CarregandoDetalhe && Conversa.Count == 0;
+    public bool SemCommits => !CarregandoAba && CommitsDoPr.Count == 0;
+    public bool SemArquivos => !CarregandoAba && Arquivos.Count == 0;
+
+    // o número vem do detalhe do PR, antes mesmo de a aba ser aberta
+    public string AbaConversaRotulo => Rotulo("Conversa", Detalhe?.Comentarios ?? Conversa.Count);
+    public string AbaCommitsRotulo => Rotulo("Commits", Detalhe?.Commits ?? CommitsDoPr.Count);
+    public string AbaArquivosRotulo => Rotulo("Arquivos", Detalhe?.Arquivos ?? Arquivos.Count);
+
+    private static string Rotulo(string nome, int quantos) => quantos > 0 ? $"{nome} ({quantos})" : nome;
+
+    private void AvisarAbas()
+    {
+        foreach (var p in new[] { nameof(SemConversa), nameof(SemCommits), nameof(SemArquivos),
+                                  nameof(AbaConversaRotulo), nameof(AbaCommitsRotulo), nameof(AbaArquivosRotulo) })
+            OnPropertyChanged(p);
+    }
+
+    partial void OnCarregandoAbaChanged(bool value) => AvisarAbas();
+    partial void OnCarregandoDetalheChanged(bool value) => AvisarAbas();
+
+    partial void OnAbaChanged(int value)
+    {
+        if (Selecionada is { } item) _ = CarregarAbaAsync(item);
+    }
+
+    partial void OnArquivoSelecionadoChanged(CommitFileViewModel? value)
+    {
+        if (value is null)
+        {
+            DiffDoArquivo.Title = "";
+            DiffDoArquivo.Clear("Escolha um arquivo para ver o que mudou.");
+            return;
+        }
+
+        DiffDoArquivo.Title = value.Path;
+        var diff = _patches.TryGetValue(value.Path, out var arquivo) ? GitHubService.DiffDoArquivo(arquivo) : "";
+        if (diff.Length == 0) DiffDoArquivo.Clear("Sem visualização: arquivo binário ou grande demais para o GitHub mandar o diff.");
+        else DiffDoArquivo.Load(diff);
+    }
+
+    /// <summary>O que é do PR anterior sai da tela junto com ele.</summary>
+    private void LimparAbas()
+    {
+        Editor.Limpar();
+        Editor.Numero = Selecionada?.Pr.Numero ?? 0;
+        EditandoPr = false;
+        CommitsDoPr.Clear();
+        ArquivoSelecionado = null;
+        Arquivos.Clear();
+        _patches.Clear();
+        _commitsDe = 0;
+        _arquivosDe = 0;
+        AvisarAbas();
+    }
+
+    public void AplicarConversa(IReadOnlyList<Comentario> conversa)
+    {
+        // no lugar: a conversa é recarregada no ciclo automático, e quem está lendo não pode perder a rolagem
+        Editor.Aplicar(conversa);
+        AvisarAbas();
+    }
+
+    public void AplicarCommits(IReadOnlyList<CommitDoPr> commits)
+    {
+        CommitsDoPr = new ObservableCollection<CommitDoPrViewModel>(
+            commits.Select(c => new CommitDoPrViewModel { Commit = c }));
+        AvisarAbas();
+    }
+
+    public void AplicarArquivos(IReadOnlyList<ArquivoDoPr> arquivos)
+    {
+        _patches.Clear();
+        foreach (var a in arquivos) _patches[a.Caminho] = a;
+
+        Arquivos = new ObservableCollection<CommitFileViewModel>(arquivos.Select(a => new CommitFileViewModel
+        {
+            File = new GRepos.Models.CommitFile
+            {
+                Path = a.Caminho, Added = a.Adicionadas, Removed = a.Removidas, Status = a.Status,
+            },
+        }));
+        ArquivoSelecionado = Arquivos.FirstOrDefault();
+        AvisarAbas();
+    }
+
+    private async Task CarregarConversaAsync(PrViewModel item)
+    {
+        try
+        {
+            var conversa = await GitHubService.ConversaDoPrAsync(_ctx.Slug, item.Pr.Numero, _ctx.Usuario);
+            if (ReferenceEquals(Selecionada, item)) AplicarConversa(conversa);
+        }
+        catch (Exception)
+        {
+            // a conversa é complemento: sem ela ficam a descrição e as verificações
+        }
+    }
+
+    /// <summary>Commits e arquivos só são buscados quando a aba deles é aberta.</summary>
+    private async Task CarregarAbaAsync(PrViewModel item)
+    {
+        if (_ctx.Slug.Length == 0) return;
+
+        var numero = item.Pr.Numero;
+        var precisa = Aba == 1 ? _commitsDe != numero : Aba == 2 && _arquivosDe != numero;
+        if (!precisa) return;
+
+        CarregandoAba = true;
+        try
+        {
+            if (Aba == 1)
+            {
+                var commits = await GitHubService.CommitsDoPrAsync(_ctx.Slug, numero, _ctx.Usuario);
+                if (!ReferenceEquals(Selecionada, item)) return;
+                AplicarCommits(commits);
+                _commitsDe = numero;
+            }
+            else
+            {
+                var arquivos = await GitHubService.ArquivosDoPrAsync(_ctx.Slug, numero, _ctx.Usuario);
+                if (!ReferenceEquals(Selecionada, item)) return;
+                AplicarArquivos(arquivos);
+                _arquivosDe = numero;
+            }
         }
         catch (Exception e)
         {
@@ -296,18 +747,94 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         }
         finally
         {
-            CarregandoDetalhe = false;
-            AvisarDetalhe();
+            CarregandoAba = false;
         }
+    }
+
+    // ------------------------------------------------- atualização automática
+
+    /// <summary>Com algo rodando ou para começar: é quando a tela muda de verdade.</summary>
+    public static readonly TimeSpan IntervaloAcompanhando = TimeSpan.FromSeconds(10);
+
+    /// <summary>Com tudo parado: só para notar um PR novo ou um push de outra pessoa.</summary>
+    public static readonly TimeSpan IntervaloParado = TimeSpan.FromSeconds(45);
+
+    private Avalonia.Threading.DispatcherTimer? _timer;
+    private bool _ocupado;
+    private int _ciclos;
+
+    private bool Acompanhando => SituacaoDasVerificacoes(
+        Selecionada?.Pr, Detalhe, Verificacoes.Select(v => v.Verificacao).ToList(),
+        _verificacoesConsultadas, DateTime.UtcNow).Acompanhar;
+
+    /// <summary>Recado do rodapé, para a atualização sozinha não parecer mágica.</summary>
+    public string RitmoTexto => _timer is { IsEnabled: true }
+        ? $"atualiza sozinha a cada {(int)_timer.Interval.TotalSeconds}s"
+        : "";
+
+    private void AjustarRitmo()
+    {
+        if (_timer is null) return;
+
+        var alvo = Acompanhando ? IntervaloAcompanhando : IntervaloParado;
+        if (_timer.Interval != alvo) _timer.Interval = alvo;
+        OnPropertyChanged(nameof(RitmoTexto));
+    }
+
+    /// <summary>Ciclo automático: sem "Carregando…" na tela e sem pisar no ciclo anterior.</summary>
+    private async Task AtualizarAsync()
+    {
+        if (_ocupado || Executando || Carregando || _ctx.Slug.Length == 0) return;
+
+        _ocupado = true;
+        try
+        {
+            // a lista muda pouco: no ritmo rápido ela entra só a cada três ciclos, para
+            // não gastar a cota da API com o que não mudou
+            var rapido = Acompanhando;
+            if (!rapido || _ciclos++ % 3 == 0)
+            {
+                try
+                {
+                    Aplicar(await GitHubService.ListarPullRequestsAsync(_ctx.Slug, _ctx.Usuario, !MostrarFechados));
+                }
+                catch (Exception)
+                {
+                    // falha de rede no ciclo automático não apaga o que já está na tela
+                }
+            }
+
+            if (Selecionada is { } item) await CarregarDetalheAsync(item, silencioso: true);
+
+            // os tempos ("rodando há 40s") andam mesmo sem resposta nova
+            foreach (var v in Verificacoes.Where(v => v.Rodando)) v.Tique();
+        }
+        finally
+        {
+            _ocupado = false;
+            AjustarRitmo();
+        }
+    }
+
+    /// <summary>Para de consultar a API. A janela chama ao fechar.</summary>
+    public void Parar()
+    {
+        _timer?.Stop();
+        OnPropertyChanged(nameof(RitmoTexto));
     }
 
     // ---------------------------------------------------------------- lista
 
-    /// <summary>A janela chama ao abrir.</summary>
+    /// <summary>A janela chama ao abrir: carrega e passa a acompanhar.</summary>
     public async Task IniciarAsync()
     {
         await CarregarAsync();
         await SugerirDestinoAsync();
+
+        _timer ??= new Avalonia.Threading.DispatcherTimer { Interval = IntervaloParado };
+        _timer.Tick += (_, _) => _ = AtualizarAsync();
+        _timer.Start();
+        AjustarRitmo();
     }
 
     [RelayCommand]

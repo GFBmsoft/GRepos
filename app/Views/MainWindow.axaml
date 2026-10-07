@@ -276,6 +276,10 @@
                                  Badge="{Binding PrBadge}" IsVisible="{Binding TemGitHub}"
                                  ToolTip.Tip="Pull requests do repositório: ver, criar o da branch atual e mesclar"
                                  Command="{Binding AbrirPullRequestsCommand}" />
+            <controls:ToolButton Label="Issues" Icon="{StaticResource IconIssue}"
+                                 IsVisible="{Binding TemGitHub}"
+                                 ToolTip.Tip="Issues do repositório: abertas, fechadas e etiquetas"
+                                 Command="{Binding AbrirIssuesCommand}" />
             <controls:ToolButton Label="{Binding CiRotulo}" Icon="{StaticResource IconEsteira}"
                                  ToolTip.Tip="{Binding CiTooltip}" IsVisible="{Binding TemCi}"
                                  Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}"

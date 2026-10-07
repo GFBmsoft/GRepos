@@ -375,6 +375,10 @@
                               BorderBrush="{DynamicResource Border}" IsVisible="{Binding TemGitHub}"
                               Command="{Binding AbrirPrsCommand}"
                               ToolTip.Tip="Ver os pull requests, criar o da branch atual e mesclar" />
+                      <Button Content="Issues" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
+                              BorderBrush="{DynamicResource Border}" IsVisible="{Binding TemGitHub}"
+                              Command="{Binding AbrirIssuesCommand}"
+                              ToolTip.Tip="Issues do repositório: abertas, fechadas e etiquetas" />
                       <Button Content="Pasta" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
                               BorderBrush="{DynamicResource Border}" Command="{Binding AbrirPastaCommand}"
                               ToolTip.Tip="Abre a pasta do repositório no Explorer" />

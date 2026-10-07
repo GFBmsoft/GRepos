@@ -43,6 +43,9 @@ public interface IDialogService
     /// <summary>Arquivos ignorados só nesta máquina, com a opção de voltar a acompanhar.</summary>
     Task ShowIgnoradosAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
 
+    /// <summary>Issues do repositório: abertas, fechadas e as etiquetas.</summary>
+    Task ShowIssuesAsync(IssuesViewModel vm) => Task.CompletedTask;
+
     /// <summary>Comparação entre duas branches, tags ou commits.</summary>
     Task ShowCompararAsync(CompararViewModel vm) => Task.CompletedTask;
 
@@ -733,6 +736,27 @@ public sealed partial class MainViewModel : ObservableObject
         return true;
     }
 
+    // ---------------------------------------------------------------- issues
+
+    [RelayCommand]
+    private Task AbrirIssues() => CurrentRepo is { } repo && _ciSlug.Length > 0
+        ? AbrirIssuesDeAsync(repo, _ciSlug, _ciUsuario)
+        : Task.CompletedTask;
+
+    /// <summary>As issues de um repositório — o selecionado ou o de um cartão do painel.</summary>
+    public async Task AbrirIssuesDeAsync(Repo repo, string slug, string usuario)
+    {
+        try
+        {
+            if (usuario.Length == 0) usuario = _ws.Settings.GithubUser;
+            await _dialogs.ShowIssuesAsync(new IssuesViewModel(slug, usuario, repo.Name));
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
     // -------------------------------------------------------------- comparar
 
     /// <summary>
@@ -854,6 +878,7 @@ public sealed partial class MainViewModel : ObservableObject
             Acao("Enviar", $"push de {nome}", PushCommand);
             Acao("Branches…", $"trocar, criar, mesclar em {nome}", OpenBranchesCommand);
             Acao("Pull requests…", $"ver, criar e mesclar em {nome}", AbrirPullRequestsCommand, TemGitHub);
+            Acao("Issues…", $"abertas, fechadas e etiquetas de {nome}", AbrirIssuesCommand, TemGitHub);
             Acao("Esteira…", $"execuções do GitHub Actions de {nome}", AbrirEsteiraCommand, TemCi);
             Acao("Comparar branches ou commits…", $"o que muda de uma ponta para a outra em {nome}", CompararCommand);
             Acao("Pastas de trabalho (worktrees)…", $"outra branch de {nome} em outra pasta", OpenWorktreesCommand);

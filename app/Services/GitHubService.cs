@@ -110,6 +110,72 @@ public sealed class PullRequest
     /// "unknown" — o GitHub calcula em segundo plano e pode demorar a responder.
     /// </summary>
     public string Mesclagem { get; init; } = "";
+
+    /// <summary>Comentários da conversa mais os feitos em linhas do código.</summary>
+    public int Comentarios { get; init; }
+}
+
+/// <summary>Etiqueta (label) de uma issue: "bug", "enhancement"… com a cor que o GitHub dá a ela.</summary>
+public sealed record Etiqueta(string Nome, string Cor);
+
+/// <summary>
+/// Uma fala na conversa de um PR ou de uma issue: comentário, revisão (aprovou, pediu
+/// mudanças) ou comentário numa linha do código.
+/// </summary>
+public sealed class Comentario
+{
+    public string Autor { get; init; } = "";
+    public string Corpo { get; init; } = "";
+    public DateTime? Quando { get; init; }
+
+    /// <summary>"comentou", "aprovou", "pediu mudanças", "revisou" ou "comentou no código".</summary>
+    public string Tipo { get; init; } = "comentou";
+
+    /// <summary>Identificador no GitHub; zero quando não veio (não dá para editar).</summary>
+    public long Id { get; init; }
+
+    /// <summary>"conversa", "codigo" ou "revisao": cada um é editado por um endereço diferente da API.</summary>
+    public string Origem { get; init; } = "conversa";
+
+    /// <summary>Arquivo e linha, quando o comentário é no código.</summary>
+    public string Onde { get; init; } = "";
+}
+
+public sealed class CommitDoPr
+{
+    public string Sha { get; init; } = "";
+    public string Assunto { get; init; } = "";
+    public string Autor { get; init; } = "";
+    public DateTime? Quando { get; init; }
+}
+
+/// <summary>Um arquivo mexido pelo PR, com o trecho de diff que a API devolve.</summary>
+public sealed class ArquivoDoPr
+{
+    public string Caminho { get; init; } = "";
+
+    /// <summary>"A", "M", "D" ou "R", como no resto do app.</summary>
+    public string Status { get; init; } = "M";
+    public int Adicionadas { get; init; }
+    public int Removidas { get; init; }
+
+    /// <summary>Vazio em arquivo binário ou grande demais para a API mandar.</summary>
+    public string Patch { get; init; } = "";
+}
+
+public sealed class Issue
+{
+    public int Numero { get; init; }
+    public string Titulo { get; init; } = "";
+    public string Autor { get; init; } = "";
+    public string Corpo { get; init; } = "";
+    public string Url { get; init; } = "";
+    public bool Aberta { get; init; } = true;
+    public int Comentarios { get; init; }
+    public DateTime? Criada { get; init; }
+    public DateTime? Atualizada { get; init; }
+    public List<Etiqueta> Etiquetas { get; init; } = new();
+    public List<string> Responsaveis { get; init; } = new();
 }
 
 /// <summary>Uma verificação (check run) do commit de um PR.</summary>
@@ -118,6 +184,15 @@ public sealed class Verificacao
     public string Nome { get; init; } = "";
     public string Situacao { get; init; } = "nenhum";
     public string Url { get; init; } = "";
+
+    public DateTime? Iniciada { get; init; }
+    public DateTime? Concluida { get; init; }
+
+    /// <summary>
+    /// Execução do Actions por trás da verificação, tirada do link de detalhes
+    /// (".../actions/runs/123/job/456"). Zero quando a verificação vem de outro serviço.
+    /// </summary>
+    public long RunId { get; init; }
 }
 
 /// <summary>Uma execução do GitHub Actions, como aparece no cartão da esteira.</summary>
@@ -899,6 +974,7 @@ public static class GitHubService
             Adicionadas = Inteiro(p, "additions"),
             Removidas = Inteiro(p, "deletions"),
             Mesclagem = Texto(p, "mergeable_state"),
+            Comentarios = Inteiro(p, "comments") + Inteiro(p, "review_comments"),
         };
     }
 
@@ -947,9 +1023,25 @@ public static class GitHubService
                     ? "sucesso"
                     : Traduzir(Texto(r, "status"), conclusao),
                 Url = Texto(r, "html_url"),
+                Iniciada = Data(r, "started_at"),
+                Concluida = Data(r, "completed_at"),
+                RunId = RunDoLink(Texto(r, "details_url") is { Length: > 0 } d ? d : Texto(r, "html_url")),
             });
         }
         return lista;
+    }
+
+    /// <summary>O número da execução dentro de um link do Actions; zero se não for um.</summary>
+    public static long RunDoLink(string url)
+    {
+        const string marca = "/actions/runs/";
+        var i = url.IndexOf(marca, StringComparison.Ordinal);
+        if (i < 0) return 0;
+
+        var resto = url[(i + marca.Length)..];
+        var fim = 0;
+        while (fim < resto.Length && char.IsDigit(resto[fim])) fim++;
+        return fim > 0 && long.TryParse(resto[..fim], out var id) ? id : 0;
     }
 
     /// <summary>
@@ -1033,6 +1125,8 @@ public static class GitHubService
             return "a branch de origem não existe no GitHub. Envie a branch (Enviar) e tente de novo.";
         if (Tem("base invalid"))
             return "a branch de destino não existe no GitHub.";
+        if (Tem("your own pull request"))
+            return "o GitHub não deixa aprovar nem pedir mudanças no próprio pull request. Comentar pode.";
         if (Tem("not mergeable"))
             return "o pull request não pode ser mesclado agora (conflito ou verificação pendente).";
         if (Tem("merge method") || Tem("merges are not allowed"))
@@ -1041,8 +1135,8 @@ public static class GitHubService
         return codigo switch
         {
             401 => "o token não foi aceito.",
-            403 => "o token não tem permissão de escrita em pull requests. Um PAT clássico precisa do " +
-                   "escopo \"repo\"; um fine-grained, de \"Pull requests: Read and write\" neste repositório.",
+            403 => "o token não tem permissão de escrita em pull requests e issues. Um PAT clássico precisa do " +
+                   "escopo \"repo\"; um fine-grained, de \"Pull requests\" e \"Issues: Read and write\" neste repositório.",
             404 => "repositório ou pull request não encontrado — ou o token não enxerga este repositório.",
             405 or 409 => "o pull request não pode ser mesclado agora" + (bruto.Length > 0 ? $": {bruto}" : "."),
             _ => bruto.Length > 0 ? bruto : $"o GitHub respondeu {codigo}.",
@@ -1074,6 +1168,301 @@ public static class GitHubService
         await EscreverPrAsync(HttpMethod.Patch, $"https://api.github.com/repos/{slug}/pulls/{numero}",
             new { state = "closed" }, usuario, "fechar o pull request");
         CachePrs.TryRemove(slug, out _);
+    }
+
+    // ------------------------------- conversa, commits e arquivos de um PR
+
+    private static string Login(JsonElement e, string campo = "user") =>
+        e.TryGetProperty(campo, out var u) && u.ValueKind == JsonValueKind.Object ? Texto(u, "login") : "";
+
+    private static long Longo(JsonElement e, string campo) =>
+        e.TryGetProperty(campo, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+
+    private static IEnumerable<JsonElement> Lista(JsonDocument doc) =>
+        doc.RootElement.ValueKind == JsonValueKind.Array
+            ? doc.RootElement.EnumerateArray()
+            : Enumerable.Empty<JsonElement>();
+
+    /// <summary>Comentários da conversa (o mesmo formato vale para PR e para issue).</summary>
+    public static List<Comentario> LerComentarios(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return Lista(doc).Select(c => new Comentario
+        {
+            Id = Longo(c, "id"), Autor = Login(c), Corpo = Texto(c, "body"), Quando = Data(c, "created_at"),
+        }).ToList();
+    }
+
+    /// <summary>
+    /// Revisões do PR. A que só carrega comentários de código, sem texto próprio, fica de
+    /// fora: os comentários dela já aparecem um a um, e a linha vazia seria só ruído.
+    /// </summary>
+    public static List<Comentario> LerRevisoes(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var lista = new List<Comentario>();
+        foreach (var r in Lista(doc))
+        {
+            var estado = Texto(r, "state");
+            var corpo = Texto(r, "body");
+            if (estado is "PENDING" or "DISMISSED") continue;
+            if (estado == "COMMENTED" && corpo.Trim().Length == 0) continue;
+
+            lista.Add(new Comentario
+            {
+                Id = Longo(r, "id"), Origem = "revisao",
+                Autor = Login(r),
+                Corpo = corpo,
+                Quando = Data(r, "submitted_at"),
+                Tipo = estado switch
+                {
+                    "APPROVED" => "aprovou",
+                    "CHANGES_REQUESTED" => "pediu mudanças",
+                    _ => "revisou",
+                },
+            });
+        }
+        return lista;
+    }
+
+    /// <summary>Comentários feitos numa linha do código, com o arquivo e a linha.</summary>
+    public static List<Comentario> LerComentariosDeCodigo(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return Lista(doc).Select(c =>
+        {
+            var linha = Inteiro(c, "line") is > 0 and var l ? l : Inteiro(c, "original_line");
+            return new Comentario
+            {
+                Id = Longo(c, "id"), Origem = "codigo",
+                Autor = Login(c), Corpo = Texto(c, "body"), Quando = Data(c, "created_at"),
+                Tipo = "comentou no código",
+                Onde = Texto(c, "path") + (linha > 0 ? $":{linha}" : ""),
+            };
+        }).ToList();
+    }
+
+    /// <summary>A conversa inteira do PR em ordem de tempo: comentários, revisões e os do código.</summary>
+    public static async Task<List<Comentario>> ConversaDoPrAsync(string slug, int numero, string usuario = "")
+    {
+        var raiz = $"https://api.github.com/repos/{slug}";
+        var comentarios = BaixarAsync($"{raiz}/issues/{numero}/comments?per_page=100", usuario, "a conversa");
+        var revisoes = BaixarAsync($"{raiz}/pulls/{numero}/reviews?per_page=100", usuario, "as revisões");
+        var codigo = BaixarAsync($"{raiz}/pulls/{numero}/comments?per_page=100", usuario, "os comentários do código");
+        await Task.WhenAll(comentarios, revisoes, codigo);
+
+        return LerComentarios(comentarios.Result)
+            .Concat(LerRevisoes(revisoes.Result))
+            .Concat(LerComentariosDeCodigo(codigo.Result))
+            .OrderBy(c => c.Quando ?? DateTime.MaxValue)
+            .ToList();
+    }
+
+    public static async Task<List<Comentario>> ComentariosDaIssueAsync(string slug, int numero, string usuario = "") =>
+        LerComentarios(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/issues/{numero}/comments?per_page=100", usuario, "os comentários"));
+
+    public static List<CommitDoPr> LerCommitsDoPr(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var lista = new List<CommitDoPr>();
+        foreach (var c in Lista(doc))
+        {
+            var temCommit = c.TryGetProperty("commit", out var commit) && commit.ValueKind == JsonValueKind.Object;
+            var temAutor = temCommit && commit.TryGetProperty("author", out var autor) && autor.ValueKind == JsonValueKind.Object;
+            var git = temAutor ? commit.GetProperty("author") : default;
+
+            // o login do GitHub quando a conta é conhecida; senão o nome gravado no commit
+            var login = Login(c, "author");
+            lista.Add(new CommitDoPr
+            {
+                Sha = Texto(c, "sha"),
+                Assunto = temCommit ? Texto(commit, "message").Split('\n')[0].Trim() : "",
+                Autor = login.Length > 0 ? login : temAutor ? Texto(git, "name") : "",
+                Quando = temAutor ? Data(git, "date") : null,
+            });
+        }
+        return lista;
+    }
+
+    public static async Task<List<CommitDoPr>> CommitsDoPrAsync(string slug, int numero, string usuario = "") =>
+        LerCommitsDoPr(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/pulls/{numero}/commits?per_page=100", usuario, "os commits"));
+
+    public static List<ArquivoDoPr> LerArquivosDoPr(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return Lista(doc).Select(f => new ArquivoDoPr
+        {
+            Caminho = Texto(f, "filename"),
+            Status = Texto(f, "status") switch
+            {
+                "added" => "A",
+                "removed" => "D",
+                "renamed" => "R",
+                _ => "M",
+            },
+            Adicionadas = Inteiro(f, "additions"),
+            Removidas = Inteiro(f, "deletions"),
+            Patch = Texto(f, "patch"),
+        }).ToList();
+    }
+
+    public static async Task<List<ArquivoDoPr>> ArquivosDoPrAsync(string slug, int numero, string usuario = "") =>
+        LerArquivosDoPr(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/pulls/{numero}/files?per_page=100", usuario, "os arquivos"));
+
+    /// <summary>
+    /// O trecho que a API manda não tem o cabeçalho do arquivo; com ele o painel de
+    /// diferenças lê como qualquer outro diff do git.
+    /// </summary>
+    public static string DiffDoArquivo(ArquivoDoPr arquivo) =>
+        arquivo.Patch.Length == 0
+            ? ""
+            : $"diff --git a/{arquivo.Caminho} b/{arquivo.Caminho}\n--- a/{arquivo.Caminho}\n+++ b/{arquivo.Caminho}\n{arquivo.Patch}\n";
+
+    // ------------------------------------------- escrever: comentários e issues
+
+    /// <summary>Comenta numa issue ou num pull request (para o GitHub é o mesmo endereço).</summary>
+    public static async Task<Comentario?> ComentarAsync(string slug, int numero, string corpo, string usuario = "")
+    {
+        var json = await EscreverPrAsync(HttpMethod.Post,
+            $"https://api.github.com/repos/{slug}/issues/{numero}/comments",
+            new { body = corpo }, usuario, "comentar");
+        CachePrs.TryRemove(slug, out _);
+        return LerComentarios("[" + json + "]").FirstOrDefault();
+    }
+
+    /// <summary>Edita um comentário; o endereço depende de onde ele foi feito.</summary>
+    public static Task EditarComentarioAsync(string slug, Comentario comentario, string corpo, string usuario = "") =>
+        EscreverPrAsync(HttpMethod.Patch, EnderecoDoComentario(slug, comentario),
+            new { body = corpo }, usuario, "editar o comentário");
+
+    public static Task ExcluirComentarioAsync(string slug, Comentario comentario, string usuario = "") =>
+        EscreverPrAsync(HttpMethod.Delete, EnderecoDoComentario(slug, comentario),
+            new { }, usuario, "excluir o comentário");
+
+    public static string EnderecoDoComentario(string slug, Comentario comentario) => comentario.Origem switch
+    {
+        "codigo" => $"https://api.github.com/repos/{slug}/pulls/comments/{comentario.Id}",
+        _ => $"https://api.github.com/repos/{slug}/issues/comments/{comentario.Id}",
+    };
+
+    /// <param name="evento">"APPROVE", "REQUEST_CHANGES" ou "COMMENT".</param>
+    public static Task RevisarPullRequestAsync(string slug, int numero, string evento, string corpo, string usuario = "") =>
+        EscreverPrAsync(HttpMethod.Post, $"https://api.github.com/repos/{slug}/pulls/{numero}/reviews",
+            new { @event = evento, body = corpo }, usuario,
+            evento == "APPROVE" ? "aprovar" : evento == "REQUEST_CHANGES" ? "pedir mudanças" : "revisar");
+
+    public static async Task EditarPullRequestAsync(string slug, int numero, string titulo, string corpo, string usuario = "")
+    {
+        await EscreverPrAsync(HttpMethod.Patch, $"https://api.github.com/repos/{slug}/pulls/{numero}",
+            new { title = titulo.Trim(), body = corpo }, usuario, "editar o pull request");
+        CachePrs.TryRemove(slug, out _);
+    }
+
+    public static async Task<Issue?> CriarIssueAsync(
+        string slug, string titulo, string corpo, IEnumerable<string> etiquetas, string usuario = "")
+    {
+        var json = await EscreverPrAsync(HttpMethod.Post, $"https://api.github.com/repos/{slug}/issues",
+            new { title = titulo.Trim(), body = corpo, labels = etiquetas.ToArray() }, usuario, "criar a issue");
+        return LerIssues("[" + json + "]").FirstOrDefault();
+    }
+
+    public static async Task<Issue?> EditarIssueAsync(
+        string slug, int numero, string titulo, string corpo, IEnumerable<string> etiquetas, string usuario = "")
+    {
+        var json = await EscreverPrAsync(HttpMethod.Patch, $"https://api.github.com/repos/{slug}/issues/{numero}",
+            new { title = titulo.Trim(), body = corpo, labels = etiquetas.ToArray() }, usuario, "editar a issue");
+        return LerIssues("[" + json + "]").FirstOrDefault();
+    }
+
+    /// <summary>Fecha (como concluída) ou reabre a issue.</summary>
+    public static async Task<Issue?> MudarEstadoDaIssueAsync(string slug, int numero, bool abrir, string usuario = "")
+    {
+        object corpo = abrir
+            ? new { state = "open" }
+            : new { state = "closed", state_reason = "completed" };
+        var json = await EscreverPrAsync(HttpMethod.Patch, $"https://api.github.com/repos/{slug}/issues/{numero}",
+            corpo, usuario, abrir ? "reabrir a issue" : "fechar a issue");
+        return LerIssues("[" + json + "]").FirstOrDefault();
+    }
+
+    /// <summary>Todas as etiquetas que o repositório tem, para escolher ao criar ou editar uma issue.</summary>
+    public static async Task<List<Etiqueta>> EtiquetasDoRepoAsync(string slug, string usuario = "")
+    {
+        using var doc = JsonDocument.Parse(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/labels?per_page=100", usuario, "as etiquetas"));
+        return Lista(doc)
+            .Where(l => Texto(l, "name").Length > 0)
+            .Select(l => new Etiqueta(Texto(l, "name"), Texto(l, "color") is { Length: > 0 } cor ? "#" + cor : ""))
+            .ToList();
+    }
+
+    // --------------------------------------------------------------- issues
+
+    /// <summary>
+    /// Issues do repositório. A API mistura os pull requests na mesma lista (todo PR é
+    /// uma issue para o GitHub); eles saem daqui, porque têm a janela deles.
+    /// </summary>
+    public static List<Issue> LerIssues(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var lista = new List<Issue>();
+        foreach (var i in Lista(doc))
+        {
+            if (i.TryGetProperty("pull_request", out _)) continue;
+
+            var etiquetas = new List<Etiqueta>();
+            if (i.TryGetProperty("labels", out var labels) && labels.ValueKind == JsonValueKind.Array)
+                foreach (var l in labels.EnumerateArray())
+                    if (l.ValueKind == JsonValueKind.Object && Texto(l, "name") is { Length: > 0 } nome)
+                        etiquetas.Add(new Etiqueta(nome, Texto(l, "color") is { Length: > 0 } cor ? "#" + cor : ""));
+
+            var responsaveis = new List<string>();
+            if (i.TryGetProperty("assignees", out var ass) && ass.ValueKind == JsonValueKind.Array)
+                foreach (var a in ass.EnumerateArray())
+                    if (a.ValueKind == JsonValueKind.Object && Texto(a, "login") is { Length: > 0 } login)
+                        responsaveis.Add(login);
+
+            lista.Add(new Issue
+            {
+                Numero = Inteiro(i, "number"),
+                Titulo = Texto(i, "title"),
+                Autor = Login(i),
+                Corpo = Texto(i, "body"),
+                Url = Texto(i, "html_url"),
+                Aberta = Texto(i, "state") == "open",
+                Comentarios = Inteiro(i, "comments"),
+                Criada = Data(i, "created_at"),
+                Atualizada = Data(i, "updated_at"),
+                Etiquetas = etiquetas,
+                Responsaveis = responsaveis,
+            });
+        }
+        return lista;
+    }
+
+    /// <summary>
+    /// As issues abertas ou as fechadas, da mexida mais recente para a mais antiga. Vão
+    /// até três páginas: como os PRs vêm na mesma lista e são descartados, uma página só
+    /// podia trazer bem menos issues do que o repositório tem.
+    /// </summary>
+    public static async Task<List<Issue>> IssuesAsync(string slug, bool abertas, string usuario = "")
+    {
+        var lista = new List<Issue>();
+        for (var pagina = 1; pagina <= 3; pagina++)
+        {
+            var json = await BaixarAsync(
+                $"https://api.github.com/repos/{slug}/issues?state={(abertas ? "open" : "closed")}" +
+                $"&sort=updated&direction=desc&per_page=100&page={pagina}", usuario, "as issues");
+
+            lista.AddRange(LerIssues(json));
+
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array || doc.RootElement.GetArrayLength() < 100) break;
+        }
+        return lista;
     }
 
     /// <summary>Releases mais recentes, da mais nova para a mais antiga.</summary>

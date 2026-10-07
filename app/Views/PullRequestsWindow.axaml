@@ -5,7 +5,7 @@
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.PullRequestsWindow"
         x:DataType="vm:PullRequestsViewModel"
-        Title="Pull requests" Width="940" Height="640" MinWidth="720" MinHeight="440"
+        Title="Pull requests" Width="1120" Height="720" MinWidth="760" MinHeight="460"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Bg}">
 
@@ -87,31 +87,48 @@
             <Border Grid.Row="0" Padding="12,9" BorderBrush="{DynamicResource BorderSoft}"
                     BorderThickness="0,0,0,1">
               <StackPanel Spacing="3">
-                <TextBlock Text="{Binding DetalheTitulo}" FontSize="13" FontWeight="SemiBold"
-                           TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Grid.Column="0" Text="{Binding DetalheTitulo}" FontSize="13" FontWeight="SemiBold"
+                             TextWrapping="Wrap" />
+                  <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="Editar"
+                          BorderBrush="{DynamicResource Border}" VerticalAlignment="Top" Margin="8,0,0,0"
+                          IsEnabled="{Binding PodeEditarPr}" Command="{Binding EditarPrCommand}"
+                          ToolTip.Tip="Editar o título e a descrição do pull request" />
+                </Grid>
                 <TextBlock Text="{Binding DetalheCaminho}" Classes="mono" FontSize="11"
                            Foreground="{DynamicResource Accent}" TextTrimming="CharacterEllipsis" />
                 <TextBlock Text="{Binding DetalheResumo}" Classes="faint" FontSize="11"
                            TextTrimming="CharacterEllipsis" />
                 <TextBlock Text="{Binding MesclagemTexto}" FontSize="11.5" TextWrapping="Wrap"
                            Foreground="{Binding MesclagemCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                <!-- o Actions em uma frase: aguardando começar, rodando (e o quê), quebrou ou passou -->
+                <TextBlock Text="{Binding CiTexto}" FontSize="11.5" TextWrapping="Wrap"
+                           IsVisible="{Binding TemCiTexto}"
+                           Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}" />
               </StackPanel>
             </Border>
 
-            <ScrollViewer Grid.Row="1" Padding="0,0,4,0">
+            <!-- as três abas do PR no GitHub: a conversa, os commits e o que mudou -->
+            <TabControl Grid.Row="1" SelectedIndex="{Binding Aba}" Padding="0">
+             <TabItem Header="{Binding AbaConversaRotulo}" FontSize="12.5">
+            <ScrollViewer Padding="0,0,4,0">
               <StackPanel Margin="12,10">
                 <StackPanel IsVisible="{Binding TemVerificacoes}" Margin="0,0,0,12">
                   <TextBlock Classes="sectionTitle" Text="VERIFICAÇÕES" Margin="0,0,0,4" />
                   <ItemsControl ItemsSource="{Binding Verificacoes}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate DataType="vm:VerificacaoViewModel">
-                        <Grid ColumnDefinitions="14,*,Auto" Height="22">
+                        <Grid ColumnDefinitions="14,Auto,*,Auto" Height="22">
                           <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="11"
                                      VerticalAlignment="Center"
                                      Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
                           <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11.5" Margin="6,0"
                                      VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Grid.Column="2" Text="{Binding Texto}" Classes="faint" FontSize="10.5"
+                          <!-- o passo em andamento do job, enquanto ele roda -->
+                          <TextBlock Grid.Column="2" Text="{Binding Passo}" Classes="faint" FontSize="10.5"
+                                     Margin="4,0,8,0" VerticalAlignment="Center"
+                                     TextTrimming="CharacterEllipsis" IsVisible="{Binding TemPasso}" />
+                          <TextBlock Grid.Column="3" Text="{Binding Texto}" Classes="faint" FontSize="10.5"
                                      VerticalAlignment="Center" />
                         </Grid>
                       </DataTemplate>
@@ -121,8 +138,86 @@
 
                 <TextBlock Classes="sectionTitle" Text="DESCRIÇÃO" Margin="0,0,0,4" />
                 <views:MarkdownView Markdown="{Binding DetalheCorpo}" />
+
+                <!-- comentários, revisões e comentários no código, em ordem de tempo -->
+                <TextBlock Classes="sectionTitle" Text="CONVERSA" Margin="0,16,0,6" />
+                <TextBlock Text="Ninguém comentou neste pull request." Classes="faint" FontSize="11.5"
+                           IsVisible="{Binding SemConversa}" Margin="0,0,0,6" />
+                <views:ConversaView DataContext="{Binding Editor}" />
+
+                <!-- revisar usa o texto da caixa acima, como o "Review changes" do GitHub -->
+                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,6,0,0"
+                            ToolTip.Tip="{Binding RevisarDica}">
+                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Green}"
+                          Content="Aprovar" IsEnabled="{Binding PodeRevisar}" Command="{Binding AprovarCommand}" />
+                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Red}"
+                          Content="Pedir mudanças" IsEnabled="{Binding PodePedirMudancas}"
+                          Command="{Binding PedirMudancasCommand}" />
+                </StackPanel>
               </StackPanel>
             </ScrollViewer>
+             </TabItem>
+
+             <TabItem Header="{Binding AbaCommitsRotulo}" FontSize="12.5">
+               <Panel>
+                 <TextBlock Text="Carregando…" Classes="faint" Margin="12,10" IsVisible="{Binding CarregandoAba}" />
+                 <TextBlock Text="Nenhum commit neste pull request." Classes="faint" Margin="12,10"
+                            IsVisible="{Binding SemCommits}" />
+                 <ListBox ItemsSource="{Binding CommitsDoPr}" Background="Transparent" Padding="0,0,4,0">
+                   <ListBox.ItemTemplate>
+                     <DataTemplate DataType="vm:CommitDoPrViewModel">
+                       <Grid ColumnDefinitions="*,Auto" Margin="4,3" ToolTip.Tip="{Binding Assunto}">
+                         <StackPanel Grid.Column="0">
+                           <TextBlock Text="{Binding Assunto}" FontSize="12" TextTrimming="CharacterEllipsis" />
+                           <TextBlock Text="{Binding Rodape}" Classes="faint" FontSize="10.5" />
+                         </StackPanel>
+                         <TextBlock Grid.Column="1" Text="{Binding Short}" Classes="mono faint" FontSize="11"
+                                    VerticalAlignment="Center" Margin="10,0,0,0" />
+                       </Grid>
+                     </DataTemplate>
+                   </ListBox.ItemTemplate>
+                 </ListBox>
+               </Panel>
+             </TabItem>
+
+             <TabItem Header="{Binding AbaArquivosRotulo}" FontSize="12.5">
+               <Grid>
+                 <Grid.ColumnDefinitions>
+                   <ColumnDefinition Width="230" MinWidth="150" />
+                   <ColumnDefinition Width="4" />
+                   <ColumnDefinition Width="*" MinWidth="200" />
+                 </Grid.ColumnDefinitions>
+                 <Panel Grid.Column="0">
+                   <TextBlock Text="Carregando…" Classes="faint" Margin="12,10" IsVisible="{Binding CarregandoAba}" />
+                   <TextBlock Text="Nenhum arquivo alterado." Classes="faint" Margin="12,10"
+                              IsVisible="{Binding SemArquivos}" />
+                   <ListBox ItemsSource="{Binding Arquivos}" SelectedItem="{Binding ArquivoSelecionado}"
+                            Background="Transparent">
+                     <ListBox.ItemTemplate>
+                       <DataTemplate DataType="vm:CommitFileViewModel">
+                         <Grid ColumnDefinitions="18,*,Auto" Height="24" ToolTip.Tip="{Binding Path}">
+                           <TextBlock Grid.Column="0" Text="{Binding Status}" FontFamily="{DynamicResource MonoFont}"
+                                      FontWeight="Bold" FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
+                                      Foreground="{Binding StatusColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                           <TextBlock Grid.Column="1" Text="{Binding Path}" FontSize="11.5" Margin="6,0"
+                                      VerticalAlignment="Center" />
+                           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="0,0,6,0"
+                                       VerticalAlignment="Center">
+                             <TextBlock Text="{Binding AddedText}" FontSize="10.5" Classes="mono"
+                                        Foreground="{DynamicResource Green}" />
+                             <TextBlock Text="{Binding RemovedText}" FontSize="10.5" Classes="mono"
+                                        Foreground="{DynamicResource Red}" />
+                           </StackPanel>
+                         </Grid>
+                       </DataTemplate>
+                     </ListBox.ItemTemplate>
+                   </ListBox>
+                 </Panel>
+                 <GridSplitter Grid.Column="1" Background="{DynamicResource BorderSoft}" ResizeDirection="Columns" />
+                 <views:DiffView Grid.Column="2" DataContext="{Binding DiffDoArquivo}" />
+               </Grid>
+             </TabItem>
+            </TabControl>
 
             <!-- mesclar e fechar escrevem no GitHub: os dois confirmam antes -->
             <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
@@ -139,6 +234,32 @@
                         IsEnabled="{Binding PodeFechar}" Command="{Binding FecharPrCommand}"
                         ToolTip.Tip="Fecha o pull request sem mesclar" />
               </Grid>
+            </Border>
+          </Grid>
+
+          <!-- ================================== editar título e descrição do PR -->
+          <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding EditandoPr}">
+            <Border Grid.Row="0" Padding="12,8" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,0,0,1">
+              <TextBlock Classes="sectionTitle" Text="EDITAR PULL REQUEST" />
+            </Border>
+
+            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,*" Margin="12,10">
+              <TextBlock Grid.Row="0" Text="Título" Classes="faint" FontSize="11" Margin="0,0,0,3" />
+              <TextBox Grid.Row="1" Text="{Binding EdicaoTitulo}" Margin="0,0,0,10" />
+              <TextBlock Grid.Row="2" Text="Descrição (aceita Markdown)" Classes="faint" FontSize="11"
+                         Margin="0,0,0,3" />
+              <TextBox Grid.Row="3" Text="{Binding EdicaoCorpo}" AcceptsReturn="True" TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+            </Grid>
+
+            <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,1,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarEdicaoPrCommand}" />
+                <Button Content="Salvar" MinWidth="110" Classes="primary"
+                        IsEnabled="{Binding PodeSalvarPr}" Command="{Binding SalvarPrCommand}" />
+              </StackPanel>
             </Border>
           </Grid>
 
@@ -205,6 +326,8 @@
         </StackPanel>
       </StackPanel>
 
+      <TextBlock Grid.Column="1" Text="{Binding RitmoTexto}" Classes="faint" FontSize="11"
+                 HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" />
       <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
               IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
       <Button Grid.Column="3" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"

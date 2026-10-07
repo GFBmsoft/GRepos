@@ -157,7 +157,7 @@ public sealed partial class ChangesViewModel : ObservableObject
                         ?? Unstaged.FirstOrDefault()
                         ?? Staged.FirstOrDefault();
 
-            if (again is null) Diff.Clear("Nenhuma alteração pendente neste repositório.");
+            if (again is null) LimparDiff();
             else if (again.Staged) SelectedStaged = again;
             else SelectedUnstaged = again;
 
@@ -180,6 +180,31 @@ public sealed partial class ChangesViewModel : ObservableObject
     private string _lastDiffKey = "";
     private string _lastDiffRaw = "";
 
+    /// <summary>
+    /// Sem pendência nenhuma o painel fica vazio de verdade. O título do último arquivo
+    /// continuava no cabeçalho — um arquivo que o Delphi grava e desfaz sozinho, como o
+    /// .delphilsp.json, parecia alterado num repositório limpo.
+    /// </summary>
+    private void LimparDiff()
+    {
+        SelectedStaged = null;
+        SelectedUnstaged = null;
+        _lastDiffKey = "";
+        _lastDiffRaw = "";
+        Diff.Title = "";
+        Diff.Clear("Nenhuma alteração pendente neste repositório.");
+    }
+
+    /// <summary>O item ainda é o que está selecionado (a lista pode ter mudado durante o git)?</summary>
+    private bool AindaSelecionado(FileItemViewModel item)
+    {
+        // a seleção sozinha não basta: sem a lista da tela por trás, ela continua apontando
+        // para o item que acabou de sair
+        var atual = item.Staged ? SelectedStaged : SelectedUnstaged;
+        return atual is not null && atual.Path == item.Path &&
+               (item.Staged ? Staged : Unstaged).Any(f => f.Path == item.Path);
+    }
+
     private async Task ShowDiffAsync(FileItemViewModel item)
     {
         try
@@ -189,6 +214,11 @@ public sealed partial class ChangesViewModel : ObservableObject
                 : await GitService.DiffFileAsync(
                     _repo.Path, item.Path, item.Staged, item.Change.Kind == ChangeKind.Untracked,
                     Diff.LinhasDeContexto);
+
+            // o arquivo saiu da lista enquanto o git respondia: o diff dele chegaria
+            // depois de o painel ter sido limpo e ficaria lá, sem dono
+            if (!AindaSelecionado(item)) return;
+
             var key = $"{item.Staged}|{item.Path}|{Diff.LinhasDeContexto}";
 
             // diff igual ao que já está na tela não é remontado: evita piscar e

@@ -224,6 +224,127 @@ public class PullRequestsTests
         Assert.Equal("rascunho", new PrViewModel { Pr = Pr(1, "a", rascunho: true) }.Estado);
     }
 
+    // ------------------------------------------------ acompanhar o Actions
+
+    private static readonly DateTime Agora = new(2026, 10, 7, 15, 0, 0, DateTimeKind.Utc);
+
+    private static Verificacao V(string nome, string situacao) => new() { Nome = nome, Situacao = situacao };
+
+    private static (string Texto, string Cor, bool Acompanhar) Ci(DateTime? mexido, params Verificacao[] v) =>
+        PullRequestsViewModel.SituacaoDasVerificacoes(
+            new PullRequest { Numero = 1, Atualizado = mexido }, null, v, consultado: true, Agora);
+
+    [Fact]
+    public void Pr_recem_criado_sem_verificacao_esta_aguardando_o_actions()
+    {
+        var recente = Ci(Agora.AddSeconds(-20));
+        Assert.Equal("Aguardando o GitHub Actions começar…", recente.Texto);
+        Assert.True(recente.Acompanhar);
+
+        // passado o prazo, é porque o repositório não roda verificação nenhuma
+        var antigo = Ci(Agora.AddMinutes(-30));
+        Assert.Equal("Nenhuma verificação rodou neste pull request.", antigo.Texto);
+        Assert.False(antigo.Acompanhar);
+    }
+
+    [Fact]
+    public void Rodando_diz_quantas_terminaram_e_qual_esta_em_andamento()
+    {
+        var r = Ci(Agora, V("build", "sucesso"), V("testes", "rodando"), V("deploy", "rodando"));
+
+        Assert.Equal("Actions rodando: 1 de 3 concluída(s) — agora: testes, deploy", r.Texto);
+        Assert.Equal("Yellow", r.Cor);
+        Assert.True(r.Acompanhar);
+
+        // uma já quebrou: não precisa esperar o resto para saber
+        var comFalha = Ci(Agora, V("build", "falha"), V("testes", "rodando"));
+        Assert.Contains("1 já quebrou", comFalha.Texto);
+        Assert.Equal("Red", comFalha.Cor);
+    }
+
+    [Fact]
+    public void Terminado_diz_se_passou_ou_quebrou_e_para_de_acompanhar()
+    {
+        Assert.Equal(("As 2 verificações passaram.", "Green", false), Ci(Agora, V("a", "sucesso"), V("b", "sucesso")));
+        Assert.Equal(("A verificação passou.", "Green", false), Ci(Agora, V("a", "sucesso")));
+        Assert.Equal(("1 de 2 verificações quebraram.", "Red", false), Ci(Agora, V("a", "sucesso"), V("b", "falha")));
+    }
+
+    [Fact]
+    public void Pr_fechado_ou_ainda_nao_consultado_nao_afirma_nada_sobre_o_actions()
+    {
+        var fechado = PullRequestsViewModel.SituacaoDasVerificacoes(
+            new PullRequest { Estado = "mesclado" }, null, Array.Empty<Verificacao>(), true, Agora);
+        Assert.Equal("", fechado.Texto);
+
+        var semConsulta = PullRequestsViewModel.SituacaoDasVerificacoes(
+            new PullRequest { Atualizado = Agora }, null, Array.Empty<Verificacao>(), consultado: false, Agora);
+        Assert.Equal("Consultando as verificações…", semConsulta.Texto);
+    }
+
+    [Fact]
+    public void Verificacao_traz_tempos_e_a_execucao_do_actions()
+    {
+        var v = GitHubService.LerVerificacoes("""
+            {"check_runs":[{"name":"build","status":"completed","conclusion":"success",
+              "started_at":"2026-10-07T14:00:00Z","completed_at":"2026-10-07T14:01:29Z",
+              "details_url":"https://github.com/bm/fin/actions/runs/123456/job/789"}]}
+            """).Single();
+
+        Assert.Equal(123456, v.RunId);
+        Assert.Equal("passou · 1m 29s", new VerificacaoViewModel { Verificacao = v }.Texto);
+
+        Assert.Equal(0, GitHubService.RunDoLink("https://outro-servico.example/checks/9"));
+        Assert.Equal("na fila", new VerificacaoViewModel { Verificacao = V("x", "rodando") }.Texto);
+    }
+
+    [Fact]
+    public void Passo_em_andamento_do_job_aparece_na_linha()
+    {
+        var job = new CiJob
+        {
+            Nome = "build",
+            Etapas =
+            {
+                new CiEtapa { Numero = 1, Nome = "Checkout", Situacao = "sucesso" },
+                new CiEtapa { Numero = 2, Nome = "Testes", Situacao = "rodando" },
+                new CiEtapa { Numero = 3, Nome = "Publicar", Situacao = "nenhum" },
+            },
+        };
+
+        Assert.Equal("passo 2 de 3: Testes", VerificacaoViewModel.PassoDe(job));
+        Assert.Equal("", VerificacaoViewModel.PassoDe(new CiJob { Nome = "sem passos" }));
+
+        // o passo só aparece enquanto a verificação roda
+        var linha = new VerificacaoViewModel { Verificacao = V("build", "rodando"), Passo = "passo 2 de 3: Testes" };
+        Assert.True(linha.TemPasso);
+        linha.Verificacao = V("build", "sucesso");
+        Assert.False(linha.TemPasso);
+    }
+
+    [Fact]
+    public void Verificacoes_atualizam_no_lugar_e_explicam_o_instavel()
+    {
+        var vm = Vm();
+        vm.Aplicar(new[] { new PullRequest { Numero = 7, Origem = "imp/boleto", Destino = "develop", Atualizado = DateTime.UtcNow } });
+        Assert.Equal("Consultando as verificações…", vm.CiTexto);
+
+        vm.AplicarVerificacoes(new[] { V("build", "rodando") });
+        var linha = vm.Verificacoes.Single();
+        vm.Detalhe = new PullRequest { Numero = 7, Mesclagem = "unstable" };
+        Assert.Equal("Dá para mesclar, mas as verificações ainda estão rodando", vm.MesclagemTexto);
+        Assert.StartsWith("Actions rodando: 0 de 1", vm.CiTexto);
+
+        // o ciclo seguinte traz o resultado: a mesma linha, com o conteúdo novo
+        vm.AplicarVerificacoes(new[] { V("build", "sucesso") });
+        Assert.Same(linha, vm.Verificacoes.Single());
+        Assert.Equal("A verificação passou.", vm.CiTexto);
+
+        // trocar de PR não deixa a situação do anterior
+        vm.Aplicar(new[] { new PullRequest { Numero = 8, Origem = "feat/x", Destino = "develop", Atualizado = DateTime.UtcNow } });
+        Assert.Equal("Consultando as verificações…", vm.CiTexto);
+    }
+
     // ------------------------------------------------- situação local da branch
 
     private static Task<string> Git(string dir, params string[] args) => GitService.RunAsync(dir, args);

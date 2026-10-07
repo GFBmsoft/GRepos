@@ -672,6 +672,120 @@ public class UiSmokeTests
         window.Close();
     }
 
+    internal static IssuesViewModel IssuesPopulado()
+    {
+        var bug = new GRepos.Services.Etiqueta("bug", "#d73a4a");
+        var melhoria = new GRepos.Services.Etiqueta("enhancement", "#a2eeef");
+        var agora = System.DateTime.UtcNow;
+
+        var vm = new IssuesViewModel("", "GFBmsoft", "bm-api");
+        vm.Aplicar(new[]
+        {
+            new GRepos.Services.Issue
+            {
+                Numero = 48, Titulo = "[Segurança] Rotas de leitura sem checagem de permissão", Autor = "GFBmsoft",
+                Corpo = "As rotas de **leitura** respondem sem conferir a permissão.\n\n- HashPAF\n- Revenda",
+                Comentarios = 2, Atualizada = agora.AddHours(-3), Etiquetas = { bug, melhoria },
+                Responsaveis = { "WiliampBMsoft" },
+            },
+            new GRepos.Services.Issue
+            {
+                Numero = 47, Titulo = "SMTP e Discord sem validação de certificado TLS", Autor = "GFBmsoft",
+                Atualizada = agora.AddDays(-1), Etiquetas = { bug },
+            },
+            new GRepos.Services.Issue { Numero = 41, Titulo = "Documentar o fluxo de transferência", Autor = "colega", Atualizada = agora.AddDays(-4) },
+        }, new[] { new GRepos.Services.Issue { Numero = 10, Titulo = "Antiga", Aberta = false } });
+
+        vm.Comentarios.Add(new ComentarioViewModel
+        {
+            Comentario = new GRepos.Services.Comentario { Autor = "WiliampBMsoft", Corpo = "Confirmado em produção.", Quando = agora.AddHours(-2) },
+        });
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void IssuesWindow_monta_com_lista_etiquetas_e_comentarios()
+    {
+        var vm = IssuesPopulado();
+
+        var window = new IssuesWindow { DataContext = vm, Width = 1080, Height = 700 };
+        window.Show();
+        window.Measure(new Size(1080, 700));
+        window.Arrange(new Rect(0, 0, 1080, 700));
+
+        Assert.Equal(3, vm.Lista.Count);
+        Assert.Equal(2, vm.Etiquetas.Count);
+
+        // um comentário próprio em edição e o formulário de issue: templates que só
+        // existem nesses estados
+        var meu = new ComentarioViewModel
+        {
+            Comentario = new GRepos.Services.Comentario { Id = 9, Autor = "GFBmsoft", Corpo = "Vou olhar." },
+            Proprio = true,
+        };
+        vm.Editor.Itens.Add(meu);
+        vm.Editor.EditarCommand.Execute(meu);
+        window.Measure(new Size(1080, 700));
+        window.Arrange(new Rect(0, 0, 1080, 700));
+        Assert.True(meu.Editando);
+
+        vm.MontarFormEtiquetas(new[] { "bug" });
+        vm.NovaCommand.Execute(null);
+        window.Measure(new Size(1080, 700));
+        window.Arrange(new Rect(0, 0, 1080, 700));
+        Assert.True(vm.Editando);
+
+        window.Close();
+    }
+
+    /// <summary>As três abas do PR têm templates próprios: cada uma precisa ser montada.</summary>
+    [AvaloniaFact]
+    public void PullRequestsWindow_monta_as_abas_de_conversa_commits_e_arquivos()
+    {
+        var vm = PullRequestsComAbas();
+
+        var window = new PullRequestsWindow { DataContext = vm, Width = 1120, Height = 720 };
+        window.Show();
+        foreach (var aba in new[] { 0, 1, 2 })
+        {
+            vm.Aba = aba;
+            window.Measure(new Size(1120, 720));
+            window.Arrange(new Rect(0, 0, 1120, 720));
+        }
+
+        Assert.Equal("Units/Boleto.pas", vm.ArquivoSelecionado!.Path);
+        window.Close();
+    }
+
+    internal static PullRequestsViewModel PullRequestsComAbas()
+    {
+        var vm = PullRequestsPopulado();
+        var agora = System.DateTime.UtcNow;
+
+        vm.AplicarConversa(new[]
+        {
+            new GRepos.Services.Comentario { Autor = "colega", Tipo = "pediu mudanças", Corpo = "Falta tratar o **boleto vencido**.", Quando = agora.AddHours(-5) },
+            new GRepos.Services.Comentario { Autor = "colega", Tipo = "comentou no código", Onde = "Units/Boleto.pas:42", Corpo = "Aqui estoura com nulo.", Quando = agora.AddHours(-4) },
+            new GRepos.Services.Comentario { Autor = "GFBmsoft", Corpo = "Corrigido no último commit.", Quando = agora.AddHours(-3) },
+            new GRepos.Services.Comentario { Autor = "colega", Tipo = "aprovou", Quando = agora.AddHours(-1) },
+        });
+        vm.AplicarCommits(new[]
+        {
+            new GRepos.Services.CommitDoPr { Sha = "302217b67e22", Assunto = "fix(boleto): ocultar campo do boleto online", Autor = "GFBmsoft", Quando = agora.AddHours(-6) },
+            new GRepos.Services.CommitDoPr { Sha = "9a1c44e0b7aa", Assunto = "trata o boleto vencido", Autor = "GFBmsoft", Quando = agora.AddHours(-3) },
+        });
+        vm.AplicarArquivos(new[]
+        {
+            new GRepos.Services.ArquivoDoPr
+            {
+                Caminho = "Units/Boleto.pas", Status = "M", Adicionadas = 2, Removidas = 1,
+                Patch = "@@ -1,3 +1,4 @@\n begin\n-  Valor := Base;\n+  Valor := Base * 1.02;\n+  Juros := Valor * Taxa;\n end;",
+            },
+            new GRepos.Services.ArquivoDoPr { Caminho = "img/logo.png", Status = "A" },
+        });
+        return vm;
+    }
+
     internal static CompararViewModel CompararPopulado()
     {
         var vm = new CompararViewModel(new Repo { Id = "r1", Name = "Financeiro", Path = "" }, "develop", "imp/boleto", split: true);
@@ -868,8 +982,13 @@ public class UiSmokeTests
 
         vm.Lista[0].CiSituacao = "sucesso";
         vm.Lista[1].CiSituacao = "falha";
-        vm.Verificacoes.Add(new VerificacaoViewModel { Verificacao = new GRepos.Services.Verificacao { Nome = "build", Situacao = "sucesso" } });
-        vm.Verificacoes.Add(new VerificacaoViewModel { Verificacao = new GRepos.Services.Verificacao { Nome = "testes", Situacao = "rodando" } });
+        var agora = System.DateTime.UtcNow;
+        vm.AplicarVerificacoes(new[]
+        {
+            new GRepos.Services.Verificacao { Nome = "build", Situacao = "sucesso", Iniciada = agora.AddSeconds(-200), Concluida = agora.AddSeconds(-111) },
+            new GRepos.Services.Verificacao { Nome = "testes", Situacao = "rodando", Iniciada = agora.AddSeconds(-40), RunId = 7 },
+        });
+        vm.Verificacoes[1].Passo = "passo 4 de 10: Testes";
         vm.Detalhe = new GRepos.Services.PullRequest
         {
             Numero = 42, Commits = 3, Arquivos = 5, Adicionadas = 120, Removidas = 30, Mesclagem = "clean",

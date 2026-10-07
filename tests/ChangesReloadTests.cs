@@ -91,6 +91,60 @@ public class ChangesReloadTests
         finally { Limpar(dir); }
     }
 
+    /// <summary>
+    /// EV13: o arquivo que o Delphi grava e desfaz sozinho (.delphilsp.json) saía da lista
+    /// e continuava no cabeçalho do painel, como se o repositório limpo tivesse alteração.
+    /// </summary>
+    [Fact]
+    public async Task Repositorio_que_ficou_limpo_nao_deixa_o_arquivo_anterior_no_painel()
+    {
+        var dir = await RepoComTresAlteracoes();
+        try
+        {
+            var vm = Vm(dir);
+            await vm.ReloadAsync();
+
+            // espera o diff do primeiro arquivo chegar ao painel
+            for (var i = 0; i < 100 && vm.Diff.Title.Length == 0; i++) await Task.Delay(50);
+            Assert.Contains("(local)", vm.Diff.Title);
+
+            foreach (var nome in new[] { "Unit1.pas", "Unit2.pas", "Unit3.pas" })
+                File.WriteAllText(Path.Combine(dir, nome), "inicial\n");
+            await vm.ReloadAsync(silent: true);
+
+            Assert.Empty(vm.Unstaged);
+            Assert.Equal("", vm.Diff.Title);
+            Assert.True(vm.Diff.IsEmpty);
+            Assert.Equal("Nenhuma alteração pendente neste repositório.", vm.Diff.EmptyMessage);
+        }
+        finally { Limpar(dir); }
+    }
+
+    /// <summary>
+    /// A outra metade da EV13: o diff pedido para um arquivo que saiu da lista enquanto o
+    /// git respondia não pode chegar depois e repovoar o painel já limpo.
+    /// </summary>
+    [Fact]
+    public async Task Diff_que_chega_depois_de_o_arquivo_sair_da_lista_e_descartado()
+    {
+        var dir = await RepoComTresAlteracoes();
+        try
+        {
+            var vm = Vm(dir);
+            await vm.ReloadAsync();
+
+            // desfaz no disco e recarrega em seguida, sem dar tempo de o diff anterior voltar
+            foreach (var nome in new[] { "Unit1.pas", "Unit2.pas", "Unit3.pas" })
+                File.WriteAllText(Path.Combine(dir, nome), "inicial\n");
+            await vm.ReloadAsync(silent: true);
+            await Task.Delay(1500); // tempo de sobra para um diff atrasado chegar
+
+            Assert.Equal("", vm.Diff.Title);
+            Assert.True(vm.Diff.IsEmpty);
+        }
+        finally { Limpar(dir); }
+    }
+
     [Fact]
     public async Task Recarga_sem_mudanca_nao_mexe_na_lista()
     {

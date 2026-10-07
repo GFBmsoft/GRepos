@@ -1,0 +1,257 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:views="using:GRepos.Views"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.IssuesWindow"
+        x:DataType="vm:IssuesViewModel"
+        Title="Issues" Width="1080" Height="700" MinWidth="760" MinHeight="460"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Window.Resources>
+    <!-- etiqueta: a bolinha leva a cor que o GitHub deu a ela; o texto fica legível nos dois temas -->
+    <DataTemplate x:Key="EtiquetaChip" DataType="vm:EtiquetaViewModel">
+      <Border Classes="chip" BorderBrush="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}"
+              Margin="0,0,4,0" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="4">
+          <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                   Fill="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+          <TextBlock Text="{Binding Nome}" FontSize="10" />
+        </StackPanel>
+      </Border>
+    </DataTemplate>
+  </Window.Resources>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="11" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="380,10,*">
+
+      <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="8,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+            <StackPanel Spacing="7">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                <Button Grid.Column="3" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="Nova" Margin="6,0,0,0" Command="{Binding NovaCommand}"
+                        ToolTip.Tip="Criar uma issue neste repositório" />
+                <Button Grid.Column="0" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="{Binding AbertasRotulo}" Classes.destacado="{Binding Abertas}"
+                        Command="{Binding VerAbertasCommand}" />
+                <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="{Binding FechadasRotulo}" Classes.destacado="{Binding MostrarFechadas}"
+                        Margin="4,0,0,0" Command="{Binding VerFechadasCommand}" />
+                <TextBox Grid.Column="2" Text="{Binding Busca}" Watermark="Filtrar por título, autor ou #número"
+                         Margin="8,0,0,0" FontSize="11.5" MinHeight="0" Height="24" Padding="6,2"
+                         VerticalContentAlignment="Center" />
+              </Grid>
+
+              <!-- as etiquetas em uso, da mais comum para a menos; clicar filtra por ela -->
+              <ItemsControl ItemsSource="{Binding Etiquetas}" IsVisible="{Binding TemEtiquetas}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:EtiquetaViewModel">
+                    <Button Classes="tiny" BorderThickness="1" Margin="0,0,4,3"
+                            BorderBrush="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}"
+                            Classes.destacado="{Binding Ativa}"
+                            ToolTip.Tip="Mostrar só as issues com esta etiqueta"
+                            Command="{Binding $parent[ItemsControl].DataContext.AlternarEtiquetaCommand}"
+                            CommandParameter="{Binding}">
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                 Fill="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                        <TextBlock Text="{Binding Texto}" FontSize="10.5" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+          <TextBlock Grid.Row="1" Text="Carregando…" Classes="faint" Margin="12,10"
+                     IsVisible="{Binding Carregando}" />
+          <TextBlock Grid.Row="1" Text="{Binding TextoVazio}" Classes="faint" Margin="12,10"
+                     TextWrapping="Wrap" IsVisible="{Binding Vazio}" />
+
+          <ListBox Grid.Row="1" ItemsSource="{Binding Lista}" SelectedItem="{Binding Selecionada}"
+                   Background="Transparent" Padding="0,0,4,0">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:IssueViewModel">
+                <Grid ColumnDefinitions="16,*,Auto" Margin="6,5" ToolTip.Tip="{Binding Tooltip}">
+                  <Ellipse Grid.Column="0" Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,0,0"
+                           HorizontalAlignment="Left"
+                           Fill="{Binding EstadoCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <StackPanel Grid.Column="1" Margin="4,0,6,0" Spacing="2">
+                    <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+                    <ItemsControl ItemsSource="{Binding Etiquetas}" IsVisible="{Binding TemEtiquetas}"
+                                  ItemTemplate="{StaticResource EtiquetaChip}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding Rodape}" Classes="faint" FontSize="10.5"
+                               TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding Numero}" Classes="faint" FontSize="10.5"
+                             VerticalAlignment="Top" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+        <Panel>
+          <TextBlock Text="Escolha uma issue à esquerda." Classes="faint" Margin="12,10"
+                     IsVisible="{Binding SemSelecao}" />
+
+          <Grid RowDefinitions="Auto,*" IsVisible="{Binding MostraDetalhe}">
+            <Border Grid.Row="0" Padding="12,9" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,0,0,1">
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="*,Auto">
+                  <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="Editar"
+                          BorderBrush="{DynamicResource Border}" VerticalAlignment="Top" Margin="8,0,0,0"
+                          Command="{Binding EditarIssueCommand}"
+                          ToolTip.Tip="Editar o título, a descrição e as etiquetas" />
+                <TextBlock FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap">
+                  <Run Text="{Binding Selecionada.Titulo, Mode=OneWay}" />
+                  <Run Text=" " />
+                  <Run Text="{Binding Selecionada.Numero, Mode=OneWay}" />
+                </TextBlock>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Selecionada.Etiquetas}"
+                              IsVisible="{Binding Selecionada.TemEtiquetas}"
+                              ItemTemplate="{StaticResource EtiquetaChip}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+                <TextBlock Classes="faint" FontSize="11" TextTrimming="CharacterEllipsis">
+                  <Run Text="{Binding Selecionada.Rodape, Mode=OneWay}" />
+                  <Run Text=" · " />
+                  <Run Text="{Binding Selecionada.Responsaveis, Mode=OneWay}" />
+                </TextBlock>
+              </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" Padding="0,0,4,0">
+              <StackPanel Margin="12,10">
+                <TextBlock Classes="sectionTitle" Text="DESCRIÇÃO" Margin="0,0,0,4" />
+                <views:MarkdownView Markdown="{Binding Selecionada.Corpo}" />
+
+                <TextBlock Classes="sectionTitle" Text="COMENTÁRIOS" Margin="0,16,0,6" />
+                <TextBlock Text="Carregando…" Classes="faint" FontSize="11.5"
+                           IsVisible="{Binding CarregandoComentarios}" />
+                <TextBlock Text="Ninguém comentou nesta issue." Classes="faint" FontSize="11.5"
+                           IsVisible="{Binding SemComentarios}" Margin="0,0,0,6" />
+                <views:ConversaView DataContext="{Binding Editor}" />
+
+                <!-- como no GitHub: com texto na caixa, fechar também publica o comentário -->
+                <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="{Binding EstadoRotulo}" HorizontalAlignment="Right" Margin="0,6,0,0"
+                        IsEnabled="{Binding PodeMudarEstado}" Command="{Binding MudarEstadoCommand}" />
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+
+          <!-- ============================================ issue nova ou em edição -->
+          <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding Editando}">
+            <Border Grid.Row="0" Padding="12,8" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,0,0,1">
+              <TextBlock Classes="sectionTitle" Text="{Binding FormCabecalho}" />
+            </Border>
+
+            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Margin="12,10">
+              <TextBlock Grid.Row="0" Text="Título" Classes="faint" FontSize="11" Margin="0,0,0,3" />
+              <TextBox Grid.Row="1" Text="{Binding FormTitulo}" Margin="0,0,0,10"
+                       Watermark="O que precisa ser feito ou corrigido" />
+
+              <TextBlock Grid.Row="2" Text="Etiquetas" Classes="faint" FontSize="11" Margin="0,0,0,3"
+                         IsVisible="{Binding TemFormEtiquetas}" />
+              <ItemsControl Grid.Row="3" ItemsSource="{Binding FormEtiquetas}" Margin="0,0,0,8"
+                            IsVisible="{Binding TemFormEtiquetas}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:EtiquetaViewModel">
+                    <Button Classes="tiny" BorderThickness="1" Margin="0,0,4,3"
+                            BorderBrush="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}"
+                            Classes.destacado="{Binding Ativa}"
+                            ToolTip.Tip="Marcar ou desmarcar esta etiqueta"
+                            Command="{Binding $parent[ItemsControl].DataContext.AlternarEtiquetaDoFormCommand}"
+                            CommandParameter="{Binding}">
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                 Fill="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                        <TextBlock Text="{Binding Nome}" FontSize="10.5" />
+                      </StackPanel>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBlock Grid.Row="4" Text="Descrição (aceita Markdown)" Classes="faint" FontSize="11"
+                         Margin="0,0,0,3" />
+              <TextBox Grid.Row="5" Text="{Binding FormCorpo}" AcceptsReturn="True" TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+            </Grid>
+
+            <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,1,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarFormCommand}" />
+                <Button Content="{Binding SalvarRotulo}" MinWidth="120" Classes="primary"
+                        IsEnabled="{Binding PodeSalvar}" Command="{Binding SalvarFormCommand}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+        </Panel>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,10,0,0">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="8" Height="8" Fill="{DynamicResource Green}" VerticalAlignment="Center" />
+          <TextBlock Text="aberta" Classes="faint" FontSize="11" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="8" Height="8" Fill="{DynamicResource Purple}" VerticalAlignment="Center" />
+          <TextBlock Text="fechada" Classes="faint" FontSize="11" />
+        </StackPanel>
+      </StackPanel>
+
+      <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding AtualizarCommand}" />
+      <Button Grid.Column="3" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}" />
+      <Button Grid.Column="4" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

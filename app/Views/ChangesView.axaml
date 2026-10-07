@@ -10,10 +10,17 @@
     <local:IndexEqualsConverter x:Key="IndexEquals" />
   </UserControl.Resources>
 
-  <Grid ColumnDefinitions="320,4,*">
+  <Grid>
+    <!-- com largura mínima: abaixo dela os botões da coluna não têm onde caber -->
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="320" MinWidth="260" />
+      <ColumnDefinition Width="4" />
+      <ColumnDefinition Width="*" MinWidth="300" />
+    </Grid.ColumnDefinitions>
 
     <!-- arquivos + caixa de commit -->
-    <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+    <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
+            ClipToBounds="True">
      <DockPanel>
       <!-- merge/rebase/cherry-pick parado: diz o que falta e como sair dele -->
       <Border DockPanel.Dock="Top" Padding="10,8" IsVisible="{Binding TemOperacao}"
@@ -32,11 +39,14 @@
       <Grid RowDefinitions="Auto,*,Auto,*,Auto">
 
         <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
-          <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-            <TextBlock Grid.Column="0" Classes="sectionTitle" Text="PREPARADO PARA COMMIT" />
-            <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
-                       VerticalAlignment="Center" Text="{Binding Staged.Count}" />
-            <Button Grid.Column="3" Classes="tiny" Content="{Binding RemoverRotulo}"
+          <Grid ColumnDefinitions="*,Auto">
+            <!-- com a coluna estreita é o título que é cortado, não o botão que sai dela -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" ClipToBounds="True">
+              <TextBlock Classes="sectionTitle" Text="PREPARADO PARA COMMIT" />
+              <TextBlock Classes="faint" FontSize="10" Margin="6,0,6,0"
+                         VerticalAlignment="Center" Text="{Binding Staged.Count}" />
+            </StackPanel>
+            <Button Grid.Column="1" Classes="tiny" Content="{Binding RemoverRotulo}" Margin="6,0,0,0"
                     ToolTip.Tip="Tira do commit. Ctrl ou Shift + clique marcam vários arquivos."
                     Command="{Binding UnstageAllCommand}" />
           </Grid>
@@ -88,15 +98,16 @@
               </Button.Flyout>
             </Button>
             <!-- botões numa segunda linha: com "selecionados (N)" não cabem ao lado do título -->
-            <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6"
-                        HorizontalAlignment="Right" Margin="0,6,0,0">
-              <Button Classes="tiny danger" Content="{Binding DescartarRotulo}"
+            <!-- WrapPanel: sem largura para os dois lado a lado, o segundo desce em vez de
+                 sair por cima do painel de diferenças -->
+            <WrapPanel Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Right" Margin="0,6,0,0">
+              <Button Classes="tiny danger" Content="{Binding DescartarRotulo}" Margin="6,0,0,0"
                       ToolTip.Tip="Desfaz as alterações locais (o que está preparado fica). Pede confirmação."
                       Command="{Binding DiscardAllCommand}" />
-              <Button Classes="tiny" Content="{Binding PrepararRotulo}"
+              <Button Classes="tiny" Content="{Binding PrepararRotulo}" Margin="6,0,0,0"
                       ToolTip.Tip="Prepara para commit. Ctrl ou Shift + clique marcam vários arquivos."
                       Command="{Binding StageAllCommand}" />
-            </StackPanel>
+            </WrapPanel>
           </Grid>
         </Border>
 
@@ -158,8 +169,12 @@
             <TextBox Name="Mensagem" Watermark="Mensagem de commit (Ctrl+Enter faz o commit)"
                      AcceptsReturn="True" MinHeight="64"
                      TextWrapping="Wrap" Text="{Binding CommitMessage}" />
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-              <CheckBox Grid.Column="0" Content="Emendar último" IsChecked="{Binding Amend}" />
+            <!-- os botões têm lugar garantido; quem encolhe (com reticências) é o rótulo da caixa -->
+            <Grid ColumnDefinitions="*,0,Auto,Auto">
+              <CheckBox Grid.Column="0" IsChecked="{Binding Amend}" HorizontalAlignment="Left"
+                        ClipToBounds="True" ToolTip.Tip="Emendar o último commit em vez de criar um novo">
+                <TextBlock Text="Emendar último" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+              </CheckBox>
               <!-- reverter o repositório inteiro fica junto do commit: também vale para tudo -->
               <Button Grid.Column="2" Classes="danger" Content="Reverter ▾" Margin="0,0,6,0"
                       ToolTip.Tip="Volta o repositório ao estado da branch, descartando tudo">

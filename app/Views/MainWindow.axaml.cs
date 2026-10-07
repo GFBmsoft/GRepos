@@ -240,6 +240,8 @@ public partial class MainWindow : Window, IDialogService
     public Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome, int visiveis) =>
         new EsteiraWindow(slug, branch, usuario, repoNome, this, visiveis).ShowDialog(this);
 
+    public Task ShowIssuesAsync(IssuesViewModel vm) => new IssuesWindow(vm).ShowDialog(this);
+
     public Task ShowCompararAsync(CompararViewModel vm) => new CompararWindow(vm).ShowDialog(this);
 
     public Task ShowLoteAsync(LoteViewModel vm) => new LoteWindow(vm).ShowDialog(this);

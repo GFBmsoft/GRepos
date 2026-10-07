@@ -1,0 +1,65 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:views="using:GRepos.Views"
+             xmlns:local="using:GRepos"
+             x:Class="GRepos.Views.ConversaView"
+             x:DataType="vm:ConversaViewModel">
+
+  <!-- a conversa de um PR ou de uma issue: as falas e, no fim, a caixa para comentar.
+       É a mesma nos dois lugares, como no GitHub -->
+  <StackPanel>
+    <ItemsControl ItemsSource="{Binding Itens}">
+      <ItemsControl.ItemTemplate>
+        <DataTemplate DataType="vm:ComentarioViewModel">
+          <Border Classes="card" Padding="10,7" Margin="0,0,0,8">
+            <StackPanel Spacing="4">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="{Binding Autor}" FontWeight="SemiBold" FontSize="12" />
+                  <TextBlock Text="{Binding Tipo}" FontSize="11.5"
+                             Foreground="{Binding TipoCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <TextBlock Text="{Binding Quando}" Classes="faint" FontSize="11" />
+                </StackPanel>
+                <!-- só no próprio comentário, que é o que o GitHub deixa mexer -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
+                            IsVisible="{Binding PodeEditar}">
+                  <Button Classes="tiny" Content="editar"
+                          Command="{Binding $parent[ItemsControl].DataContext.EditarCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="tiny danger" Content="excluir"
+                          Command="{Binding $parent[ItemsControl].DataContext.ExcluirCommand}" CommandParameter="{Binding}" />
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Text="{Binding Onde}" Classes="mono faint" FontSize="10.5"
+                         IsVisible="{Binding TemOnde}" />
+
+              <views:MarkdownView Markdown="{Binding Corpo}" IsVisible="{Binding Lendo}" />
+
+              <StackPanel Spacing="6" IsVisible="{Binding Editando}">
+                <TextBox Text="{Binding Rascunho}" AcceptsReturn="True" TextWrapping="Wrap"
+                         MinHeight="70" MaxHeight="260" VerticalContentAlignment="Top" />
+                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                          Content="Cancelar"
+                          Command="{Binding $parent[ItemsControl].DataContext.CancelarEdicaoCommand}"
+                          CommandParameter="{Binding}" />
+                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Accent}"
+                          Content="Salvar"
+                          Command="{Binding $parent[ItemsControl].DataContext.SalvarEdicaoCommand}"
+                          CommandParameter="{Binding}" />
+                </StackPanel>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <TextBox Text="{Binding Novo}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="220"
+             VerticalContentAlignment="Top" Margin="0,4,0,6"
+             Watermark="Escreva um comentário (aceita Markdown)" />
+    <Button Content="Comentar" Classes="primary" MinWidth="110" HorizontalAlignment="Right"
+            IsEnabled="{Binding PodeComentar}" Command="{Binding ComentarCommand}" />
+  </StackPanel>
+</UserControl>
