@@ -8,11 +8,16 @@
 
   <Grid RowDefinitions="Auto,*" Margin="16,14,16,10">
 
-    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,12">
       <StackPanel Grid.Column="0">
         <TextBlock Text="{Binding Titulo}" FontSize="16" FontWeight="SemiBold" />
         <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="11.5" />
       </StackPanel>
+      <!-- a mesma operação em todos os repositórios deste painel -->
+      <Button Grid.Column="2" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+              Content="Em lote…" VerticalAlignment="Center" Margin="8,0,0,0"
+              IsVisible="{Binding PodeLote}" Command="{Binding EmLoteCommand}"
+              ToolTip.Tip="Obter, puxar, enviar ou trocar de branch em todos os repositórios deste painel" />
       <!-- discreto: só o ícone, como o de atualizar da sidebar -->
       <Button Grid.Column="1" Classes="icon" Content="&#xE72C;" Width="26" Height="24"
               FontSize="12" VerticalAlignment="Center"
@@ -366,6 +371,10 @@
                               BorderBrush="{DynamicResource Border}" IsVisible="{Binding TemCi}"
                               Command="{Binding AbrirEsteiraCommand}"
                               ToolTip.Tip="Abre a janela da esteira, com o histórico e os filtros" />
+                      <Button Content="Pull requests" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
+                              BorderBrush="{DynamicResource Border}" IsVisible="{Binding TemGitHub}"
+                              Command="{Binding AbrirPrsCommand}"
+                              ToolTip.Tip="Ver os pull requests, criar o da branch atual e mesclar" />
                       <Button Content="Pasta" Classes="tiny" BorderThickness="1" Margin="0,0,6,0"
                               BorderBrush="{DynamicResource Border}" Command="{Binding AbrirPastaCommand}"
                               ToolTip.Tip="Abre a pasta do repositório no Explorer" />

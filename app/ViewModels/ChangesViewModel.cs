@@ -36,6 +36,12 @@ public sealed partial class FileItemViewModel : ObservableObject
     public bool CanDiscard => Change.Kind != ChangeKind.Conflict;
     public bool IsConflito => Change.Kind == ChangeKind.Conflict;
     public bool PodePreparar => !IsConflito;
+
+    /// <summary>
+    /// Os dois lados têm o arquivo (UU, AA): há marcadores para resolver bloco a bloco.
+    /// Com um D no XY um lado apagou, e a escolha é só ficar ou não com o arquivo.
+    /// </summary>
+    public bool ConflitoDeConteudo => IsConflito && !Change.Conflito.Contains('D') && Change.Conflito is not ("AU" or "UA");
 }
 
 public sealed partial class ChangesViewModel : ObservableObject
@@ -301,7 +307,7 @@ public sealed partial class ChangesViewModel : ObservableObject
             };
             var conflitos = Unstaged.Count(f => f.IsConflito);
             return conflitos > 0
-                ? $"{nome} em andamento: {conflitos} arquivo(s) em conflito. Escolha o lado em cada um (Meu / Deles) ou edite e marque como resolvido."
+                ? $"{nome} em andamento: {conflitos} arquivo(s) em conflito. Use Resolver para decidir bloco a bloco, ou fique com um lado inteiro (Meu / Deles)."
                 : $"{nome} em andamento, sem conflitos pendentes. Continue para concluir.";
         }
     }
@@ -319,6 +325,25 @@ public sealed partial class ChangesViewModel : ObservableObject
     [RelayCommand(AllowConcurrentExecutions = true)]
     private Task MarcarResolvido(FileItemViewModel item) =>
         RunAsync(() => GitService.MarcarResolvidoAsync(_repo.Path, item.Path));
+
+    /// <summary>
+    /// Abre a resolução bloco a bloco. Só serve a conflito de conteúdo (os dois lados
+    /// mexeram no arquivo); quando um lado apagou, não há marcadores e valem Meu e Deles.
+    /// </summary>
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task ResolverConflito(FileItemViewModel item)
+    {
+        try
+        {
+            var vm = new ConflitoViewModel(_repo.Path, item.Path, Operacao == GitService.Operacao.Rebase);
+            await _main.Dialogos.ShowConflitoAsync(vm);
+            if (vm.Salvou) await ReloadAsync();
+        }
+        catch (Exception e)
+        {
+            _main.Notify(e.Message, true);
+        }
+    }
 
     [RelayCommand]
     private Task ContinuarOperacao() =>

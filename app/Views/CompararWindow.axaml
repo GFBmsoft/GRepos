@@ -1,0 +1,85 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:views="using:GRepos.Views"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.CompararWindow"
+        x:DataType="vm:CompararViewModel"
+        Title="{Binding Title}" Width="1180" Height="760" MinWidth="760" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*">
+
+    <!-- as duas pontas: branch, tag ou hash. O diff mostra o que muda da primeira para a segunda -->
+    <Border Grid.Row="0" Padding="12,9" Background="{DynamicResource BgPanel}"
+            BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="Auto,260,Auto,260,Auto,*">
+          <TextBlock Grid.Column="0" Text="de" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                     Margin="0,0,8,0" />
+          <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding Refs}" Text="{Binding A}"
+                           FilterMode="Contains" Watermark="branch, tag ou hash" VerticalAlignment="Center" />
+          <Button Grid.Column="2" Content="⇄" MinWidth="34" Margin="6,0" VerticalAlignment="Center"
+                  ToolTip.Tip="Inverter os lados" Command="{Binding InverterCommand}" />
+          <AutoCompleteBox Grid.Column="3" ItemsSource="{Binding Refs}" Text="{Binding B}"
+                           FilterMode="Contains" Watermark="branch, tag ou hash" VerticalAlignment="Center" />
+          <Button Grid.Column="4" Content="Comparar" MinWidth="96" Margin="8,0,0,0" Classes="primary"
+                  VerticalAlignment="Center" IsEnabled="{Binding PodeComparar}"
+                  Command="{Binding CompararCommand}" />
+        </Grid>
+        <TextBlock Text="{Binding Resumo}" Classes="faint" FontSize="11.5" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="1" Padding="12,9" Margin="12,10,12,0" CornerRadius="7"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <Grid Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="320" MinWidth="200" />
+        <ColumnDefinition Width="4" />
+        <ColumnDefinition Width="*" MinWidth="300" />
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Classes="sectionTitle" Text="ARQUIVOS DIFERENTES" />
+              <TextBlock Classes="faint" FontSize="10" VerticalAlignment="Center"
+                         Text="{Binding Arquivos.Count}" />
+            </StackPanel>
+          </Border>
+          <ListBox Grid.Row="1" ItemsSource="{Binding Arquivos}" SelectedItem="{Binding Selecionado}">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:CommitFileViewModel">
+                <Grid ColumnDefinitions="18,*,Auto" Height="26" ToolTip.Tip="{Binding Path}">
+                  <TextBlock Grid.Column="0" Text="{Binding Status}" FontFamily="{DynamicResource MonoFont}"
+                             FontWeight="Bold" FontSize="11" TextAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{Binding StatusColor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Path}" FontSize="12" Margin="6,0"
+                             VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0"
+                              VerticalAlignment="Center">
+                    <TextBlock Text="{Binding AddedText}" FontSize="10.5" Classes="mono"
+                               Foreground="{DynamicResource Green}" />
+                    <TextBlock Text="{Binding RemovedText}" FontSize="10.5" Classes="mono"
+                               Foreground="{DynamicResource Red}" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" />
+
+      <views:DiffView Grid.Column="2" DataContext="{Binding Diff}" />
+    </Grid>
+  </Grid>
+</Window>

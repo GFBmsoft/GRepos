@@ -270,13 +270,20 @@
           </StackPanel>
 
           <!-- esteira: só aparece quando o repositório tem GitHub Actions -->
-          <controls:ToolButton Grid.Column="7" Label="{Binding CiRotulo}" Icon="{StaticResource IconEsteira}"
-                               ToolTip.Tip="{Binding CiTooltip}" IsVisible="{Binding TemCi}"
-                               Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}"
-                               Command="{Binding AbrirEsteiraCommand}" />
+          <StackPanel Grid.Column="7" Orientation="Horizontal">
+            <!-- pull requests: lista, cria o da branch atual e mescla, sem ir ao navegador -->
+            <controls:ToolButton Label="PRs" Icon="{StaticResource IconPr}"
+                                 Badge="{Binding PrBadge}" IsVisible="{Binding TemGitHub}"
+                                 ToolTip.Tip="Pull requests do repositório: ver, criar o da branch atual e mesclar"
+                                 Command="{Binding AbrirPullRequestsCommand}" />
+            <controls:ToolButton Label="{Binding CiRotulo}" Icon="{StaticResource IconEsteira}"
+                                 ToolTip.Tip="{Binding CiTooltip}" IsVisible="{Binding TemCi}"
+                                 Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}"
+                                 Command="{Binding AbrirEsteiraCommand}" />
+          </StackPanel>
 
           <Border Grid.Column="8" Width="1" Margin="8,8" VerticalAlignment="Stretch"
-                  Background="{DynamicResource Border}" IsVisible="{Binding TemCi}" />
+                  Background="{DynamicResource Border}" IsVisible="{Binding TemCiOuGitHub}" />
 
           <!-- abrir o repositório: no GitHub, na pasta do Windows e no Git Bash -->
           <controls:ToolButton Grid.Column="9" Label="Remoto" Icon="{StaticResource IconRemoto}"

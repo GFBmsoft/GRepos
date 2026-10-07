@@ -312,6 +312,49 @@ public sealed partial class HistoryViewModel : ObservableObject
 
     private static bool EhMerge(Commit c) => c.Parents.Count > 1;
 
+    // ------------------------------------- soltar uma branch sobre outra no grafo
+
+    /// <summary>O remoto é do GitHub: o menu de soltar oferece pull request.</summary>
+    public bool TemGitHub => _main.TemGitHub;
+
+    /// <summary>
+    /// Arrastar o commit de uma branch sobre o de outra: mesclar, rebase ou pull request.
+    /// Vale a branch que aponta para cada commit; linha sem branch não arrasta nem recebe.
+    /// </summary>
+    public async Task ExecutarOpcaoAsync(OpcaoDeArraste opcao, RefDeBranch origem, RefDeBranch destino)
+    {
+        if (!opcao.Disponivel || Busy) return;
+
+        Busy = true;
+        try
+        {
+            if (opcao.Acao == AcaoDeArraste.PullRequest)
+            {
+                if (await _main.GitHubDeAsync(_repo) is not { } gh) return;
+
+                var vm = await _main.MontarPullRequestsAsync(
+                    _repo, gh.Slug, gh.Usuario, origem.NomeLocal, destino.NomeLocal);
+                await _main.Dialogos.ShowPullRequestsAsync(vm);
+                await _main.DepoisDosPullRequestsAsync(_repo, vm);
+                return;
+            }
+
+            if (await _main.ExecutarArrasteAsync(_repo, opcao, origem, destino))
+                _main.Notify(opcao.Acao == AcaoDeArraste.Mesclar
+                    ? $"{origem.Nome} mesclada em {destino.Nome}."
+                    : $"{origem.Nome} reaplicada sobre {destino.Nome}.");
+        }
+        catch (Exception e)
+        {
+            _main.Notify(e.Message, true);
+        }
+        finally
+        {
+            Busy = false;
+            await LoadAsync();
+        }
+    }
+
     [RelayCommand]
     private Task HistoricoDoArquivo() =>
         SelectedFile is { } f ? _main.MostrarHistoricoDoArquivoAsync(_repo, f.Path, blame: false) : Task.CompletedTask;
@@ -336,6 +379,11 @@ public sealed partial class HistoryViewModel : ObservableObject
             VersaoDeArquivo.Em(c.Commit.Hash + "^", f.Path, "antes-de-" + c.Short),
             VersaoDeArquivo.Em(c.Commit.Hash, f.Path, c.Short));
     }
+
+    /// <summary>O que muda do commit selecionado até a branch atual.</summary>
+    [RelayCommand]
+    private Task CompararComAtual() =>
+        SelectedCommit is { } row ? _main.CompararAsync(_repo, row.Commit.Hash[..Math.Min(10, row.Commit.Hash.Length)]) : Task.CompletedTask;
 
     /// <summary>Rebase interativo do commit selecionado até o HEAD.</summary>
     [RelayCommand]

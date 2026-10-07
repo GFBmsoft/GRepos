@@ -90,6 +90,34 @@ public sealed class PullRequest
     public DateTime? Atualizado { get; init; }
 
     public bool Aberto => Estado == "aberto";
+
+    /// <summary>Branch de onde o PR sai (head) e para onde vai (base).</summary>
+    public string Origem { get; init; } = "";
+    public string Destino { get; init; } = "";
+
+    /// <summary>Commit da ponta da origem: é por ele que se consultam as verificações.</summary>
+    public string Sha { get; init; } = "";
+    public string Corpo { get; init; } = "";
+
+    // só na consulta de um PR; a listagem não traz estes campos
+    public int Commits { get; init; }
+    public int Arquivos { get; init; }
+    public int Adicionadas { get; init; }
+    public int Removidas { get; init; }
+
+    /// <summary>
+    /// "clean", "dirty" (conflito), "blocked", "behind", "unstable", "draft" ou
+    /// "unknown" — o GitHub calcula em segundo plano e pode demorar a responder.
+    /// </summary>
+    public string Mesclagem { get; init; } = "";
+}
+
+/// <summary>Uma verificação (check run) do commit de um PR.</summary>
+public sealed class Verificacao
+{
+    public string Nome { get; init; } = "";
+    public string Situacao { get; init; } = "nenhum";
+    public string Url { get; init; } = "";
 }
 
 /// <summary>Uma execução do GitHub Actions, como aparece no cartão da esteira.</summary>
@@ -422,7 +450,7 @@ public static class GitHubService
         return LerJobs(await BaixarAsync(url, usuario));
     }
 
-    private static async Task<string> BaixarAsync(string url, string usuario)
+    private static async Task<string> BaixarAsync(string url, string usuario, string oque = "a esteira")
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, url);
         var token = await TokenAsync(usuario);
@@ -432,7 +460,7 @@ public static class GitHubService
         using var resp = await Http.SendAsync(req);
         if (!resp.IsSuccessStatusCode)
             throw new InvalidOperationException(
-                $"GitHub respondeu {(int)resp.StatusCode} ao consultar a esteira." +
+                $"GitHub respondeu {(int)resp.StatusCode} ao consultar {oque}." +
                 (resp.StatusCode == System.Net.HttpStatusCode.NotFound
                     ? " Repositório privado costuma exigir token em Preferências → Autenticação."
                     : ""));
@@ -833,25 +861,219 @@ public static class GitHubService
         using var doc = JsonDocument.Parse(json);
         if (doc.RootElement.ValueKind != JsonValueKind.Array) return lista;
 
-        foreach (var p in doc.RootElement.EnumerateArray())
-        {
-            // "merged_at" preenchido é o que separa mesclado de simplesmente fechado
-            var mesclado = p.TryGetProperty("merged_at", out var m) && m.ValueKind == JsonValueKind.String;
-            var estado = Texto(p, "state") == "open" ? "aberto" : mesclado ? "mesclado" : "fechado";
+        foreach (var p in doc.RootElement.EnumerateArray()) lista.Add(LerPr(p));
+        return lista;
+    }
 
-            lista.Add(new PullRequest
+    /// <summary>Um PR só, como vem da consulta e da criação.</summary>
+    public static PullRequest? LerPullRequest(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.ValueKind == JsonValueKind.Object ? LerPr(doc.RootElement) : null;
+    }
+
+    private static PullRequest LerPr(JsonElement p)
+    {
+        // "merged_at" preenchido é o que separa mesclado de simplesmente fechado
+        var mesclado = p.TryGetProperty("merged_at", out var m) && m.ValueKind == JsonValueKind.String;
+        var estado = Texto(p, "state") == "open" ? "aberto" : mesclado ? "mesclado" : "fechado";
+
+        var temOrigem = p.TryGetProperty("head", out var origem) && origem.ValueKind == JsonValueKind.Object;
+        var temDestino = p.TryGetProperty("base", out var destino) && destino.ValueKind == JsonValueKind.Object;
+
+        return new PullRequest
+        {
+            Numero = Inteiro(p, "number"),
+            Titulo = Texto(p, "title"),
+            Autor = p.TryGetProperty("user", out var u) && u.ValueKind == JsonValueKind.Object ? Texto(u, "login") : "",
+            Url = Texto(p, "html_url"),
+            Rascunho = p.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True,
+            Estado = estado,
+            Atualizado = Data(p, "updated_at"),
+            Origem = temOrigem ? Texto(origem, "ref") : "",
+            Destino = temDestino ? Texto(destino, "ref") : "",
+            Sha = temOrigem ? Texto(origem, "sha") : "",
+            Corpo = Texto(p, "body"),
+            Commits = Inteiro(p, "commits"),
+            Arquivos = Inteiro(p, "changed_files"),
+            Adicionadas = Inteiro(p, "additions"),
+            Removidas = Inteiro(p, "deletions"),
+            Mesclagem = Texto(p, "mergeable_state"),
+        };
+    }
+
+    // ------------------------------------------ pull requests: a janela do app
+
+    /// <summary>
+    /// A lista da janela de pull requests: sem o cache do painel, porque quem acabou de
+    /// criar ou mesclar precisa ver o resultado na hora.
+    /// </summary>
+    public static async Task<List<PullRequest>> ListarPullRequestsAsync(
+        string slug, string usuario = "", bool somenteAbertos = true, int limite = 30)
+    {
+        var url = $"https://api.github.com/repos/{slug}/pulls" +
+                  $"?state={(somenteAbertos ? "open" : "all")}&sort=updated&direction=desc&per_page={limite}";
+        return LerPullRequests(await BaixarAsync(url, usuario, "os pull requests"));
+    }
+
+    /// <summary>Um PR com o que a listagem não traz: tamanho e situação de mesclagem.</summary>
+    public static async Task<PullRequest?> PullRequestAsync(string slug, int numero, string usuario = "") =>
+        LerPullRequest(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/pulls/{numero}", usuario, "o pull request"));
+
+    /// <summary>Verificações (Actions e afins) do commit da ponta do PR.</summary>
+    public static async Task<List<Verificacao>> VerificacoesAsync(string slug, string sha, string usuario = "")
+    {
+        if (sha.Length == 0) return new List<Verificacao>();
+        return LerVerificacoes(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/commits/{sha}/check-runs?per_page=100", usuario, "as verificações"));
+    }
+
+    public static List<Verificacao> LerVerificacoes(string json)
+    {
+        var lista = new List<Verificacao>();
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("check_runs", out var runs) ||
+            runs.ValueKind != JsonValueKind.Array) return lista;
+
+        foreach (var r in runs.EnumerateArray())
+        {
+            var conclusao = Texto(r, "conclusion");
+            lista.Add(new Verificacao
             {
-                Numero = p.TryGetProperty("number", out var n) && n.ValueKind == JsonValueKind.Number
-                    ? n.GetInt32() : 0,
-                Titulo = Texto(p, "title"),
-                Autor = p.TryGetProperty("user", out var u) ? Texto(u, "login") : "",
-                Url = Texto(p, "html_url"),
-                Rascunho = p.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True,
-                Estado = estado,
-                Atualizado = Data(p, "updated_at"),
+                Nome = Texto(r, "name"),
+                // pulada e neutra não reprovam nada: contam como passou
+                Situacao = conclusao is "skipped" or "neutral"
+                    ? "sucesso"
+                    : Traduzir(Texto(r, "status"), conclusao),
+                Url = Texto(r, "html_url"),
             });
         }
         return lista;
+    }
+
+    /// <summary>
+    /// Resumo das verificações numa situação só: uma quebrada reprova, uma rodando
+    /// segura, e só sem nenhuma das duas é sucesso. Sem verificação, "nenhum".
+    /// </summary>
+    public static string ResumoDasVerificacoes(IReadOnlyCollection<Verificacao> verificacoes)
+    {
+        if (verificacoes.Count == 0) return "nenhum";
+        if (verificacoes.Any(v => v.Situacao == "falha")) return "falha";
+        if (verificacoes.Any(v => v.Situacao == "rodando")) return "rodando";
+        return verificacoes.Any(v => v.Situacao == "sucesso") ? "sucesso" : "cancelado";
+    }
+
+    /// <summary>Branch padrão do repositório no GitHub: o destino sugerido de um PR novo.</summary>
+    public static async Task<string> BranchPadraoAsync(string slug, string usuario = "")
+    {
+        using var doc = JsonDocument.Parse(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}", usuario, "o repositório"));
+        return Texto(doc.RootElement, "default_branch");
+    }
+
+    /// <summary>
+    /// Escrita nos pull requests. O GitHub explica a recusa no corpo da resposta
+    /// ("A pull request already exists…"), e é isso que interessa mostrar.
+    /// </summary>
+    private static async Task<string> EscreverPrAsync(HttpMethod metodo, string url, object corpo, string usuario, string oque)
+    {
+        var token = await TokenAsync(usuario);
+        if (string.IsNullOrEmpty(token))
+            throw new InvalidOperationException(
+                "Nenhum token encontrado. Configure em Preferências → Autenticação.");
+
+        using var req = new HttpRequestMessage(metodo, url);
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        req.Content = new StringContent(JsonSerializer.Serialize(corpo), System.Text.Encoding.UTF8, "application/json");
+
+        using var resp = await Http.SendAsync(req);
+        var texto = await resp.Content.ReadAsStringAsync();
+        if (resp.IsSuccessStatusCode) return texto;
+
+        throw new InvalidOperationException(
+            $"Não foi possível {oque}: " + MotivoDaRecusa((int)resp.StatusCode, texto));
+    }
+
+    /// <summary>Traduz a recusa do GitHub; separado da rede para ser testado.</summary>
+    public static string MotivoDaRecusa(int codigo, string json)
+    {
+        var mensagens = new List<string>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                if (doc.RootElement.TryGetProperty("errors", out var erros) && erros.ValueKind == JsonValueKind.Array)
+                    foreach (var e in erros.EnumerateArray())
+                    {
+                        var m = e.ValueKind == JsonValueKind.String ? e.GetString() ?? "" : Texto(e, "message");
+                        if (m.Length == 0 && e.ValueKind == JsonValueKind.Object)
+                            m = $"{Texto(e, "field")} {Texto(e, "code")}".Trim();
+                        if (m.Length > 0) mensagens.Add(m);
+                    }
+
+                if (mensagens.Count == 0 && Texto(doc.RootElement, "message") is { Length: > 0 } geral)
+                    mensagens.Add(geral);
+            }
+        }
+        catch (JsonException)
+        {
+            // resposta sem JSON: vale só o código
+        }
+
+        var bruto = string.Join(" ", mensagens);
+        bool Tem(string trecho) => bruto.Contains(trecho, StringComparison.OrdinalIgnoreCase);
+
+        if (Tem("already exists"))
+            return "já existe um pull request aberto desta branch para o mesmo destino.";
+        if (Tem("No commits between"))
+            return "não há commits de diferença entre a origem e o destino.";
+        if (Tem("head invalid"))
+            return "a branch de origem não existe no GitHub. Envie a branch (Enviar) e tente de novo.";
+        if (Tem("base invalid"))
+            return "a branch de destino não existe no GitHub.";
+        if (Tem("not mergeable"))
+            return "o pull request não pode ser mesclado agora (conflito ou verificação pendente).";
+        if (Tem("merge method") || Tem("merges are not allowed"))
+            return "este repositório não permite essa forma de mesclar. Escolha outra.";
+
+        return codigo switch
+        {
+            401 => "o token não foi aceito.",
+            403 => "o token não tem permissão de escrita em pull requests. Um PAT clássico precisa do " +
+                   "escopo \"repo\"; um fine-grained, de \"Pull requests: Read and write\" neste repositório.",
+            404 => "repositório ou pull request não encontrado — ou o token não enxerga este repositório.",
+            405 or 409 => "o pull request não pode ser mesclado agora" + (bruto.Length > 0 ? $": {bruto}" : "."),
+            _ => bruto.Length > 0 ? bruto : $"o GitHub respondeu {codigo}.",
+        };
+    }
+
+    public static async Task<PullRequest?> CriarPullRequestAsync(
+        string slug, string titulo, string corpo, string origem, string destino, bool rascunho, string usuario = "")
+    {
+        var json = await EscreverPrAsync(HttpMethod.Post, $"https://api.github.com/repos/{slug}/pulls",
+            new { title = titulo.Trim(), body = corpo, head = origem, @base = destino, draft = rascunho },
+            usuario, "criar o pull request");
+
+        CachePrs.TryRemove(slug, out _);
+        return LerPullRequest(json);
+    }
+
+    /// <param name="metodo">"merge", "squash" ou "rebase".</param>
+    public static async Task MesclarPullRequestAsync(string slug, int numero, string metodo, string usuario = "")
+    {
+        await EscreverPrAsync(HttpMethod.Put, $"https://api.github.com/repos/{slug}/pulls/{numero}/merge",
+            new { merge_method = metodo }, usuario, "mesclar");
+        CachePrs.TryRemove(slug, out _);
+    }
+
+    /// <summary>Fecha sem mesclar. A branch continua lá.</summary>
+    public static async Task FecharPullRequestAsync(string slug, int numero, string usuario = "")
+    {
+        await EscreverPrAsync(HttpMethod.Patch, $"https://api.github.com/repos/{slug}/pulls/{numero}",
+            new { state = "closed" }, usuario, "fechar o pull request");
+        CachePrs.TryRemove(slug, out _);
     }
 
     /// <summary>Releases mais recentes, da mais nova para a mais antiga.</summary>

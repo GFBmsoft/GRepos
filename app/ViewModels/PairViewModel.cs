@@ -123,6 +123,17 @@ public sealed partial class PairViewModel : ObservableObject
     [RelayCommand]
     private Task PullBoth() => BothAsync(p => GitService.PullAsync(p, false), "Pull");
 
+    /// <summary>
+    /// O par inteiro numa operação: é onde trocar a Origem e o Destino para a mesma
+    /// branch de uma vez faz mais sentido.
+    /// </summary>
+    [RelayCommand]
+    private async Task EmLote()
+    {
+        await _main.AbrirLoteAsync($"par {Title}", new[] { Left.Repo, Right.Repo });
+        await LoadAsync();
+    }
+
     [RelayCommand]
     private void OpenLeft() => _main.SelectRepo(Left.Repo.Id);
 

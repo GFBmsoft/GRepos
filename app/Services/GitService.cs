@@ -706,6 +706,13 @@ public static class GitService
         return rebase ? await RedeAsync(repo, "pull", "--rebase") : await RedeAsync(repo, "pull");
     }
 
+    /// <summary>
+    /// Pull que só avança (fast-forward). É o das operações em lote: onde a branch local
+    /// tem commit próprio o git recusa, em vez de abrir um merge — e possivelmente um
+    /// conflito — em vários repositórios de uma vez.
+    /// </summary>
+    public static Task<string> PullSoAvancoAsync(string repo) => RedeAsync(repo, "pull", "--ff-only");
+
     public static async Task<bool> TemUpstreamAsync(string repo)
     {
         try
@@ -829,6 +836,114 @@ public static class GitService
             return false; // sem vínculo nenhum: o chamador já trata
         }
     }
+
+    /// <summary>
+    /// O que um pull request da branch precisa saber do repositório local: se ela já está
+    /// no remoto com o próprio nome, quantos commits ainda não subiram, o assunto do último
+    /// commit e as branches do remoto que podem ser o destino.
+    /// </summary>
+    public static async Task<(bool Enviada, int NaoEnviados, string Assunto, List<string> Destinos)> SituacaoParaPrAsync(
+        string repo, string branch)
+    {
+        var destinos = (await Run(repo, "for-each-ref", "--format=%(refname)", "refs/remotes/origin"))
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.StartsWith("refs/remotes/origin/") && !l.EndsWith("/HEAD"))
+            .Select(l => l["refs/remotes/origin/".Length..])
+            .OrderBy(DestinoPreferido)
+            .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (branch.Length == 0) return (false, 0, "", destinos);
+
+        // conta o nome, não o vínculo: "feat/x" criada de origin/develop tem upstream e
+        // mesmo assim não existe no remoto
+        var enviada = destinos.Contains(branch);
+        var naoEnviados = 0;
+        if (enviada)
+            int.TryParse((await Run(repo, "rev-list", "--count", $"origin/{branch}..{branch}")).Trim(), out naoEnviados);
+
+        var assunto = (await RunConteudoAsync(repo, new[] { "log", "-1", "--format=%s", branch })).Trim();
+        return (enviada, naoEnviados, assunto, destinos);
+    }
+
+    /// <summary>
+    /// Mescla <paramref name="origem"/> em <paramref name="destino"/>, trocando para o
+    /// destino antes se ele não for a branch atual. Em conflito o git sai com erro e
+    /// deixa o merge em andamento — é a faixa de Continuar/Abortar da aba Alterações.
+    /// </summary>
+    public static async Task<string> MesclarEmAsync(string repo, string origem, string destino)
+    {
+        var atual = (await Run(repo, "branch", "--show-current")).Trim();
+        if (atual != destino) await Run(repo, "checkout", destino);
+        return await Run(repo, "merge", "--no-edit", origem);
+    }
+
+    /// <summary>Reaplica os commits de <paramref name="branch"/> em cima de <paramref name="sobre"/>.</summary>
+    public static Task<string> RebaseSobreAsync(string repo, string branch, string sobre) =>
+        Run(repo, "rebase", sobre, branch);
+
+    /// <summary>
+    /// O que muda de <paramref name="a"/> para <paramref name="b"/> (branches, tags ou
+    /// commits): quantos commits cada lado tem que o outro não tem, e os arquivos que
+    /// diferem. Sem detecção de renomeação: cada arquivo aparece pelo próprio caminho.
+    /// </summary>
+    public static async Task<(int SoEmA, int SoEmB, List<CommitFile> Arquivos)> CompararAsync(string repo, string a, string b)
+    {
+        var contagem = (await Run(repo, "rev-list", "--left-right", "--count", $"{a}...{b}"))
+            .Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var soEmA = contagem.Length > 0 && int.TryParse(contagem[0], out var x) ? x : 0;
+        var soEmB = contagem.Length > 1 && int.TryParse(contagem[1], out var y) ? y : 0;
+
+        var numstat = await Run(repo, "diff", "--no-renames", "--numstat", a, b);
+        var names = await Run(repo, "diff", "--no-renames", "--name-status", a, b);
+
+        var statusOf = new Dictionary<string, string>();
+        foreach (var line in names.Split('\n').Where(l => l.Trim().Length > 0))
+        {
+            var cols = line.Trim('\r').Split('\t');
+            if (cols.Length >= 2) statusOf[TextoGit.Caminho(cols[^1])] = cols[0][..1];
+        }
+
+        var arquivos = numstat.Split('\n')
+            .Where(l => l.Trim().Length > 0)
+            .Select(l => l.Trim('\r').Split('\t'))
+            .Where(c => c.Length >= 3)
+            .Select(c =>
+            {
+                var caminho = TextoGit.Caminho(c[^1]);
+                return new CommitFile
+                {
+                    Path = caminho,
+                    Added = int.TryParse(c[0], out var ad) ? ad : 0,
+                    Removed = int.TryParse(c[1], out var rm) ? rm : 0,
+                    Status = statusOf.TryGetValue(caminho, out var st) ? st : "M",
+                };
+            })
+            .ToList();
+
+        return (soEmA, soEmB, arquivos);
+    }
+
+    /// <summary>O diff de um arquivo entre as duas pontas da comparação.</summary>
+    public static Task<string> CompararArquivoAsync(string repo, string a, string b, string file, int context = 3) =>
+        RunConteudoAsync(repo, new[] { "diff", "--no-color", "--no-ext-diff", "--no-renames", $"-U{context}", a, b, "--", file });
+
+    /// <summary>Branches (locais e remotas) e tags, para escolher as pontas de uma comparação.</summary>
+    public static async Task<List<string>> RefsAsync(string repo) =>
+        (await Run(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads", "refs/remotes", "refs/tags"))
+            .Split('\n')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0 && !l.EndsWith("/HEAD") && l != "origin")
+            .ToList();
+
+    /// <summary>As branches de integração vêm na frente da lista de destinos.</summary>
+    private static int DestinoPreferido(string nome) => nome switch
+    {
+        "develop" => 0,
+        "main" or "master" => 1,
+        _ => 2,
+    };
 
     // -------------------------------------------------------------- branches
 

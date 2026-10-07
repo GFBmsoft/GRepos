@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.LoteWindow"
+        x:DataType="vm:LoteViewModel"
+        Title="Em lote" Width="760" Height="580" MinWidth="600" MinHeight="380"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" Margin="0,0,0,10" />
+
+    <!-- a operação, a branch quando é troca, e o que ela faz dito antes de rodar -->
+    <Border Grid.Row="1" Classes="card" Padding="10,8" Margin="0,0,0,10">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+          <ComboBox Grid.Column="0" MinWidth="170" ItemsSource="{Binding Operacoes}"
+                    SelectedItem="{Binding Operacao}" IsEnabled="{Binding !Busy}" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Text="para" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                     Margin="8,0" IsVisible="{Binding PedeBranch}" />
+          <AutoCompleteBox Grid.Column="2" Width="240" ItemsSource="{Binding Branches}" Text="{Binding Branch}"
+                           FilterMode="Contains" Watermark="branch" VerticalAlignment="Center"
+                           IsVisible="{Binding PedeBranch}" IsEnabled="{Binding !Busy}" />
+        </Grid>
+        <TextBlock Text="{Binding Descricao}" Classes="faint" FontSize="11" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="2" Classes="card" Padding="0" ClipToBounds="True">
+      <Grid RowDefinitions="Auto,*">
+        <Border Grid.Row="0" Padding="10,6" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Grid.Column="0" Classes="sectionTitle" Text="REPOSITÓRIOS" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="tiny" Content="marcar / desmarcar todos"
+                    IsEnabled="{Binding !Busy}" Command="{Binding MarcarTodosCommand}" />
+          </Grid>
+        </Border>
+
+        <ListBox Grid.Row="1" ItemsSource="{Binding Itens}" Background="Transparent" Padding="0,0,4,0">
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="vm:LoteItemViewModel">
+              <Grid ColumnDefinitions="Auto,Auto,180,120,60,16,*" Height="26" Margin="4,0">
+                <CheckBox Grid.Column="0" IsChecked="{Binding Marcado}" VerticalAlignment="Center"
+                          IsEnabled="{Binding !$parent[ListBox].DataContext.Busy}" />
+                <Ellipse Grid.Column="1" Width="7" Height="7" VerticalAlignment="Center" Margin="2,0,6,0"
+                         Fill="{Binding CorDoGrupo, Converter={x:Static local:Converters.ResourceBrush}}" />
+                <TextBlock Grid.Column="2" Text="{Binding Nome}" FontSize="12" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="3" Text="{Binding Branch}" Classes="faint" FontSize="11"
+                           VerticalAlignment="Center" Margin="6,0" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="4" Text="{Binding Pendencias}" Classes="faint" FontSize="10.5"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="5" Text="{Binding Simbolo}" FontSize="12" VerticalAlignment="Center"
+                           Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                <TextBlock Grid.Column="6" Text="{Binding Mensagem}" FontSize="11" VerticalAlignment="Center"
+                           Margin="4,0,0,0" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Mensagem}"
+                           Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,0">
+      <TextBlock Grid.Column="0" Text="{Binding Resumo}" Classes="faint" FontSize="11.5"
+                 VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="{Binding ExecutarRotulo}" MinWidth="200" Margin="0,0,8,0"
+              Classes="primary" IsEnabled="{Binding PodeExecutar}" Command="{Binding ExecutarCommand}" />
+      <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

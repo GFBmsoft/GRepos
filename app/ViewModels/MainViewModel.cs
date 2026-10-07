@@ -42,6 +42,24 @@ public interface IDialogService
 
     /// <summary>Arquivos ignorados só nesta máquina, com a opção de voltar a acompanhar.</summary>
     Task ShowIgnoradosAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
+
+    /// <summary>Comparação entre duas branches, tags ou commits.</summary>
+    Task ShowCompararAsync(CompararViewModel vm) => Task.CompletedTask;
+
+    /// <summary>A mesma operação em vários repositórios (grupo ou par).</summary>
+    Task ShowLoteAsync(LoteViewModel vm) => Task.CompletedTask;
+
+    /// <summary>Pastas de trabalho (git worktree) do repositório.</summary>
+    Task ShowWorktreesAsync(MainViewModel main, Repo repo) => Task.CompletedTask;
+
+    /// <summary>Paleta de comandos (Ctrl+P); ao fechar, o escolhido está em <c>vm.Escolhido</c>.</summary>
+    Task ShowPaletaAsync(PaletaViewModel vm) => Task.CompletedTask;
+
+    /// <summary>Resolução de conflito bloco a bloco: o meu, o deles e o resultado.</summary>
+    Task ShowConflitoAsync(ConflitoViewModel vm) => Task.CompletedTask;
+
+    /// <summary>Pull requests do repositório: lista, detalhe, criar e mesclar.</summary>
+    Task ShowPullRequestsAsync(PullRequestsViewModel vm) => Task.CompletedTask;
 }
 
 public sealed partial class MainViewModel : ObservableObject
@@ -359,7 +377,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnCiSituacaoChanged(string value)
     {
-        foreach (var p in new[] { nameof(TemCi), nameof(CiCor), nameof(CiRotulo), nameof(CiTooltip) })
+        foreach (var p in new[] { nameof(TemCi), nameof(CiCor), nameof(CiRotulo), nameof(CiTooltip),
+                                  nameof(TemCiOuGitHub) })
             OnPropertyChanged(p);
     }
 
@@ -386,6 +405,8 @@ public sealed partial class MainViewModel : ObservableObject
         CiUrl = "";
         _ciSlug = "";
         _ciUsuario = "";
+        TemGitHub = false;
+        PrsAbertos = 0;
 
         try
         {
@@ -402,6 +423,7 @@ public sealed partial class MainViewModel : ObservableObject
             if (usuario.Length == 0) usuario = _ws.Settings.GithubUser;
             _ciSlug = slug;
             _ciUsuario = usuario;
+            TemGitHub = true;
 
             var run = await GitHubService.UltimaExecucaoAsync(
                 slug, CurrentStatus?.Branch ?? "", usuario);
@@ -410,6 +432,11 @@ public sealed partial class MainViewModel : ObservableObject
             CiSituacao = run.Situacao;
             CiDetalhe = run.Detalhe;
             CiUrl = run.Url;
+
+            // mesma consulta (e mesmo cache) do cartão do painel
+            var prs = await GitHubService.PullRequestsAsync(slug, usuario);
+            if (SelectedNode?.Repo.Id != repo.Id) return;
+            PrsAbertos = prs.Count(p => p.Aberto);
         }
         catch (Exception)
         {
@@ -567,6 +594,389 @@ public sealed partial class MainViewModel : ObservableObject
         {
             Notify(e.Message, true);
         }
+    }
+
+    // -------------------------------------------------------- pull requests
+
+    /// <summary>PRs abertos do repositório selecionado; o selo do botão da barra.</summary>
+    [ObservableProperty] private int _prsAbertos;
+
+    /// <summary>Remoto no GitHub: é o que faz existir botão de pull requests.</summary>
+    [ObservableProperty] private bool _temGitHub;
+
+    public string PrBadge => PrsAbertos > 0 ? PrsAbertos.ToString() : "";
+
+    partial void OnPrsAbertosChanged(int value) => OnPropertyChanged(nameof(PrBadge));
+
+    partial void OnTemGitHubChanged(bool value) => OnPropertyChanged(nameof(TemCiOuGitHub));
+
+    /// <summary>O separador da barra aparece se houver qualquer um dos dois botões.</summary>
+    public bool TemCiOuGitHub => TemCi || TemGitHub;
+
+    [RelayCommand]
+    private async Task AbrirPullRequestsAsync()
+    {
+        if (CurrentRepo is not { } repo || _ciSlug.Length == 0) return;
+        await AbrirPullRequestsDeAsync(repo, _ciSlug, _ciUsuario, CurrentStatus?.Branch ?? "");
+    }
+
+    /// <summary>
+    /// Abre os pull requests de um repositório — o selecionado ou o de um cartão do
+    /// painel. Se algo foi mesclado ou fechado por lá, obtém do remoto na volta: a
+    /// branch de destino local continuaria mostrando o estado de antes.
+    /// </summary>
+    public async Task AbrirPullRequestsDeAsync(Repo repo, string slug, string usuario, string branch)
+    {
+        try
+        {
+            var vm = await MontarPullRequestsAsync(repo, slug, usuario, branch);
+            await _dialogs.ShowPullRequestsAsync(vm);
+            await DepoisDosPullRequestsAsync(repo, vm);
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    /// <summary>A janela de pull requests de uma branch, já com o que o repositório local sabe dela.</summary>
+    public async Task<PullRequestsViewModel> MontarPullRequestsAsync(
+        Repo repo, string slug, string usuario, string branch, string destino = "", IDialogService? dialogos = null)
+    {
+        if (usuario.Length == 0) usuario = _ws.Settings.GithubUser;
+
+        var contexto = new ContextoPr(slug, branch, usuario, repo.Name) { DestinoInicial = destino };
+        try
+        {
+            var s = await GitService.SituacaoParaPrAsync(repo.Path, branch);
+            contexto = contexto with
+            {
+                BranchEnviada = s.Enviada,
+                NaoEnviados = s.NaoEnviados,
+                TituloSugerido = s.Assunto,
+                Destinos = s.Destinos,
+            };
+        }
+        catch (GitException)
+        {
+            // sem o lado local a janela ainda lista e mescla; só o PR novo fica sem sugestões
+        }
+
+        return new PullRequestsViewModel(contexto, dialogos ?? _dialogs);
+    }
+
+    public async Task DepoisDosPullRequestsAsync(Repo repo, PullRequestsViewModel vm)
+    {
+        if (CurrentRepo?.Id != repo.Id) return;
+
+        PrsAbertos = vm.Lista.Count(p => p.Pr.Aberto);
+        if (vm.Alterou && !Busy) await FetchCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>"owner/repo" e conta do GitHub de um repositório; null se o remoto não é do GitHub.</summary>
+    public async Task<(string Slug, string Usuario)?> GitHubDeAsync(Repo repo)
+    {
+        try
+        {
+            var remoto = await GitService.RemoteUrlAsync(repo.Path);
+            if (GitHubService.Slug(remoto) is not { } slug) return null;
+
+            var usuario = GitHubService.ContaDoRepositorio(repo.Conta, remoto);
+            return (slug, usuario.Length > 0 ? usuario : _ws.Settings.GithubUser);
+        }
+        catch (GitException)
+        {
+            return null; // sem remoto
+        }
+    }
+
+    // ------------------------------------------- soltar uma branch sobre outra
+
+    /// <summary>
+    /// Roda a opção escolhida ao soltar <paramref name="origem"/> sobre
+    /// <paramref name="destino"/>. Merge e rebase confirmam antes, mostrando os comandos;
+    /// o erro do git sobe para quem chamou, que sabe onde mostrá-lo.
+    /// </summary>
+    /// <returns>Falso quando o usuário desistiu na confirmação.</returns>
+    public async Task<bool> ExecutarArrasteAsync(
+        Repo repo, OpcaoDeArraste opcao, RefDeBranch origem, RefDeBranch destino,
+        Func<string, string, Task<bool>>? confirmar = null)
+    {
+        if (!opcao.Disponivel || opcao.Acao == AcaoDeArraste.PullRequest) return false;
+
+        confirmar ??= _dialogs.ConfirmAsync;
+        var titulo = opcao.Acao == AcaoDeArraste.Mesclar ? "Mesclar" : "Rebase";
+        if (!await confirmar(titulo, ArrasteDeBranch.Confirmacao(opcao, origem, destino))) return false;
+
+        try
+        {
+            if (opcao.Acao == AcaoDeArraste.Mesclar)
+                await GitService.MesclarEmAsync(repo.Path, origem.Nome, destino.Nome);
+            else
+                await GitService.RebaseSobreAsync(repo.Path, origem.Nome, destino.Nome);
+        }
+        catch (GitException)
+        {
+            // o git sai com erro e deixa a operação em andamento: não é falha, é o
+            // conflito esperando resolução
+            if (GitService.OperacaoEmAndamento(repo.Path) != GitService.Operacao.Nenhuma)
+                throw new GitException(
+                    $"{titulo} parou em conflito. Resolva os arquivos na aba Alterações e use " +
+                    "Continuar; para desistir, Abortar.");
+            throw;
+        }
+        finally
+        {
+            // mesmo com erro: um merge em conflito já trocou de branch e mexeu nos arquivos
+            try { await RefreshRepoAsync(repo.Id); } catch (Exception) { /* só os contadores */ }
+        }
+        return true;
+    }
+
+    // -------------------------------------------------------------- comparar
+
+    /// <summary>
+    /// Compara duas pontas do repositório. Sem a segunda, vale a branch atual: é a
+    /// pergunta de sempre, "o que esta branch tem de diferente da minha?".
+    /// </summary>
+    public async Task CompararAsync(Repo repo, string a = "", string b = "")
+    {
+        try
+        {
+            if (b.Length == 0 && CurrentRepo?.Id == repo.Id) b = CurrentStatus?.Branch ?? "";
+            await _dialogs.ShowCompararAsync(new CompararViewModel(repo, a, b, SplitDiff));
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    [RelayCommand]
+    private Task Comparar() => CurrentRepo is { } repo ? CompararAsync(repo) : Task.CompletedTask;
+
+    // ----------------------------------------------------- operações em lote
+
+    /// <summary>
+    /// Obter, puxar, enviar ou trocar de branch em vários repositórios de uma vez. Na
+    /// volta a árvore e o painel são atualizados: o lote mexeu em todos eles.
+    /// </summary>
+    public async Task AbrirLoteAsync(string titulo, IEnumerable<Repo> repos)
+    {
+        try
+        {
+            var vm = MontarLote(titulo, repos);
+            if (vm.Itens.Count == 0) return;
+
+            await _dialogs.ShowLoteAsync(vm);
+            if (!vm.Executou) return;
+
+            await RefreshAllAsync();
+            AtualizarCartoesDoPainel();
+            if (CurrentRepo is not null) await LoadTabAsync();
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    public LoteViewModel MontarLote(string titulo, IEnumerable<Repo> repos) =>
+        new(titulo, repos
+            .OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(r => new LoteItemViewModel
+            {
+                Repo = r,
+                CorDoGrupo = _ws.Groups.FirstOrDefault(g => g.Id == (r.GroupId ?? ""))?.Color ?? "TextDim",
+                Status = _nodes.TryGetValue(r.Id, out var no) ? no.Status : null,
+            }), this);
+
+    /// <summary>Pastas de trabalho do repositório aberto. Uma delas pode ter entrado na árvore.</summary>
+    [RelayCommand]
+    private async Task OpenWorktrees()
+    {
+        if (CurrentRepo is not { } repo) return;
+        await _dialogs.ShowWorktreesAsync(this, repo);
+    }
+
+    // ------------------------------------------------- paleta de comandos
+
+    /// <summary>
+    /// Ctrl+P: repositórios, branches do repositório aberto e ações, numa busca só. Com
+    /// dezenas de repositórios é o caminho mais curto até qualquer um deles.
+    /// </summary>
+    [RelayCommand]
+    private async Task AbrirPaletaAsync()
+    {
+        try
+        {
+            var vm = new PaletaViewModel(ItensDaPaleta());
+
+            // as branches saem do git: entram quando chegam, sem atrasar a abertura
+            var branches = BranchesDaPaletaAsync().ContinueWith(
+                t => { if (t.Status == TaskStatus.RanToCompletion) vm.Acrescentar(t.Result); },
+                TaskScheduler.FromCurrentSynchronizationContext());
+
+            await _dialogs.ShowPaletaAsync(vm);
+            if (vm.Escolhido is { } item) await item.Executar();
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    /// <summary>Repositórios e ações, na ordem em que aparecem sem nada digitado.</summary>
+    public List<ItemDaPaleta> ItensDaPaleta()
+    {
+        var itens = new List<ItemDaPaleta>();
+
+        void Acao(string titulo, string detalhe, System.Windows.Input.ICommand comando, bool cabe = true)
+        {
+            if (!cabe) return;
+            itens.Add(new ItemDaPaleta
+            {
+                Tipo = "ação", Titulo = titulo, Detalhe = detalhe, Cor = "Accent",
+                Executar = () =>
+                {
+                    if (comando.CanExecute(null)) comando.Execute(null);
+                    return Task.CompletedTask;
+                },
+            });
+        }
+
+        // o que vale para o repositório aberto vem primeiro: é o que mais se usa
+        if (CurrentRepo is { } atual && !Busy)
+        {
+            var nome = atual.Name;
+            Acao("Obter", $"fetch em {nome}", FetchCommand);
+            Acao("Puxar", $"pull em {nome}", PullCommand);
+            Acao("Enviar", $"push de {nome}", PushCommand);
+            Acao("Branches…", $"trocar, criar, mesclar em {nome}", OpenBranchesCommand);
+            Acao("Pull requests…", $"ver, criar e mesclar em {nome}", AbrirPullRequestsCommand, TemGitHub);
+            Acao("Esteira…", $"execuções do GitHub Actions de {nome}", AbrirEsteiraCommand, TemCi);
+            Acao("Comparar branches ou commits…", $"o que muda de uma ponta para a outra em {nome}", CompararCommand);
+            Acao("Pastas de trabalho (worktrees)…", $"outra branch de {nome} em outra pasta", OpenWorktreesCommand);
+            Acao("Esconder (stash)…", $"guardar ou recuperar alterações de {nome}", OpenStashCommand);
+            Acao("Desfazer a última ação", nome, DesfazerCommand);
+            Acao("Terminal", $"Git Bash na pasta de {nome}", AlternarTerminalCommand);
+            Acao("Abrir a pasta", atual.Path, AbrirPastaCommand);
+            Acao("Abrir no GitHub", RemoteWebUrl, AbrirRemotoCommand, TemRemoto);
+            Acao("Configurar repositório…", nome, OpenRepoConfigCommand);
+        }
+
+        foreach (var repo in _ws.Repos.OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase))
+        {
+            var grupo = _ws.Groups.FirstOrDefault(g => g.Id == (repo.GroupId ?? ""));
+            var branch = _nodes.TryGetValue(repo.Id, out var no) ? no.Status?.Branch ?? "" : "";
+            var id = repo.Id;
+
+            itens.Add(new ItemDaPaleta
+            {
+                Tipo = "repositório",
+                Titulo = repo.Name,
+                Detalhe = string.Join(" · ", new[] { grupo?.Name ?? "", branch }.Where(p => p.Length > 0)),
+                Cor = grupo?.Color ?? "TextDim",
+                Executar = () =>
+                {
+                    SelecionarRepositorio(id);
+                    return Task.CompletedTask;
+                },
+            });
+        }
+
+        foreach (var grupo in _ws.Groups)
+        {
+            var id = grupo.Id;
+            itens.Add(new ItemDaPaleta
+            {
+                Tipo = "painel", Titulo = "Painel: " + grupo.Name, Detalhe = "cartões dos repositórios do grupo",
+                Cor = grupo.Color,
+                Executar = () =>
+                {
+                    MostrarPainel(id);
+                    return Task.CompletedTask;
+                },
+            });
+        }
+
+        foreach (var grupo in _ws.Groups)
+        {
+            var doGrupo = _ws.Repos.Where(r => (r.GroupId ?? "") == grupo.Id).ToList();
+            if (doGrupo.Count < 2) continue;
+
+            var nome = grupo.Name;
+            itens.Add(new ItemDaPaleta
+            {
+                Tipo = "lote", Titulo = "Em lote: " + nome,
+                Detalhe = $"obter, puxar, enviar ou trocar de branch em {doGrupo.Count} repositórios",
+                Cor = grupo.Color,
+                Executar = () => AbrirLoteAsync(nome, doGrupo),
+            });
+        }
+
+        if (_ws.Repos.Count > 1)
+            itens.Add(new ItemDaPaleta
+            {
+                Tipo = "lote", Titulo = "Em lote: todos os repositórios", Cor = "Accent",
+                Detalhe = "obter, puxar, enviar ou trocar de branch em todos",
+                Executar = () => AbrirLoteAsync("todos os repositórios", _ws.Repos.ToList()),
+            });
+
+        itens.Add(new ItemDaPaleta
+        {
+            Tipo = "painel", Titulo = "Painel: todos os repositórios", Cor = "Accent",
+            Executar = () =>
+            {
+                MostrarPainel(null);
+                return Task.CompletedTask;
+            },
+        });
+
+        Acao("Atualizar todos os repositórios", "varre o status de todos", RefreshAllCommand);
+        Acao("Adicionar repositório…", "pasta local ou clone do GitHub", AddRepoCommand);
+        Acao("Novo grupo…", "", AddGroupCommand);
+        Acao("Preferências…", "", OpenSettingsCommand);
+        Acao("Novidades", "o que mudou em cada versão", AbrirNovidadesCommand);
+        Acao("Procurar atualização", "", ProcurarAtualizacaoCommand);
+        return itens;
+    }
+
+    /// <summary>As branches do repositório aberto: escolher uma é trocar para ela.</summary>
+    public async Task<List<ItemDaPaleta>> BranchesDaPaletaAsync()
+    {
+        var itens = new List<ItemDaPaleta>();
+        if (CurrentRepo is not { } repo) return itens;
+
+        var branches = await GitService.BranchesAsync(repo.Path);
+        var locais = branches.Where(b => !b.IsRemote).Select(b => b.Name).ToHashSet();
+
+        foreach (var b in branches.Where(b => !b.IsHead))
+        {
+            // remota que já tem a local de mesmo nome seria a mesma troca, repetida
+            if (b.IsRemote && locais.Contains(new RefDeBranch(b.Name, true).NomeLocal)) continue;
+
+            var alvo = b;
+            itens.Add(new ItemDaPaleta
+            {
+                Tipo = "branch",
+                Titulo = b.Name,
+                Detalhe = b.IsRemote ? "trocar para ela, criando a local" : "trocar para ela",
+                Cor = b.IsRemote ? "TextDim" : "Green",
+                Executar = () => TrocarDeBranchAsync(repo, alvo),
+            });
+        }
+        return itens;
+    }
+
+    private async Task TrocarDeBranchAsync(Repo repo, Branch branch)
+    {
+        if (CurrentRepo?.Id != repo.Id) return;
+
+        await RunAsync(p => branch.IsRemote
+            ? GitService.CheckoutRemotaAsync(p, branch.Name)
+            : GitService.CheckoutAsync(p, branch.Name), "Trocar de branch");
+        await LoadTabAsync();
     }
 
     // selos da barra: vazio esconde o contador

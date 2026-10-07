@@ -1,0 +1,92 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.WorktreesWindow"
+        x:DataType="vm:WorktreesViewModel"
+        Title="Pastas de trabalho" Width="760" Height="500" MinWidth="600" MinHeight="360"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="14">
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Classes="faint" FontSize="11" TextWrapping="Wrap"
+                 Text="Worktrees do git: o mesmo repositório aberto em mais de uma pasta, cada uma numa branch. Serve para mexer em outra branch sem guardar o que está em andamento." />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <Border Grid.Row="2" Classes="card" Padding="0" ClipToBounds="True">
+      <ListBox ItemsSource="{Binding Lista}" Background="Transparent" Padding="0,0,4,0">
+        <ListBox.ItemTemplate>
+          <DataTemplate DataType="vm:WorktreeItemViewModel">
+            <Grid ColumnDefinitions="14,*,Auto" Margin="6,5" ToolTip.Tip="{Binding Caminho}">
+              <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Top" Margin="0,6,0,0"
+                       HorizontalAlignment="Left"
+                       Fill="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+              <StackPanel Grid.Column="1" Margin="2,0,8,0">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding Branch}" FontWeight="SemiBold" FontSize="12" />
+                  <TextBlock Text="{Binding Hash}" Classes="mono faint" FontSize="10.5"
+                             VerticalAlignment="Center" />
+                  <TextBlock Text="{Binding Situacao}" Classes="faint" FontSize="10.5"
+                             VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Text="{Binding Caminho}" Classes="faint" FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="Adicionar ao GRepos" IsVisible="{Binding PodeAdicionar}"
+                        ToolTip.Tip="Põe esta pasta na árvore, como um repositório do mesmo grupo"
+                        Command="{Binding $parent[ListBox].DataContext.AdicionarCommand}"
+                        CommandParameter="{Binding}" />
+                <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="Pasta" IsVisible="{Binding PodeAbrir}"
+                        ToolTip.Tip="Abre a pasta no Explorer"
+                        Command="{Binding $parent[ListBox].DataContext.AbrirPastaCommand}"
+                        CommandParameter="{Binding}" />
+                <Button Classes="tiny danger" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="Remover" IsVisible="{Binding PodeRemover}"
+                        ToolTip.Tip="Apaga a pasta de trabalho; a branch continua no repositório"
+                        Command="{Binding $parent[ListBox].DataContext.RemoverCommand}"
+                        CommandParameter="{Binding}" />
+              </StackPanel>
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Border>
+
+    <!-- nova pasta de trabalho: a branch (existente ou nova) e onde ela fica -->
+    <Border Grid.Row="3" Classes="card" Padding="10,8" Margin="0,10,0,0">
+      <Grid ColumnDefinitions="Auto,200,Auto,*,Auto,Auto">
+        <TextBlock Grid.Column="0" Text="Nova" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                   Margin="0,0,8,0" />
+        <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding Branches}" Text="{Binding NovaBranch}"
+                         FilterMode="Contains" Watermark="branch (existente ou nova)"
+                         VerticalAlignment="Center" />
+        <TextBlock Grid.Column="2" Text="em" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                   Margin="8,0" />
+        <TextBox Grid.Column="3" Text="{Binding NovaPasta}" Watermark="pasta" VerticalAlignment="Center" />
+        <Button Grid.Column="4" Content="…" MinWidth="34" Margin="6,0,0,0" VerticalAlignment="Center"
+                ToolTip.Tip="Escolher a pasta" Command="{Binding ProcurarPastaCommand}" />
+        <Button Grid.Column="5" Content="Criar" MinWidth="80" Margin="6,0,0,0" Classes="primary"
+                VerticalAlignment="Center" IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0">
+      <Button Grid.Column="0" Content="Limpar registros de pastas apagadas" IsVisible="{Binding TemOrfas}"
+              Command="{Binding LimparOrfasCommand}"
+              ToolTip.Tip="git worktree prune: tira da lista as pastas que não existem mais" />
+      <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

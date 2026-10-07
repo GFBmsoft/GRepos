@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:svc="using:GRepos.Services"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.PaletaWindow"
+        x:DataType="vm:PaletaViewModel"
+        Title="Ir para" Width="620" Height="420" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        SystemDecorations="BorderOnly"
+        Background="{DynamicResource BgPanel}">
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="10">
+
+    <TextBox Grid.Row="0" x:Name="Caixa" Text="{Binding Consulta}" FontSize="13.5" Margin="0,0,0,8"
+             Watermark="Repositório, branch ou ação…" />
+
+    <TextBlock Grid.Row="1" Text="Nada encontrado." Classes="faint" Margin="8,8"
+               IsVisible="{Binding Vazio}" />
+
+    <ListBox Grid.Row="1" x:Name="Lista" ItemsSource="{Binding Resultados}"
+             SelectedItem="{Binding Selecionado}" Background="Transparent">
+      <ListBox.ItemTemplate>
+        <DataTemplate DataType="svc:ItemDaPaleta">
+          <Grid ColumnDefinitions="14,Auto,*,Auto" Height="26" Margin="4,0">
+            <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center"
+                     HorizontalAlignment="Left"
+                     Fill="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+            <TextBlock Grid.Column="1" Text="{Binding Titulo}" FontSize="12.5" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Text="{Binding Detalhe}" Classes="faint" FontSize="11"
+                       VerticalAlignment="Center" Margin="10,0" TextTrimming="CharacterEllipsis" />
+            <TextBlock Grid.Column="3" Text="{Binding Tipo}" Classes="faint" FontSize="10.5"
+                       VerticalAlignment="Center" />
+          </Grid>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <TextBlock Grid.Row="2" Classes="faint" FontSize="10.5" Margin="4,8,0,0"
+               Text="↑ ↓ escolhem   ·   Enter abre   ·   Esc fecha" />
+  </Grid>
+</Window>

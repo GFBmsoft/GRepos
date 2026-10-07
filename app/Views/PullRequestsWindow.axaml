@@ -1,0 +1,215 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:views="using:GRepos.Views"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.PullRequestsWindow"
+        x:DataType="vm:PullRequestsViewModel"
+        Title="Pull requests" Width="940" Height="640" MinWidth="720" MinHeight="440"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="11" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <!-- lista à esquerda; à direita o detalhe do escolhido ou o formulário de PR novo -->
+    <Grid Grid.Row="2" ColumnDefinitions="330,10,*">
+
+      <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="10,6,8,6" BorderBrush="{DynamicResource BorderSoft}"
+                  BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+              <CheckBox Grid.Column="0" Content="mostrar fechados e mesclados" FontSize="11"
+                        VerticalAlignment="Center" IsChecked="{Binding MostrarFechados}" />
+              <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="Novo"
+                      BorderBrush="{DynamicResource Border}" VerticalAlignment="Center"
+                      Command="{Binding NovoCommand}"
+                      ToolTip.Tip="Abrir um pull request da branch atual" />
+            </Grid>
+          </Border>
+
+          <TextBlock Grid.Row="1" Text="Carregando…" Classes="faint" Margin="12,10"
+                     IsVisible="{Binding Carregando}" />
+          <TextBlock Grid.Row="1" Text="{Binding TextoVazio}" Classes="faint" Margin="12,10"
+                     TextWrapping="Wrap" IsVisible="{Binding Vazio}" />
+
+          <ListBox Grid.Row="1" ItemsSource="{Binding Lista}" SelectedItem="{Binding Selecionada}"
+                   Background="Transparent" Padding="0,0,4,0">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:PrViewModel">
+                <Grid ColumnDefinitions="16,*,Auto" Margin="6,5" ToolTip.Tip="{Binding Tooltip}">
+                  <!-- a bolinha é o estado do PR; a marca ao lado do número, as verificações -->
+                  <Ellipse Grid.Column="0" Width="8" Height="8" VerticalAlignment="Top" Margin="0,5,0,0"
+                           HorizontalAlignment="Left"
+                           Fill="{Binding EstadoCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  <StackPanel Grid.Column="1" Margin="4,0,6,0">
+                    <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Caminho}" Classes="dim" FontSize="11"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="faint" FontSize="10.5" TextTrimming="CharacterEllipsis">
+                      <Run Text="{Binding Estado, Mode=OneWay}" />
+                      <Run Text=" · " />
+                      <Run Text="{Binding Rodape, Mode=OneWay}" />
+                    </TextBlock>
+                  </StackPanel>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="5" VerticalAlignment="Top">
+                    <TextBlock Text="{Binding CiSimbolo}" FontSize="11.5" IsVisible="{Binding TemCi}"
+                               Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                    <TextBlock Text="{Binding Numero}" Classes="faint" FontSize="10.5" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+        <Panel>
+
+          <TextBlock Text="Escolha um pull request à esquerda." Classes="faint" Margin="12,10"
+                     IsVisible="{Binding SemSelecao}" />
+
+          <!-- =============================================== detalhe do escolhido -->
+          <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding MostraDetalhe}">
+            <Border Grid.Row="0" Padding="12,9" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,0,0,1">
+              <StackPanel Spacing="3">
+                <TextBlock Text="{Binding DetalheTitulo}" FontSize="13" FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding DetalheCaminho}" Classes="mono" FontSize="11"
+                           Foreground="{DynamicResource Accent}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding DetalheResumo}" Classes="faint" FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding MesclagemTexto}" FontSize="11.5" TextWrapping="Wrap"
+                           Foreground="{Binding MesclagemCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+              </StackPanel>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" Padding="0,0,4,0">
+              <StackPanel Margin="12,10">
+                <StackPanel IsVisible="{Binding TemVerificacoes}" Margin="0,0,0,12">
+                  <TextBlock Classes="sectionTitle" Text="VERIFICAÇÕES" Margin="0,0,0,4" />
+                  <ItemsControl ItemsSource="{Binding Verificacoes}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="vm:VerificacaoViewModel">
+                        <Grid ColumnDefinitions="14,*,Auto" Height="22">
+                          <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="11"
+                                     VerticalAlignment="Center"
+                                     Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                          <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11.5" Margin="6,0"
+                                     VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Grid.Column="2" Text="{Binding Texto}" Classes="faint" FontSize="10.5"
+                                     VerticalAlignment="Center" />
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+
+                <TextBlock Classes="sectionTitle" Text="DESCRIÇÃO" Margin="0,0,0,4" />
+                <views:MarkdownView Markdown="{Binding DetalheCorpo}" />
+              </StackPanel>
+            </ScrollViewer>
+
+            <!-- mesclar e fechar escrevem no GitHub: os dois confirmam antes -->
+            <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,1,0,0">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                <ComboBox Grid.Column="0" MinWidth="170" ItemsSource="{Binding Metodos}"
+                          SelectedItem="{Binding Metodo}" VerticalAlignment="Center"
+                          ToolTip.Tip="Como os commits entram na branch de destino" />
+                <Button Grid.Column="1" Content="Mesclar" MinWidth="88" Margin="8,0,0,0"
+                        Classes="primary" IsEnabled="{Binding PodeMesclar}"
+                        Command="{Binding MesclarCommand}"
+                        ToolTip.Tip="Mescla o pull request no GitHub" />
+                <Button Grid.Column="3" Content="Fechar PR" MinWidth="88" Classes="danger"
+                        IsEnabled="{Binding PodeFechar}" Command="{Binding FecharPrCommand}"
+                        ToolTip.Tip="Fecha o pull request sem mesclar" />
+              </Grid>
+            </Border>
+          </Grid>
+
+          <!-- ================================================ pull request novo -->
+          <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding Criando}">
+            <Border Grid.Row="0" Padding="12,8" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,0,0,1">
+              <TextBlock Classes="sectionTitle" Text="NOVO PULL REQUEST" />
+            </Border>
+
+            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*" Margin="12,10">
+              <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                <TextBlock Text="{Binding NovoCaminho}" Classes="mono" FontSize="12"
+                           Foreground="{DynamicResource Accent}" VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                <ComboBox MinWidth="190" ItemsSource="{Binding Destinos}"
+                          SelectedItem="{Binding NovoDestino}" VerticalAlignment="Center"
+                          ToolTip.Tip="Branch que recebe as alterações" />
+              </StackPanel>
+
+              <TextBlock Grid.Row="1" Text="Título" Classes="faint" FontSize="11" Margin="0,0,0,3" />
+              <TextBox Grid.Row="2" Text="{Binding NovoTitulo}" Margin="0,0,0,10"
+                       Watermark="O que este pull request entrega" />
+
+              <TextBlock Grid.Row="3" Text="Descrição (aceita Markdown)" Classes="faint" FontSize="11"
+                         Margin="0,0,0,3" />
+              <TextBox Grid.Row="4" Text="{Binding NovoCorpo}" AcceptsReturn="True" TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+            </Grid>
+
+            <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,1,0,0">
+              <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                <TextBlock Grid.Column="0" Text="{Binding AvisoNovo}" FontSize="11" TextWrapping="Wrap"
+                           Foreground="{DynamicResource Yellow}" VerticalAlignment="Center"
+                           Margin="0,0,10,0" IsVisible="{Binding TemAvisoNovo}" />
+                <CheckBox Grid.Column="1" Content="rascunho" FontSize="11" VerticalAlignment="Center"
+                          Margin="0,0,12,0" IsChecked="{Binding NovoRascunho}"
+                          ToolTip.Tip="Abre como rascunho, que não pode ser mesclado até ser marcado como pronto" />
+                <Button Grid.Column="2" Content="Cancelar" MinWidth="80" Margin="0,0,8,0"
+                        Command="{Binding CancelarNovoCommand}" />
+                <Button Grid.Column="3" Content="Criar pull request" MinWidth="140" Classes="primary"
+                        IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}" />
+              </Grid>
+            </Border>
+          </Grid>
+        </Panel>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,10,0,0">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="8" Height="8" Fill="{DynamicResource Green}" VerticalAlignment="Center" />
+          <TextBlock Text="aberto" Classes="faint" FontSize="11" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="8" Height="8" Fill="{DynamicResource Purple}" VerticalAlignment="Center" />
+          <TextBlock Text="mesclado" Classes="faint" FontSize="11" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="5">
+          <Ellipse Width="8" Height="8" Fill="{DynamicResource Red}" VerticalAlignment="Center" />
+          <TextBlock Text="fechado" Classes="faint" FontSize="11" />
+        </StackPanel>
+      </StackPanel>
+
+      <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
+      <Button Grid.Column="3" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}" />
+      <Button Grid.Column="4" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

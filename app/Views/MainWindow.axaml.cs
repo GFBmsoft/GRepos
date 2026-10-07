@@ -66,6 +66,14 @@ public partial class MainWindow : Window, IDialogService
         if ((e.Source as Visual)?.FindAncestorOfType<AvaloniaTerminal.TerminalControl>(includeSelf: true) is not null)
             return;
 
+        // Ctrl+P: a paleta, de qualquer lugar da janela
+        if (e.Key == Key.P && e.KeyModifiers == KeyModifiers.Control)
+        {
+            if (DataContext is MainViewModel vm) vm.AbrirPaletaCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.F && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             caixa.Focus();
@@ -231,6 +239,20 @@ public partial class MainWindow : Window, IDialogService
 
     public Task ShowEsteiraAsync(string slug, string branch, string usuario, string repoNome, int visiveis) =>
         new EsteiraWindow(slug, branch, usuario, repoNome, this, visiveis).ShowDialog(this);
+
+    public Task ShowCompararAsync(CompararViewModel vm) => new CompararWindow(vm).ShowDialog(this);
+
+    public Task ShowLoteAsync(LoteViewModel vm) => new LoteWindow(vm).ShowDialog(this);
+
+    public Task ShowWorktreesAsync(MainViewModel main, Repo repo) =>
+        new WorktreesWindow(main, repo).ShowDialog(this);
+
+    public Task ShowPaletaAsync(PaletaViewModel vm) => new PaletaWindow(vm).ShowDialog(this);
+
+    public Task ShowConflitoAsync(ConflitoViewModel vm) => new ConflitoWindow(vm).ShowDialog(this);
+
+    public Task ShowPullRequestsAsync(PullRequestsViewModel vm) =>
+        new PullRequestsWindow(vm).ShowDialog(this);
 
     public Task ShowStashAsync(MainViewModel main, Repo repo) =>
         new StashWindow(main, repo).ShowDialog(this);

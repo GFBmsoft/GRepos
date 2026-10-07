@@ -131,6 +131,10 @@
                 <!-- conflito: fica inteiro com um dos lados, ou marca o que foi acertado no editor -->
                 <StackPanel Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal"
                             IsVisible="{Binding IsConflito}">
+                  <Button Classes="tiny" Content="Resolver" IsVisible="{Binding ConflitoDeConteudo}"
+                          ToolTip.Tip="Resolver bloco a bloco: o meu, o deles e o resultado"
+                          Command="{Binding $parent[ListBox].DataContext.ResolverConflitoCommand}"
+                          CommandParameter="{Binding}" />
                   <Button Classes="tiny" Content="Meu"
                           ToolTip.Tip="Fica com a versão da sua branch (descarta a que está chegando)"
                           Command="{Binding $parent[ListBox].DataContext.ManterMeuCommand}"

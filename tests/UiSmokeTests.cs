@@ -672,6 +672,234 @@ public class UiSmokeTests
         window.Close();
     }
 
+    internal static CompararViewModel CompararPopulado()
+    {
+        var vm = new CompararViewModel(new Repo { Id = "r1", Name = "Financeiro", Path = "" }, "develop", "imp/boleto", split: true);
+        vm.Refs.Add("develop");
+        vm.Refs.Add("imp/boleto");
+        vm.Resumo = CompararViewModel.Descrever("develop", "imp/boleto", 1, 3, 2);
+        vm.Arquivos.Add(new CommitFileViewModel { File = new CommitFile { Path = "Units/Boleto.pas", Added = 12, Removed = 3, Status = "M" } });
+        vm.Arquivos.Add(new CommitFileViewModel { File = new CommitFile { Path = "Units/Juros.pas", Added = 40, Status = "A" } });
+        vm.Diff.Title = "Units/Boleto.pas  (develop → imp/boleto)";
+        vm.Diff.Load(
+            "diff --git a/Units/Boleto.pas b/Units/Boleto.pas\n--- a/Units/Boleto.pas\n+++ b/Units/Boleto.pas\n" +
+            "@@ -1,3 +1,4 @@\n begin\n-  Valor := Base;\n+  Valor := Base * 1.02;\n+  Juros := Valor * Taxa;\n end;\n");
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void CompararWindow_monta_com_arquivos_e_diff()
+    {
+        var window = new CompararWindow { DataContext = CompararPopulado(), Width = 1180, Height = 760 };
+        window.Show();
+        window.Measure(new Size(1180, 760));
+        window.Arrange(new Rect(0, 0, 1180, 760));
+        window.Close();
+    }
+
+    internal static LoteViewModel LotePopulado()
+    {
+        var vm = new LoteViewModel("DBISAM", new[]
+        {
+            new LoteItemViewModel
+            {
+                Repo = new Repo { Id = "r1", Name = "Financeiro" }, CorDoGrupo = "#DB4C9B",
+                Status = new RepoStatus { Branch = "develop", Behind = 2 }, Situacao = "ok", Mensagem = "saiu de imp/boleto",
+            },
+            new LoteItemViewModel
+            {
+                Repo = new Repo { Id = "r2", Name = "NFCe" }, CorDoGrupo = "#DB4C9B",
+                Status = new RepoStatus { Branch = "master", Ahead = 1, PendingFiles = 3 },
+                Situacao = "erro", Mensagem = "há alterações locais que a operação sobrescreveria: commite ou guarde (stash) antes",
+            },
+            new LoteItemViewModel
+            {
+                Repo = new Repo { Id = "r3", Name = "SPED" }, CorDoGrupo = "#DB4C9B",
+                Status = new RepoStatus { Branch = "master" }, Situacao = "pulado", Mensagem = "não tem essa branch",
+            },
+            new LoteItemViewModel
+            {
+                Repo = new Repo { Id = "r4", Name = "Testes" }, CorDoGrupo = "#4F8CFF",
+                Status = new RepoStatus { Branch = "main" }, Marcado = false,
+            },
+        }, new MainViewModel(new FakeDialogs()));
+
+        vm.Operacao = vm.Operacoes.Single(o => o.Operacao == GRepos.Services.OperacaoEmLote.Trocar);
+        vm.Branches.Add("develop");
+        vm.Branch = "develop";
+        vm.Resumo = "1 feito(s), 1 pulado(s), 1 com erro";
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void LoteWindow_monta_com_repositorios_e_resultados()
+    {
+        var vm = LotePopulado();
+
+        var window = new LoteWindow { DataContext = vm, Width = 760, Height = 580 };
+        window.Show();
+        window.Measure(new Size(760, 580));
+        window.Arrange(new Rect(0, 0, 760, 580));
+
+        Assert.Equal("Trocar de branch em 3 repositórios", vm.ExecutarRotulo);
+        window.Close();
+    }
+
+    internal static WorktreesViewModel WorktreesPopulado()
+    {
+        var vm = new WorktreesViewModel(new Repo { Id = "r1", Name = "Financeiro", Path = @"D:\Repos\Financeiro" },
+            new MainViewModel(new FakeDialogs()));
+
+        vm.Lista.Add(new WorktreeItemViewModel
+        {
+            Worktree = new GRepos.Services.Worktree { Caminho = "D:/Repos/Financeiro", Branch = "develop", Head = "1111111aaaa", Principal = true },
+            NoWorkspace = true,
+        });
+        vm.Lista.Add(new WorktreeItemViewModel
+        {
+            Worktree = new GRepos.Services.Worktree { Caminho = "D:/Repos/Financeiro-imp-boleto", Branch = "imp/boleto", Head = "2222222bbbb" },
+        });
+        vm.Lista.Add(new WorktreeItemViewModel
+        {
+            Worktree = new GRepos.Services.Worktree { Caminho = "D:/Repos/Financeiro-defeito-sped", Branch = "defeito/sped", Head = "3333333cccc", Orfa = true },
+        });
+        vm.Branches.Add("master");
+        vm.NovaBranch = "master";
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void WorktreesWindow_monta_com_a_lista_e_o_formulario()
+    {
+        var vm = WorktreesPopulado();
+
+        var window = new WorktreesWindow { DataContext = vm, Width = 760, Height = 500 };
+        window.Show();
+        window.Measure(new Size(760, 500));
+        window.Arrange(new Rect(0, 0, 760, 500));
+
+        Assert.Equal("Financeiro-master", System.IO.Path.GetFileName(vm.NovaPasta));
+        window.Close();
+    }
+
+    internal static PaletaViewModel PaletaPopulada() => new(new[]
+    {
+        new GRepos.Services.ItemDaPaleta { Tipo = "ação", Titulo = "Obter", Detalhe = "fetch em Financeiro", Cor = "Accent" },
+        new GRepos.Services.ItemDaPaleta { Tipo = "ação", Titulo = "Pull requests…", Detalhe = "ver, criar e mesclar em Financeiro", Cor = "Accent" },
+        new GRepos.Services.ItemDaPaleta { Tipo = "repositório", Titulo = "Financeiro", Detalhe = "DBISAM · develop", Cor = "#DB4C9B" },
+        new GRepos.Services.ItemDaPaleta { Tipo = "repositório", Titulo = "Financeiro MySQL", Detalhe = "MySQL · imp/boleto", Cor = "#4F8CFF" },
+        new GRepos.Services.ItemDaPaleta { Tipo = "branch", Titulo = "feat/boleto-online", Detalhe = "trocar para ela", Cor = "Green" },
+        new GRepos.Services.ItemDaPaleta { Tipo = "painel", Titulo = "Painel: DBISAM", Detalhe = "cartões dos repositórios do grupo", Cor = "#DB4C9B" },
+    });
+
+    [AvaloniaFact]
+    public void PaletaWindow_monta_com_itens_e_o_enter_escolhe()
+    {
+        var vm = PaletaPopulada();
+        var window = new PaletaWindow(vm);
+        window.Show();
+        window.Measure(new Size(620, 420));
+        window.Arrange(new Rect(0, 0, 620, 420));
+
+        window.KeyPressQwerty(PhysicalKey.ArrowDown, RawInputModifiers.None);
+        Assert.Equal("Pull requests…", vm.Selecionado!.Titulo);
+
+        window.KeyPressQwerty(PhysicalKey.Enter, RawInputModifiers.None);
+        Assert.Equal("Pull requests…", vm.Escolhido!.Titulo);
+    }
+
+    internal static ConflitoViewModel ConflitoPopulado()
+    {
+        var vm = new ConflitoViewModel("", "Units/Boleto.pas");
+        vm.Montar(
+            "procedure TBoleto.Calcular;\nbegin\n  Total := 0;\n" +
+            "<<<<<<< HEAD\n  Valor := Base * 1.02; // reajuste\n=======\n  Valor := Base;\n  Juros := Valor * Taxa;\n>>>>>>> feat/juros\n" +
+            "  Total := Total + Valor;\nend;\n\nprocedure TBoleto.Imprimir;\nbegin\n" +
+            "<<<<<<< HEAD\n=======\n  Log('imprimindo');\n>>>>>>> feat/juros\n" +
+            "  Relatorio.Print;\nend;\n");
+        vm.Blocos[0].UsarAmbos();
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void ConflitoWindow_monta_com_blocos_resolvidos_e_pendentes()
+    {
+        var vm = ConflitoPopulado();
+
+        var window = new ConflitoWindow { DataContext = vm, Width = 1040, Height = 720 };
+        window.Show();
+        window.Measure(new Size(1040, 720));
+        window.Arrange(new Rect(0, 0, 1040, 720));
+
+        Assert.Equal(2, vm.Blocos.Count);
+        Assert.Equal(1, vm.Pendentes);
+        window.Close();
+    }
+
+    internal static PullRequestsViewModel PullRequestsPopulado()
+    {
+        var vm = new PullRequestsViewModel(new ContextoPr("", "imp/boleto", "GFBmsoft", "Financeiro")
+        {
+            Destinos = new[] { "develop", "master" },
+            TituloSugerido = "fix(boleto): ocultar campo do boleto online",
+            NaoEnviados = 1,
+        });
+
+        vm.Aplicar(new[]
+        {
+            new GRepos.Services.PullRequest
+            {
+                Numero = 42, Titulo = "fix(boleto): ocultar campo do boleto online", Autor = "GFBmsoft",
+                Origem = "feat/boleto", Destino = "develop", Sha = "abc",
+                Corpo = "Fecha o **#40**.\n\n- oculta o campo\n- ajusta o relatório",
+                Atualizado = System.DateTime.UtcNow.AddHours(-2),
+            },
+            new GRepos.Services.PullRequest
+            {
+                Numero = 41, Titulo = "Relatório de comissões", Autor = "colega", Rascunho = true,
+                Origem = "imp/comissoes", Destino = "develop", Atualizado = System.DateTime.UtcNow.AddDays(-1),
+            },
+            new GRepos.Services.PullRequest
+            {
+                Numero = 39, Titulo = "Correção do SPED", Autor = "colega", Estado = "mesclado",
+                Origem = "defeito/sped", Destino = "master", Atualizado = System.DateTime.UtcNow.AddDays(-3),
+            },
+        });
+
+        vm.Lista[0].CiSituacao = "sucesso";
+        vm.Lista[1].CiSituacao = "falha";
+        vm.Verificacoes.Add(new VerificacaoViewModel { Verificacao = new GRepos.Services.Verificacao { Nome = "build", Situacao = "sucesso" } });
+        vm.Verificacoes.Add(new VerificacaoViewModel { Verificacao = new GRepos.Services.Verificacao { Nome = "testes", Situacao = "rodando" } });
+        vm.Detalhe = new GRepos.Services.PullRequest
+        {
+            Numero = 42, Commits = 3, Arquivos = 5, Adicionadas = 120, Removidas = 30, Mesclagem = "clean",
+            Corpo = "Fecha o **#40**.\n\n- oculta o campo\n- ajusta o relatório",
+        };
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void PullRequestsWindow_monta_com_lista_detalhe_e_formulario()
+    {
+        var vm = PullRequestsPopulado();
+
+        var window = new PullRequestsWindow { DataContext = vm, Width = 940, Height = 640 };
+        window.Show();
+        window.Measure(new Size(940, 640));
+        window.Arrange(new Rect(0, 0, 940, 640));
+
+        Assert.True(vm.MostraDetalhe);
+        Assert.True(vm.PodeMesclar);
+
+        // o formulário de PR novo usa outros controles: precisa ser montado também
+        vm.NovoCommand.Execute(null);
+        window.Measure(new Size(940, 640));
+        window.Arrange(new Rect(0, 0, 940, 640));
+        Assert.True(vm.Criando);
+
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void CtrlF_leva_o_foco_ao_filtro_e_Esc_limpa()
     {

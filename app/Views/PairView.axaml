@@ -9,7 +9,11 @@
 
     <Border Grid.Row="0" Padding="10,8" Background="{DynamicResource BgPanel}"
             BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
+        <!-- trocar os dois lados para a mesma branch, ou enviar os dois, numa operação só -->
+        <Button Grid.Column="5" Content="Em lote…" Margin="6,0,0,0"
+                IsEnabled="{Binding !Busy}" Command="{Binding EmLoteCommand}"
+                ToolTip.Tip="Obter, puxar, enviar ou trocar de branch nos dois repositórios do par" />
         <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="par Origem × Destino" Classes="faint" Margin="10,0"
                    VerticalAlignment="Center" />

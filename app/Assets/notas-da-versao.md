@@ -1,3 +1,12 @@
+## 1.0.0.34 — 07/10/2026
+- **Pull requests** dentro do aplicativo: botão **PRs** na barra e no cartão do painel. Lista os abertos com a situação das verificações, cria o da branch atual, mescla (merge, squash ou rebase) e fecha. Tudo que escreve no GitHub confirma antes.
+- **Resolver conflito bloco a bloco**: botão **Resolver** no arquivo em conflito mostra o seu lado, o deles e o resultado, que pode ser editado. O arquivo é salvo no mesmo encoding e já marcado como resolvido.
+- **Arrastar uma branch sobre outra**, na tela de branches e no grafo do histórico, para mesclar, fazer rebase ou abrir pull request. O clique direito na branch oferece o mesmo contra a branch atual.
+- **Paleta de comandos** com Ctrl+P: digite um pedaço do nome para ir a um repositório, trocar de branch ou rodar uma ação.
+- **Pastas de trabalho** (worktrees), pela tela de branches: abrir outra branch em outra pasta, sem guardar o que está em andamento.
+- **Em lote**, no painel e no par Origem × Destino: obter, puxar, enviar ou trocar de branch em vários repositórios de uma vez. O puxar em lote só avança; onde há commit local ainda não enviado, o repositório fica como está e avisa.
+- **Comparar** duas branches, tags ou commits: quantos commits cada lado tem a mais, os arquivos diferentes e o diff de cada um.
+
 ## 1.0.0.33 — 07/10/2026
 - Esteira: filtrar por uma situação sem execuções deixa de mostrar o passo a passo da execução anterior por baixo dos avisos, e o aviso passa a dizer que não há execução naquela situação, em vez de dizer que a branch não tem nenhuma.
 - Esteira: ao trocar de execução, os passos da anterior somem enquanto os novos carregam.

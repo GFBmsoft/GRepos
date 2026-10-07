@@ -1,0 +1,132 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.ConflitoWindow"
+        x:DataType="vm:ConflitoViewModel"
+        Title="{Binding Title}" Width="1040" Height="720" MinWidth="760" MinHeight="460"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+      <StackPanel Grid.Column="0">
+        <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+        <TextBlock Text="{Binding Caminho}" Classes="faint" FontSize="11" />
+      </StackPanel>
+      <!-- atalho para o caso comum: o arquivo todo fica com um lado só nos blocos que faltam -->
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+        <TextBlock Text="pendentes:" Classes="faint" FontSize="11" VerticalAlignment="Center" />
+        <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                Content="todos com o meu" Command="{Binding TudoMeuCommand}"
+                ToolTip.Tip="Preenche com o meu lado os blocos ainda pendentes" />
+        <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                Content="todos com o deles" Command="{Binding TudoDelesCommand}"
+                ToolTip.Tip="Preenche com o lado deles os blocos ainda pendentes" />
+      </StackPanel>
+    </Grid>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <!-- um cartão por bloco: o meu, o deles e, embaixo, o que vai para o arquivo -->
+    <ScrollViewer Grid.Row="2" Padding="0,0,6,0">
+      <ItemsControl ItemsSource="{Binding Blocos}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="vm:BlocoDeConflitoViewModel">
+            <Border Classes="card" Padding="0" Margin="0,0,0,12" ClipToBounds="True">
+              <StackPanel>
+
+                <Border Padding="10,6" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+                  <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="12"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Linha}" Classes="faint" FontSize="10.5"
+                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding EscolhaTexto}" FontSize="11"
+                               VerticalAlignment="Center"
+                               Foreground="{Binding EscolhaCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                  </Grid>
+                </Border>
+
+                <TextBlock Text="{Binding Antes}" Classes="mono faint" FontSize="11" Margin="12,6,12,2"
+                           TextTrimming="None" IsVisible="{Binding TemAntes}" />
+
+                <Grid ColumnDefinitions="*,1,*" Margin="0,4,0,0">
+                  <DockPanel Grid.Column="0">
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="12,0,8,3">
+                      <TextBlock Grid.Column="0" Classes="sectionTitle" VerticalAlignment="Center"
+                                 Text="{Binding $parent[ItemsControl].DataContext.RotuloMeu}" />
+                      <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="usar o meu"
+                              BorderBrush="{DynamicResource Border}" Classes.destacado="{Binding EhMeu}"
+                              Command="{Binding UsarMeuCommand}" />
+                    </Grid>
+                    <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Auto"
+                                  Background="{DynamicResource Bg}" Margin="8,0,4,0">
+                      <TextBlock Text="{Binding MeuVisivel}" Classes="mono" FontSize="11.5" Margin="6,5"
+                                 TextTrimming="None" Foreground="{DynamicResource Green}" />
+                    </ScrollViewer>
+                  </DockPanel>
+
+                  <Border Grid.Column="1" Background="{DynamicResource BorderSoft}" />
+
+                  <DockPanel Grid.Column="2">
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="12,0,8,3">
+                      <TextBlock Grid.Column="0" Classes="sectionTitle" VerticalAlignment="Center"
+                                 Text="{Binding $parent[ItemsControl].DataContext.RotuloDeles}" />
+                      <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="usar o deles"
+                              BorderBrush="{DynamicResource Border}" Classes.destacado="{Binding EhDeles}"
+                              Command="{Binding UsarDelesCommand}" />
+                    </Grid>
+                    <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Auto"
+                                  Background="{DynamicResource Bg}" Margin="4,0,8,0">
+                      <TextBlock Text="{Binding DelesVisivel}" Classes="mono" FontSize="11.5" Margin="6,5"
+                                 TextTrimming="None" Foreground="{DynamicResource Accent}" />
+                    </ScrollViewer>
+                  </DockPanel>
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="12,8,8,3">
+                  <TextBlock Grid.Column="0" Classes="sectionTitle" Text="RESULTADO (pode editar)"
+                             VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="os dois"
+                          BorderBrush="{DynamicResource Border}" Margin="0,0,4,0"
+                          Classes.destacado="{Binding EhAmbos}" Command="{Binding UsarAmbosCommand}"
+                          ToolTip.Tip="O meu e depois o deles" />
+                  <Button Grid.Column="2" Classes="tiny" BorderThickness="1" Content="os dois, deles primeiro"
+                          BorderBrush="{DynamicResource Border}" Margin="0,0,4,0"
+                          Classes.destacado="{Binding EhInvertido}" Command="{Binding UsarInvertidoCommand}"
+                          ToolTip.Tip="O deles e depois o meu" />
+                  <Button Grid.Column="3" Classes="tiny" BorderThickness="1" Content="limpar"
+                          BorderBrush="{DynamicResource Border}" IsVisible="{Binding Resolvido}"
+                          Command="{Binding LimparCommand}"
+                          ToolTip.Tip="Volta o bloco a pendente" />
+                </Grid>
+                <TextBox Text="{Binding Resultado}" AcceptsReturn="True" AcceptsTab="True"
+                         FontFamily="{DynamicResource MonoFont}" FontSize="11.5" MaxHeight="220"
+                         Margin="8,0,8,6" Watermark="Escolha um lado acima ou digite aqui o que deve ficar"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+
+                <TextBlock Text="{Binding Depois}" Classes="mono faint" FontSize="11" Margin="12,0,12,8"
+                           TextTrimming="None" IsVisible="{Binding TemDepois}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,0">
+      <TextBlock Grid.Column="0" Text="{Binding Resumo}" Classes="faint" FontSize="11.5"
+                 VerticalAlignment="Center" />
+      <Button Grid.Column="1" Content="Cancelar" MinWidth="88" Margin="0,0,8,0" Click="Cancelar" />
+      <Button Grid.Column="2" Content="Salvar e marcar como resolvido" MinWidth="220" Classes="primary"
+              IsEnabled="{Binding PodeSalvar}" Command="{Binding SalvarCommand}"
+              ToolTip.Tip="Grava o arquivo sem os marcadores e o marca como resolvido" />
+    </Grid>
+  </Grid>
+</Window>

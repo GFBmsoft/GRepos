@@ -136,6 +136,62 @@ public class ScreenshotTests
         frame?.Save(Path.Combine(dir, nome + ".png"));
     }
 
+    [AvaloniaFact]
+    public void Comparar_branches()
+    {
+        var janela = new CompararWindow { DataContext = UiSmokeTests.CompararPopulado() };
+        ShotJanela(janela, "comparar", 1180, 760);
+        janela.Close();
+    }
+
+    [AvaloniaFact]
+    public void Operacoes_em_lote()
+    {
+        var janela = new LoteWindow { DataContext = UiSmokeTests.LotePopulado() };
+        ShotJanela(janela, "lote", 760, 580);
+        janela.Close();
+    }
+
+    [AvaloniaFact]
+    public void Pastas_de_trabalho()
+    {
+        var janela = new WorktreesWindow { DataContext = UiSmokeTests.WorktreesPopulado() };
+        ShotJanela(janela, "worktrees", 760, 500);
+        janela.Close();
+    }
+
+    [AvaloniaFact]
+    public void Paleta_de_comandos()
+    {
+        var vm = UiSmokeTests.PaletaPopulada();
+        vm.Consulta = "fin";
+        var janela = new PaletaWindow { DataContext = vm };
+        ShotJanela(janela, "paleta", 620, 420);
+        janela.Close();
+    }
+
+    [AvaloniaFact]
+    public void Conflito_bloco_a_bloco()
+    {
+        var janela = new ConflitoWindow { DataContext = UiSmokeTests.ConflitoPopulado() };
+        ShotJanela(janela, "conflito", 1040, 720);
+        janela.Close();
+    }
+
+    [AvaloniaFact]
+    public void Pull_requests_com_detalhe_e_com_formulario()
+    {
+        var detalhe = new PullRequestsWindow { DataContext = UiSmokeTests.PullRequestsPopulado() };
+        ShotJanela(detalhe, "pull-requests", 940, 640);
+        detalhe.Close();
+
+        var vm = UiSmokeTests.PullRequestsPopulado();
+        vm.NovoCommand.Execute(null);
+        var novo = new PullRequestsWindow { DataContext = vm };
+        ShotJanela(novo, "pull-requests-novo", 940, 640);
+        novo.Close();
+    }
+
     /// <summary>Preferências na seção das notas: a versão escolhida e o que mudou nela.</summary>
     [AvaloniaFact]
     public void Preferencias_na_secao_de_notas_da_versao()

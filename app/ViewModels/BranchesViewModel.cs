@@ -145,6 +145,8 @@ public sealed partial class BranchesViewModel : ObservableObject
             _todas = (await GitService.BranchesAsync(_repo.Path)).ToArray();
             Fluxo = await GitFlow.LerAsync(_repo.Path);
             OnFluxoChanged(Fluxo); // a branch atual pode ter mudado com o mesmo fluxo
+            _github ??= await _main.GitHubDeAsync(_repo);
+            TemGitHub = _github is not null;
             TemErro = false;
             PodeConfiar = false;
             Erro = "";
@@ -331,6 +333,9 @@ public sealed partial class BranchesViewModel : ObservableObject
         }
         catch (Exception e)
         {
+            // um merge que parou em conflito já trocou de branch: a lista precisa mostrar
+            // isso, e o erro vem depois para não ser apagado pela recarga
+            await CarregarAsync();
             MostrarErro(e.Message);
         }
         finally
@@ -353,6 +358,81 @@ public sealed partial class BranchesViewModel : ObservableObject
         await GitService.CreateBranchAsync(_repo.Path, NovaBranch.Trim(), true);
         NovaBranch = "";
     });
+
+    // ------------------------------------- mesclar, rebase e pull request
+
+    /// <summary>O remoto é do GitHub: cabe oferecer pull request.</summary>
+    [ObservableProperty] private bool _temGitHub;
+
+    private (string Slug, string Usuario)? _github;
+
+    /// <summary>Abre a janela de pull requests por cima desta; a janela preenche.</summary>
+    public Func<PullRequestsViewModel, Task>? MostrarPullRequests { get; set; }
+
+    /// <summary>
+    /// A opção escolhida ao soltar uma branch sobre outra (ou no clique direito). O erro
+    /// fica nesta janela, que é onde o usuário está olhando.
+    /// </summary>
+    public async Task ExecutarOpcaoAsync(OpcaoDeArraste opcao, RefDeBranch origem, RefDeBranch destino)
+    {
+        if (!opcao.Disponivel || Busy) return;
+
+        if (opcao.Acao == AcaoDeArraste.PullRequest)
+        {
+            if (_github is not { } gh || MostrarPullRequests is null) return;
+            try
+            {
+                var vm = await _main.MontarPullRequestsAsync(
+                    _repo, gh.Slug, gh.Usuario, origem.NomeLocal, destino.NomeLocal);
+                await MostrarPullRequests(vm);
+                await _main.DepoisDosPullRequestsAsync(_repo, vm);
+            }
+            catch (Exception e)
+            {
+                MostrarErro(e.Message);
+            }
+            return;
+        }
+
+        await ExecutarAsync(() => _main.ExecutarArrasteAsync(_repo, opcao, origem, destino, ConfirmarAsync));
+    }
+
+    private static RefDeBranch Ref(BranchItemViewModel item) => new(item.Name, item.IsRemote);
+
+    private Task OpcaoAsync(AcaoDeArraste acao, RefDeBranch origem, RefDeBranch destino)
+    {
+        var opcao = ArrasteDeBranch.Opcoes(origem, destino, TemGitHub).FirstOrDefault(o => o.Acao == acao);
+        if (opcao is null) return Task.CompletedTask;
+
+        if (!opcao.Disponivel)
+        {
+            MostrarErro($"{opcao.Rotulo}: {opcao.Motivo}.");
+            return Task.CompletedTask;
+        }
+        return ExecutarOpcaoAsync(opcao, origem, destino);
+    }
+
+    // o clique direito faz o mesmo que arrastar a branch para cima da atual (ou o contrário)
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task MesclarNaAtual(BranchItemViewModel item) =>
+        BranchAtual.Length == 0 ? Task.CompletedTask
+            : OpcaoAsync(AcaoDeArraste.Mesclar, Ref(item), new RefDeBranch(BranchAtual, false));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task RebaseDaAtualSobre(BranchItemViewModel item) =>
+        BranchAtual.Length == 0 ? Task.CompletedTask
+            : OpcaoAsync(AcaoDeArraste.Rebase, new RefDeBranch(BranchAtual, false), Ref(item));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task PullRequestParaAtual(BranchItemViewModel item) =>
+        BranchAtual.Length == 0 ? Task.CompletedTask
+            : OpcaoAsync(AcaoDeArraste.PullRequest, Ref(item), new RefDeBranch(BranchAtual, false));
+
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private Task PullRequestDaAtualPara(BranchItemViewModel item) =>
+        BranchAtual.Length == 0 ? Task.CompletedTask
+            : OpcaoAsync(AcaoDeArraste.PullRequest, new RefDeBranch(BranchAtual, false), Ref(item));
 
     [RelayCommand]
     private Task Confiar() => ExecutarAsync(() => GitService.TrustRepositoryAsync(_repo.Path));

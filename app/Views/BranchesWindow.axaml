@@ -12,7 +12,7 @@
     <!-- item de branch: o mesmo desenho nas locais e nas remotas, para alinhar as colunas.
          O comando vem da janela: dentro do grupo, o DataContext do ListBox é o grupo. -->
     <DataTemplate x:Key="ItemBranch" DataType="vm:BranchItemViewModel">
-      <Grid ColumnDefinitions="30,3*,1.7*,3*,76" Height="28" Margin="8,0"
+      <Grid ColumnDefinitions="30,3*,1.7*,3*,76" Height="28" Margin="8,0" Background="Transparent"
             ToolTip.Tip="{Binding Tooltip}">
         <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center" HorizontalAlignment="Right"
                  Margin="0,0,6,0" IsVisible="{Binding IsHead}"
@@ -69,7 +69,9 @@
     <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"
                Margin="0,0,0,12" />
 
-    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,10">
+    <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
+      <Button Grid.Column="4" Content="Pastas de trabalho…" Margin="6,0,0,0" Click="AbrirWorktrees"
+              ToolTip.Tip="Worktrees: abrir outra branch em outra pasta, sem sair desta" />
       <TextBox Grid.Column="0" Watermark="Nova branch a partir do HEAD (ex.: feat/estoque)"
                Text="{Binding NovaBranch}" />
       <Button Grid.Column="1" Classes="primary" Content="Criar e trocar" Margin="6,0,0,0"
@@ -157,6 +159,9 @@
           <TextBlock Text="rastreando o remoto" Classes="faint" FontSize="11" />
         </StackPanel>
       </StackPanel>
+      <TextBlock Grid.Column="1" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                 HorizontalAlignment="Right" Margin="12,0"
+                 Text="arraste uma branch sobre outra (ou clique direito) para mesclar, rebase ou PR" />
       <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
     </Grid>
   </Grid>

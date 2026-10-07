@@ -35,8 +35,13 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
     [ObservableProperty] private string _ciWorkflow = "";
 
     /// <summary>"owner/repo" e conta, guardados para abrir a esteira deste repositório.</summary>
-    public string Slug { get; set; } = "";
+    [ObservableProperty] private string _slug = "";
     public string Usuario { get; set; } = "";
+
+    /// <summary>Remoto no GitHub: dá para abrir a janela de pull requests.</summary>
+    public bool TemGitHub => Slug.Length > 0;
+
+    partial void OnSlugChanged(string value) => OnPropertyChanged(nameof(TemGitHub));
 
     public string Nome => Repo.Name;
     public string Caminho => Repo.Path;
@@ -118,12 +123,16 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
 
     partial void OnPrConsultadoChanged(bool value) => OnPropertyChanged(nameof(TemPrs));
 
+    /// <summary>Pull requests dentro do app, como a esteira: o navegador fica para o detalhe.</summary>
     [RelayCommand]
-    private void AbrirPrs()
+    private async Task AbrirPrsAsync()
     {
         try
         {
-            if (Slug.Length > 0) ShellService.AbrirUrl($"https://github.com/{Slug}/pulls");
+            if (Slug.Length == 0) return;
+
+            if (_main is null) ShellService.AbrirUrl($"https://github.com/{Slug}/pulls");
+            else await _main.AbrirPullRequestsDeAsync(Repo, Slug, Usuario, Status?.Branch ?? "");
         }
         catch (Exception e)
         {
@@ -384,6 +393,15 @@ public sealed partial class PainelViewModel : ObservableObject
     partial void OnPerfilChanged(PerfilViewModel? value) => OnPropertyChanged(nameof(TemPerfil));
 
     public bool Vazio => Cartoes.Count == 0;
+
+    /// <summary>Com um repositório só não há lote: valem os botões dele.</summary>
+    public bool PodeLote => _main is not null && Cartoes.Count > 1;
+
+    /// <summary>A mesma operação em todos os repositórios deste painel.</summary>
+    [RelayCommand]
+    private Task EmLote() => _main is null
+        ? Task.CompletedTask
+        : _main.AbrirLoteAsync(Titulo, Cartoes.Select(c => c.Repo).ToList());
 
     /// <summary>Painel saiu de cena: nenhum cartão aberto continua consultando a API.</summary>
     public void PararEsteiras()

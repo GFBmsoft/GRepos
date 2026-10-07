@@ -35,10 +35,12 @@
         </Border>
 
         <!-- o clique direito já seleciona a linha: o menu age sobre o commit selecionado -->
-        <ListBox Grid.Row="1" ItemsSource="{Binding Commits}" SelectedItem="{Binding SelectedCommit}">
+        <ListBox Grid.Row="1" x:Name="ListaDeCommits" ItemsSource="{Binding Commits}"
+                 SelectedItem="{Binding SelectedCommit}">
           <ListBox.ContextMenu>
             <ContextMenu>
               <MenuItem Header="Copiar hash" Click="CopiarHash_Click" />
+              <MenuItem Header="Comparar com a branch atual..." Command="{Binding CompararComAtualCommand}" />
               <Separator />
               <MenuItem Header="Criar branch aqui..." Command="{Binding CriarBranchAquiCommand}" />
               <MenuItem Header="Criar tag aqui..." Command="{Binding CriarTagAquiCommand}" />
