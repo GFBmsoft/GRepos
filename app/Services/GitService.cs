@@ -1188,17 +1188,49 @@ public static class GitService
             .Take(limit)
             .ToList();
 
-        if (termo.Length >= 4 && termo.All(Uri.IsHexDigit))
-        {
-            try
-            {
-                var porHash = (await RunAsync(repo, new[] { "log", "-1", LogFormat, termo + "^{commit}", "--" }))
-                    .Split(RS).Where(r => r.Trim().Length > 0).Select(ParseCommit).FirstOrDefault();
-                if (porHash is not null && lista.All(c => c.Hash != porHash.Hash)) lista.Insert(0, porHash);
-            }
-            catch (GitException) { /* não era hash de nenhum commit */ }
-        }
+        var porHash = await CommitsPorPrefixoAsync(repo, termo);
+        lista.InsertRange(0, porHash.Where(h => lista.All(c => c.Hash != h.Hash)));
         return lista;
+    }
+
+    private const int MaxCommitsPorPrefixo = 50;
+
+    /// <summary>
+    /// Commits cujo hash começa com o termo, do mais novo para o mais antigo. Aceita o
+    /// hash colado com "#" na frente. Prefixo ambíguo devolve todos os candidatos: pedir
+    /// <c>prefixo^{commit}</c> ao git falha quando mais de um commit começa igual.
+    /// </summary>
+    public static async Task<List<Commit>> CommitsPorPrefixoAsync(string repo, string termo)
+    {
+        var prefixo = termo.Trim().TrimStart('#');
+        if (prefixo.Length is < 4 or > 40 || !prefixo.All(Uri.IsHexDigit)) return new();
+
+        try
+        {
+            // --disambiguate lista objetos de qualquer tipo; o cat-file separa os commits
+            var objetos = (await RunAsync(repo, new[] { "rev-parse", "--disambiguate=" + prefixo }))
+                .Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+            if (objetos.Count == 0) return new();
+
+            var commits = (await RunAsync(repo, new[] { "cat-file", "--batch-check" }, string.Join("\n", objetos) + "\n"))
+                .Split('\n').Select(l => l.Trim().Split(' '))
+                .Where(p => p.Length >= 2 && p[1] == "commit")
+                .Select(p => p[0])
+                .Take(MaxCommitsPorPrefixo)
+                .ToList();
+            if (commits.Count == 0) return new();
+
+            var args = new List<string> { "log", "--no-walk=sorted", LogFormat };
+            args.AddRange(commits);
+            args.Add("--");
+            return (await RunAsync(repo, args)).Split(RS)
+                .Where(r => r.Trim().Length > 0)
+                .Select(ParseCommit)
+                .Where(c => c is not null)
+                .Select(c => c!)
+                .ToList();
+        }
+        catch (GitException) { return new(); /* não era hash de nenhum commit */ }
     }
 
     private static Commit? ParseCommit(string record)

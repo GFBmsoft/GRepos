@@ -1,3 +1,7 @@
+## 1.0.0.40 — 09/10/2026
+- Busca do Histórico pelo código do commit: quando mais de um commit começa com o que foi digitado, aparecem todos no topo, do mais novo para o mais antigo — antes não aparecia nenhum.
+- O código colado com **#** na frente (`#c32497c`) também acha o commit.
+
 ## 1.0.0.39 — 07/10/2026
 - Histórico: botão **Markdown** mostra a mensagem do commit renderizada (título, lista, link clicável). A escolha é lembrada.
 - **Copiar texto** leva a mensagem como foi escrita; **Copiar formatado** leva a renderizada, que cola com título, lista e link no Word, no Outlook e no Teams — e como texto limpo onde a formatação não chega.

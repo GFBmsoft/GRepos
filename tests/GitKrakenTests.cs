@@ -349,6 +349,44 @@ public class GitKrakenTests
             Assert.Equal("outro", Assert.Single(await GitService.SearchLogAsync(dir, "maria", 100, true)).Subject);
             Assert.Equal(inicial, (await GitService.SearchLogAsync(dir, inicial[..7], 100, true))[0].Hash);
             Assert.Empty(await GitService.SearchLogAsync(dir, "nada disso", 100, true));
+
+            // hash colado com "#" na frente, como sai de um chat ou de uma issue
+            Assert.Equal(inicial, (await GitService.SearchLogAsync(dir, "#" + inicial[..7], 100, true))[0].Hash);
+            Assert.Equal(inicial, (await GitService.SearchLogAsync(dir, " #" + inicial + " ", 100, true))[0].Hash);
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
+    public async Task Busca_por_prefixo_ambiguo_lista_todos_os_commits()
+    {
+        var dir = await NovoRepo();
+        try
+        {
+            // dois mil commits de uma vez pelo fast-import: com 4 dígitos (65.536 combinações)
+            // sobram dezenas de pares que começam igual
+            var fluxo = new System.Text.StringBuilder();
+            for (var i = 0; i < 2000; i++)
+                fluxo.Append("commit refs/heads/muitos\n")
+                     .Append($"committer Teste <t@t> {1700000000 + i * 60} +0000\n")
+                     .Append($"data <<FIM\nm{i}\nFIM\n\n");
+            await GitService.RunAsync(dir, new[] { "fast-import", "--quiet" }, fluxo.ToString());
+
+            var grupo = (await Git(dir, "rev-list", "muitos")).Split('\n')
+                .Select(h => h.Trim()).Where(h => h.Length > 0)
+                .GroupBy(h => h[..4]).First(g => g.Count() > 1);
+            var esperados = grupo.OrderBy(h => h).ToList();
+
+            // o caminho antigo, prefixo^{commit}, falha aqui
+            await Assert.ThrowsAsync<GitException>(() => Git(dir, "rev-parse", grupo.Key + "^{commit}"));
+
+            var achados = await GitService.SearchLogAsync(dir, grupo.Key, 100, true);
+            Assert.Equal(esperados, achados.Select(c => c.Hash).OrderBy(h => h).ToList());
+            Assert.Equal(achados.OrderByDescending(c => DateTimeOffset.Parse(c.Date)).Select(c => c.Hash),
+                achados.Select(c => c.Hash));
+
+            Assert.Equal(esperados,
+                (await GitService.SearchLogAsync(dir, "#" + grupo.Key, 100, true)).Select(c => c.Hash).OrderBy(h => h).ToList());
         }
         finally { Limpar(dir); }
     }
