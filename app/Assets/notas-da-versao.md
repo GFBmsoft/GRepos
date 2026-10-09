@@ -1,3 +1,7 @@
+## 1.0.0.43 — 09/10/2026
+- **Árvore em ordem alfabética**: os grupos e subgrupos aparecem por nome dentro do pai, e não mais na ordem em que foram criados. Vale também para a lista de grupos nas Preferências e para o campo **Dentro de**.
+- Dentro de cada grupo, pares e repositórios avulsos seguem uma ordem só — o par entra pelo título dele. Antes os pares vinham todos primeiro.
+
 ## 1.0.0.42 — 09/10/2026
 - Os avisos de sucesso, de informação e de operação em andamento aparecem na barra de ferramentas, ao lado do **Desfazer**, em vez de flutuar sobre o conteúdo. Passe o mouse para ler o texto inteiro quando ele for cortado.
 - Erro continua no cartão de baixo, com a explicação completa, até ser fechado. O cartão de baixo também é usado quando não há repositório aberto ou quando a janela está estreita demais para o aviso caber na barra.

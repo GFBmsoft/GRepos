@@ -30,10 +30,11 @@ public class GrupoArvoreTests
     {
         var ordem = GrupoArvore.EmOrdem(Grupos);
 
-        Assert.Equal(new[] { "dbisam", "fiscal", "nfe", "financeiro", "mysql" }, ordem.Select(o => o.Grupo.Id));
-        Assert.Equal(new[] { 0, 1, 2, 1, 0 }, ordem.Select(o => o.Nivel));
-        Assert.Equal("DBISAM / FISCAL / NFE", ordem[2].Caminho);
-        Assert.Equal("      NFE", ordem[2].Recuado);
+        // irmãos em ordem alfabética, e não na ordem em que foram criados
+        Assert.Equal(new[] { "dbisam", "financeiro", "fiscal", "nfe", "mysql" }, ordem.Select(o => o.Grupo.Id));
+        Assert.Equal(new[] { 0, 1, 1, 2, 0 }, ordem.Select(o => o.Nivel));
+        Assert.Equal("DBISAM / FISCAL / NFE", ordem[3].Caminho);
+        Assert.Equal("      NFE", ordem[3].Recuado);
     }
 
     [Fact]
@@ -142,6 +143,29 @@ public class ArvoreComSubgruposTests
         .Where(n => n is GroupNode or RepoNode)
         .Select(n => new string(' ', n.Nivel * 2) + (n is GroupNode g ? $"[{g.Name} {g.Count}]" : ((RepoNode)n).Name))
         .ToArray();
+
+    [Fact]
+    public Task Grupos_pares_e_avulsos_ficam_em_ordem_alfabetica() => Com((main, d) =>
+    {
+        main.CreateGroup("Zeta", "#E07B00");
+        var alfa = main.CreateGroup("alfa", "#1F9D55");
+        foreach (var nome in new[] { "Zebra", "Notas MySQL", "Cadastros", "Notas", "Financeiro" })
+            main.AddRepository(@"C:\repos\" + nome, nome, alfa);
+        foreach (var r in main.Repos.Where(r => r.Name.StartsWith("Notas")))
+        {
+            r.PairKey = "Notas";
+            r.Role = r.Name == "Notas" ? "origem" : "destino";
+        }
+        main.RebuildTree();
+
+        // o par entra pelo título dele, no meio dos avulsos; grupos sem olhar maiúscula
+        Assert.Equal(new[]
+        {
+            "[alfa 5]", "Cadastros", "Financeiro", "Notas", "Notas MySQL", "Zebra",
+            "[Zeta 0]",
+        }, Linhas(main));
+        return Task.CompletedTask;
+    });
 
     [Fact]
     public Task Arvore_desenha_subgrupo_dentro_do_grupo_com_recuo_e_contagem_do_ramo() => Com((main, d) =>

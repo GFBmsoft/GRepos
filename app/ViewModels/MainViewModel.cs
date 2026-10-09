@@ -1339,19 +1339,20 @@ public sealed partial class MainViewModel : ObservableObject
         // duplicação de abas quando o mesmo módulo existe em dois bancos
         void Repositorios(List<Repo> list, string color, int nivel)
         {
-            var pairs = list.Where(r => !string.IsNullOrEmpty(r.PairKey))
+            // pares e avulsos numa ordem alfabética só: o par entra pelo título dele
+            var itens = list.Where(r => !string.IsNullOrEmpty(r.PairKey))
                             .GroupBy(r => r.PairKey!)
-                            .OrderBy(g => g.Key, StringComparer.CurrentCultureIgnoreCase);
+                            .Select(g => (Nome: g.Key, Par: true, Repos: g.OrderBy(RoleOrder).ToList()))
+                            .Concat(list.Where(r => string.IsNullOrEmpty(r.PairKey))
+                                        .Select(r => (Nome: r.Name, Par: false, Repos: new List<Repo> { r })))
+                            .OrderBy(i => i.Nome, StringComparer.CurrentCultureIgnoreCase);
 
-            foreach (var pair in pairs)
+            foreach (var item in itens)
             {
-                nodes.Add(new PairNode { Key = pair.Key, Nivel = nivel });
-                foreach (var r in pair.OrderBy(RoleOrder))
-                    nodes.Add(MakeNode(r, true, color, nivel));
+                if (item.Par) nodes.Add(new PairNode { Key = item.Nome, Nivel = nivel });
+                foreach (var r in item.Repos)
+                    nodes.Add(MakeNode(r, item.Par, color, nivel));
             }
-
-            foreach (var r in list.Where(r => string.IsNullOrEmpty(r.PairKey)))
-                nodes.Add(MakeNode(r, false, color, nivel));
         }
 
         // pasta, subpasta e repositórios: cada grupo desenha os subgrupos e depois os

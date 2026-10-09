@@ -26,9 +26,10 @@ public static class GrupoArvore
             ? null // pai que não existe mais: o grupo volta para a raiz em vez de sumir
             : g.ParentId;
 
-    /// <summary>Os filhos diretos de um grupo (ou as raízes, com <c>null</c>), na ordem do workspace.</summary>
+    /// <summary>Os filhos diretos de um grupo (ou as raízes, com <c>null</c>), em ordem alfabética.</summary>
     public static List<Group> Filhos(IReadOnlyCollection<Group> todos, string? paiId) =>
-        todos.Where(g => Pai(g, todos) == (string.IsNullOrEmpty(paiId) ? null : paiId)).ToList();
+        todos.Where(g => Pai(g, todos) == (string.IsNullOrEmpty(paiId) ? null : paiId))
+             .OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
 
     /// <summary>Todos os grupos em ordem de árvore: cada pai seguido dos descendentes.</summary>
     public static List<GrupoNaArvore> EmOrdem(IReadOnlyCollection<Group> todos)
