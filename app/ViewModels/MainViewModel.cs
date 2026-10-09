@@ -1184,14 +1184,53 @@ public sealed partial class MainViewModel : ObservableObject
     public bool TemStatusTitulo => StatusTitulo.Length > 0;
     public bool TemStatusDetalhe => StatusMessage.Length > 0;
 
+    /// <summary>Largura do vão livre da barra de ferramentas, ao lado do Desfazer. Quem informa é a janela.</summary>
+    [ObservableProperty] private double _vaoDaBarra;
+
+    /// <summary>Abaixo disso o aviso compacto ficaria só com reticências: vai para o cartão de baixo.</summary>
+    public const double VaoMinimoParaAviso = 200;
+
+    /// <summary>
+    /// Sucesso, informação e andamento aparecem na barra, ao lado do botão que foi clicado.
+    /// Erro não: a explicação é longa e fica até ser fechada. Sem repositório selecionado a
+    /// barra nem existe, e com a janela estreita o vão não comporta o texto.
+    /// </summary>
+    public bool AvisoNaBarra =>
+        HasStatusMessage && StatusTipo != "erro" && HasSelection && VaoDaBarra >= VaoMinimoParaAviso;
+
+    public bool AvisoNoRodape => HasStatusMessage && !AvisoNaBarra;
+
+    /// <summary>Título e detalhe inteiros, para a dica do aviso compacto, que corta o texto.</summary>
+    public string StatusCompleto =>
+        TemStatusTitulo && TemStatusDetalhe ? StatusTitulo + "\n" + StatusMessage : StatusTitulo + StatusMessage;
+
+    private void LugarDoAvisoMudou()
+    {
+        OnPropertyChanged(nameof(AvisoNaBarra));
+        OnPropertyChanged(nameof(AvisoNoRodape));
+    }
+
+    partial void OnHasStatusMessageChanged(bool value) => LugarDoAvisoMudou();
+    partial void OnVaoDaBarraChanged(double value) => LugarDoAvisoMudou();
+
     partial void OnStatusTipoChanged(string value)
     {
         OnPropertyChanged(nameof(StatusAccent));
         OnPropertyChanged(nameof(StatusIcone));
+        LugarDoAvisoMudou();
     }
 
-    partial void OnStatusTituloChanged(string value) => OnPropertyChanged(nameof(TemStatusTitulo));
-    partial void OnStatusMessageChanged(string value) => OnPropertyChanged(nameof(TemStatusDetalhe));
+    partial void OnStatusTituloChanged(string value)
+    {
+        OnPropertyChanged(nameof(TemStatusTitulo));
+        OnPropertyChanged(nameof(StatusCompleto));
+    }
+
+    partial void OnStatusMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(TemStatusDetalhe));
+        OnPropertyChanged(nameof(StatusCompleto));
+    }
 
     /// <summary>Quanto um aviso de sucesso ou de informação fica na tela antes de sumir sozinho.</summary>
     public static readonly TimeSpan DuracaoDoAviso = TimeSpan.FromSeconds(3);
@@ -1213,8 +1252,9 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Mostra o aviso no cartão do rodapé. Sucesso e informação somem sozinhos; erro fica
-    /// até o usuário fechar, e "andamento" fica até a operação trocar por outro.
+    /// Mostra o aviso, na barra ou no cartão de baixo (ver <see cref="AvisoNaBarra"/>). Sucesso
+    /// e informação somem sozinhos; erro fica até o usuário fechar, e "andamento" fica até a
+    /// operação trocar por outro.
     /// </summary>
     public void Avisar(string tipo, string titulo, string detalhe = "")
     {
@@ -1379,7 +1419,8 @@ public sealed partial class MainViewModel : ObservableObject
                                   nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine), nameof(ChangesTabHeader),
                                   nameof(PairTabHeader), nameof(BehindBadge), nameof(AheadBadge),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText),
-                                  nameof(ForaDaPrincipal), nameof(SemNadaSelecionado) })
+                                  nameof(ForaDaPrincipal), nameof(SemNadaSelecionado),
+                                  nameof(AvisoNaBarra), nameof(AvisoNoRodape) })
             OnPropertyChanged(n);
 
         // repositório e painel são visões concorrentes: escolher um fecha o outro

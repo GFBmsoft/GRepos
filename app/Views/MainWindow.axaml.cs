@@ -31,6 +31,10 @@ public partial class MainWindow : Window, IDialogService
         // aqui, e não com o resto da árvore, porque precisa do view model já criado
         if (this.FindControl<ListBox>("TreeList") is { } arvore) ArrasteNaArvore.Habilitar(arvore, _vm);
 
+        // o aviso compacto só vai para a barra quando o vão ao lado do Desfazer o comporta
+        if (this.FindControl<Panel>("VaoDaBarra") is { } vao)
+            vao.SizeChanged += (_, e) => _vm.VaoDaBarra = e.NewSize.Width;
+
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.TerminalVisivel)) AjustarTerminal();

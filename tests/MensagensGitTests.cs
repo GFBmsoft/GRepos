@@ -137,6 +137,20 @@ public class AvisosTests
     }
 
     [Fact]
+    public void Sem_repositorio_selecionado_o_aviso_fica_no_cartao_de_baixo()
+    {
+        var main = new MainViewModel(new FakeDialogs()) { VaoDaBarra = 600 };
+
+        main.Avisar("sucesso", "Clone concluído", "Financeiro");
+        Assert.False(main.AvisoNaBarra);
+        Assert.True(main.AvisoNoRodape);
+        Assert.Equal("Clone concluído\nFinanceiro", main.StatusCompleto);
+
+        main.DismissStatusCommand.Execute(null);
+        Assert.False(main.AvisoNoRodape);
+    }
+
+    [Fact]
     public void Aviso_simples_continua_valendo_e_erro_cru_do_git_ganha_explicacao()
     {
         var main = new MainViewModel(new FakeDialogs());

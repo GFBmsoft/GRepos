@@ -280,6 +280,35 @@
                                  IsEnabled="{Binding !Busy}" Command="{Binding DesfazerCommand}" />
           </StackPanel>
 
+          <!-- aviso compacto no vão livre da barra, ao lado do botão que foi clicado. O painel
+               ocupa o vão inteiro: é a largura dele que diz se o aviso cabe aqui -->
+          <Panel Grid.Column="6" x:Name="VaoDaBarra">
+            <Border IsVisible="{Binding AvisoNaBarra}" ToolTip.Tip="{Binding StatusCompleto}"
+                    HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,10,0"
+                    MaxWidth="520" CornerRadius="7" ClipToBounds="True"
+                    Background="{DynamicResource BgRaised}" BorderThickness="1.5"
+                    BorderBrush="{Binding StatusAccent, Converter={x:Static local:Converters.ResourceBrush}}">
+              <Panel>
+                <Border Opacity="0.13" IsHitTestVisible="False"
+                        Background="{Binding StatusAccent, Converter={x:Static local:Converters.ResourceBrush}}" />
+                <Grid ColumnDefinitions="Auto,*" Margin="8,3,11,3">
+                  <Border Grid.Column="0" Width="18" Height="18" CornerRadius="9" VerticalAlignment="Center"
+                          Background="{Binding StatusAccent, Converter={x:Static local:Converters.ResourceBrush}}">
+                    <TextBlock Text="{Binding StatusIcone}" FontSize="10.5" FontWeight="Bold"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource BgRaised}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StatusTitulo}" FontWeight="SemiBold" FontSize="12"
+                               TextTrimming="CharacterEllipsis" IsVisible="{Binding TemStatusTitulo}" />
+                    <TextBlock Text="{Binding StatusMessage}" FontSize="11.5"
+                               TextTrimming="CharacterEllipsis" IsVisible="{Binding TemStatusDetalhe}" />
+                  </StackPanel>
+                </Grid>
+              </Panel>
+            </Border>
+          </Panel>
+
           <!-- esteira: só aparece quando o repositório tem GitHub Actions -->
           <StackPanel Grid.Column="7" Orientation="Horizontal">
             <!-- pull requests: lista, cria o da branch atual e mescla, sem ir ao navegador -->
@@ -431,8 +460,9 @@
       </Border>
 
       <!-- aviso: a cor diz o que aconteceu antes de se ler o texto. Verde deu certo,
-           vermelho falhou, amarelo ainda está rodando, azul é só informação -->
-      <Border Grid.Row="1" IsVisible="{Binding HasStatusMessage}"
+           vermelho falhou, amarelo ainda está rodando, azul é só informação. Aqui ficam
+           os erros e o que não coube na barra -->
+      <Border Grid.Row="1" IsVisible="{Binding AvisoNoRodape}"
               HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,16"
               MinWidth="300" MaxWidth="720" CornerRadius="9" ClipToBounds="True"
               Background="{DynamicResource BgRaised}" BorderThickness="1.5"

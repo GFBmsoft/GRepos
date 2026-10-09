@@ -1,3 +1,7 @@
+## 1.0.0.42 — 09/10/2026
+- Os avisos de sucesso, de informação e de operação em andamento aparecem na barra de ferramentas, ao lado do **Desfazer**, em vez de flutuar sobre o conteúdo. Passe o mouse para ler o texto inteiro quando ele for cortado.
+- Erro continua no cartão de baixo, com a explicação completa, até ser fechado. O cartão de baixo também é usado quando não há repositório aberto ou quando a janela está estreita demais para o aviso caber na barra.
+
 ## 1.0.0.41 — 09/10/2026
 - Os avisos de sucesso e de informação (Obter, Puxar, Enviar, troca de branch) somem em 3 segundos — antes ficavam 7. Erro continua na tela até ser fechado.
 

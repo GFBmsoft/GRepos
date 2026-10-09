@@ -182,6 +182,74 @@ public class ScreenshotTests
         }
     }
 
+    /// <summary>
+    /// Com um repositório aberto, sucesso, informação e andamento vão para o vão da barra, ao
+    /// lado do Desfazer. Erro continua no cartão de baixo, e janela estreita também cai nele.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task Aviso_compacto_na_barra_e_erro_no_cartao_de_baixo()
+    {
+        var home = Path.Combine(Path.GetTempPath(), "grepos-avisobarra-" + Path.GetRandomFileName());
+        var repo = Path.Combine(home, "Financeiro");
+        Directory.CreateDirectory(repo);
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+        try
+        {
+            await Task.Run(() => GitService.RunAsync(repo, new[] { "init", "-q", "-b", "main" }));
+
+            // gravado antes: a janela recarrega o workspace ao abrir e levaria a seleção junto
+            var ws = new Workspace { Groups = { new Group { Id = "mod", Name = "Módulos", Color = "#2F7BE8" } } };
+            ws.Repos.Add(new Repo { Id = "fin", Name = "Financeiro", Path = repo, GroupId = "mod" });
+            WorkspaceStore.Save(ws);
+
+            var janela = new MainWindow();
+            var vm = (MainViewModel)janela.DataContext!;
+            await vm.InitAsync();
+
+            // a primeira passada de layout é a que mede o vão
+            ShotJanela(janela, "aviso-barra-vazia", 1400, 300);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            vm.SelecionarRepositorio(vm.Tree.OfType<RepoNode>().Single().Id);
+            Assert.True(vm.HasSelection);
+            ShotJanela(janela, "aviso-barra-vazia", 1400, 300);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.VaoDaBarra >= MainViewModel.VaoMinimoParaAviso, $"vão de {vm.VaoDaBarra}");
+
+            foreach (var (tipo, titulo, detalhe) in new[]
+                     {
+                         ("sucesso", "Puxar concluído", "3 commits novos em develop."),
+                         ("andamento", "Obter em andamento…", "Financeiro"),
+                         ("info", "", "Financeiro foi para DBISAM / Fiscal."),
+                     })
+            {
+                vm.Avisar(tipo, titulo, detalhe);
+                Assert.True(vm.AvisoNaBarra);
+                Assert.False(vm.AvisoNoRodape);
+                ShotJanela(janela, "aviso-barra-" + tipo, 1400, 300);
+            }
+
+            vm.Avisar("erro", "Não foi possível enviar", "O remoto tem commits que você ainda não tem. Use Puxar e envie de novo.");
+            Assert.False(vm.AvisoNaBarra);
+            Assert.True(vm.AvisoNoRodape);
+            ShotJanela(janela, "aviso-barra-erro", 1400, 300);
+
+            // janela estreita: o vão some e o aviso volta para o cartão de baixo
+            vm.Avisar("sucesso", "Puxar concluído", "3 commits novos em develop.");
+            ShotJanela(janela, "aviso-barra-estreita", 900, 300);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.True(vm.AvisoNoRodape, $"vão de {vm.VaoDaBarra}");
+            ShotJanela(janela, "aviso-barra-estreita", 900, 300);
+
+            janela.Close();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { Directory.Delete(home, true); } catch (Exception) { /* pasta temporária */ }
+        }
+    }
+
     /// <summary>Pasta, subpasta e repositórios na árvore; os caminhos não existem, só o desenho interessa.</summary>
     [AvaloniaFact]
     public async Task Sidebar_com_subgrupos()
