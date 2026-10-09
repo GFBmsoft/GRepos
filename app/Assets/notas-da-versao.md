@@ -1,3 +1,6 @@
+## 1.0.0.41 — 09/10/2026
+- Os avisos de sucesso e de informação (Obter, Puxar, Enviar, troca de branch) somem em 3 segundos — antes ficavam 7. Erro continua na tela até ser fechado.
+
 ## 1.0.0.40 — 09/10/2026
 - Busca do Histórico pelo código do commit: quando mais de um commit começa com o que foi digitado, aparecem todos no topo, do mais novo para o mais antigo — antes não aparecia nenhum.
 - O código colado com **#** na frente (`#c32497c`) também acha o commit.

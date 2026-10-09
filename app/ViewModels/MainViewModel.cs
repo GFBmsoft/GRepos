@@ -1194,7 +1194,7 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnStatusMessageChanged(string value) => OnPropertyChanged(nameof(TemStatusDetalhe));
 
     /// <summary>Quanto um aviso de sucesso ou de informação fica na tela antes de sumir sozinho.</summary>
-    public static readonly TimeSpan DuracaoDoAviso = TimeSpan.FromSeconds(7);
+    public static readonly TimeSpan DuracaoDoAviso = TimeSpan.FromSeconds(3);
 
     private DispatcherTimer? _sumirAviso;
 
