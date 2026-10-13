@@ -103,6 +103,31 @@ public class GraphBuilderTests
         Assert.Empty(rows[3].LanesAfter); // sem pais, nada em aberto
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(5)]
+    [InlineData(12)]
+    public void Grafo_com_poucas_raias_mantem_o_espacamento_normal(int raias)
+    {
+        Assert.Equal(GraphBuilder.LaneStepNormal, GraphBuilder.LaneStep(raias));
+        Assert.Equal(raias * 14 + 12, GraphBuilder.GraphWidth(raias));
+    }
+
+    [Theory]
+    [InlineData(20)]
+    [InlineData(49)]
+    [InlineData(300)]
+    public void Grafo_com_raias_demais_aperta_e_nunca_passa_do_teto(int raias)
+    {
+        // repositório grande (kernel do Linux): dezenas de raias abertas ao mesmo tempo
+        // passavam por cima da mensagem do commit
+        var passo = GraphBuilder.LaneStep(raias);
+
+        Assert.InRange(passo, GraphBuilder.LaneStepMin, GraphBuilder.LaneStepNormal);
+        Assert.True(passo < GraphBuilder.LaneStepNormal);
+        Assert.True(GraphBuilder.GraphWidth(raias) <= GraphBuilder.MaxGraphWidth);
+    }
+
     [Fact]
     public void Build_liga_cada_linha_a_seguinte_pelos_segmentos()
     {

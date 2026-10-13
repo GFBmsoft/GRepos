@@ -60,7 +60,7 @@
             <DataTemplate DataType="vm:CommitRowViewModel">
               <Grid ColumnDefinitions="Auto,*,Auto" Height="26" ToolTip.Tip="{Binding Subject}">
                 <controls:GraphCell Grid.Column="0" Row="{Binding Row}" Height="26"
-                                    Width="{Binding GraphWidth}"
+                                    Width="{Binding GraphWidth}" LaneStep="{Binding LaneStep}"
                                     NodeBorderBrush="{DynamicResource BgPanel}" />
                 <!-- grade, não StackPanel: em pilha o texto ganha espaço infinito,
                      nunca trunca e passa por cima da coluna do hash -->

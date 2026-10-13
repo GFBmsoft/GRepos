@@ -25,7 +25,10 @@ public sealed class CommitRowViewModel
     public int MaxLanes { get; init; }
 
     /// <summary>Largura da coluna do grafo: 14px por raia, com teto para não comer a lista.</summary>
-    public double GraphWidth => Math.Min(MaxLanes * 14 + 12, 180);
+    public double GraphWidth => GraphBuilder.GraphWidth(MaxLanes);
+
+    /// <summary>Distância entre raias: encolhe quando há raias demais para o teto.</summary>
+    public double LaneStep => GraphBuilder.LaneStep(MaxLanes);
 
     public string Subject => Commit.Subject;
     public string Author => Commit.Author;

@@ -106,6 +106,34 @@ public static class GraphBuilder
         return rows;
     }
 
+    public const double LaneMargin = 10;
+    public const double LaneStepNormal = 14;
+    public const double LaneStepMin = 4;
+
+    /// <summary>Teto da coluna do grafo, para ela não comer a mensagem do commit.</summary>
+    public const double MaxGraphWidth = 220;
+
+    // sobra depois da última raia: cabe o nó e um respiro até o texto
+    private const double LaneTail = 16;
+
+    /// <summary>
+    /// Distância entre raias. Até caber no teto, 14px; passando disso (repositório com
+    /// dezenas de branches abertas ao mesmo tempo) as raias se apertam até 4px. Abaixo
+    /// disso vira borrão, então o que não couber fica cortado na borda da coluna.
+    /// </summary>
+    public static double LaneStep(int maxLanes)
+    {
+        if (maxLanes <= 1) return LaneStepNormal;
+        var cabe = (MaxGraphWidth - LaneMargin - LaneTail) / (maxLanes - 1);
+        return System.Math.Clamp(cabe, LaneStepMin, LaneStepNormal);
+    }
+
+    public static double GraphWidth(int maxLanes)
+    {
+        var raias = System.Math.Max(1, maxLanes);
+        return System.Math.Min(LaneMargin + (raias - 1) * LaneStep(raias) + LaneTail, MaxGraphWidth);
+    }
+
     public static int MaxLanes(IReadOnlyList<GraphRow> rows)
     {
         var max = 1;

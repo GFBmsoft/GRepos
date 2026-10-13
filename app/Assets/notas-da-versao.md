@@ -1,3 +1,7 @@
+## 1.0.0.44 — 13/10/2026
+- **Grafo do Histórico em repositórios grandes**: com dezenas de branches abertas ao mesmo tempo, as linhas do grafo passavam por cima da mensagem dos commits. Agora o grafo fica na própria coluna.
+- Quando as linhas não cabem, elas se aproximam e ficam mais finas, em vez de invadir o texto. Em repositório com poucas branches nada muda.
+
 ## 1.0.0.43 — 09/10/2026
 - **Árvore em ordem alfabética**: os grupos e subgrupos aparecem por nome dentro do pai, e não mais na ordem em que foram criados. Vale também para a lista de grupos nas Preferências e para o campo **Dentro de**.
 - Dentro de cada grupo, pares e repositórios avulsos seguem uma ordem só — o par entra pelo título dele. Antes os pares vinham todos primeiro.
