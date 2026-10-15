@@ -194,6 +194,32 @@ public class JanelaEHistoricoTests
     });
 
     [Fact]
+    public Task Recarga_automatica_so_troca_a_lista_quando_o_log_mudou() => Com(async home =>
+    {
+        var dir = await RepoComTresCommits(home);
+        var vm = new HistoryViewModel(new Repo { Id = "r", Name = "Demo", Path = dir }, new MainViewModel(new FakeDialogs()), 50, split: true);
+        await vm.LoadAsync();
+        vm.SelectedCommit = vm.Commits.Single(c => c.Subject == "primeiro");
+
+        // arquivo salvo no editor não muda o log: a lista (e a rolagem) fica como está
+        var antes = vm.Commits;
+        File.WriteAllText(Path.Combine(dir, "a.txt"), "editando\n");
+        await vm.LoadAsync(soSeMudou: true);
+        Assert.Same(antes, vm.Commits);
+
+        // tag nova ou commit feito por fora aparecem sem trocar de aba
+        await Git(dir, "tag", "v1");
+        await vm.LoadAsync(soSeMudou: true);
+        Assert.NotSame(antes, vm.Commits);
+        Assert.Contains("tag: v1", vm.Commits[0].Commit.Refs);
+
+        await Git(dir, "commit", "-qam", "quarto");
+        await vm.LoadAsync(soSeMudou: true);
+        Assert.Equal("quarto", vm.Commits[0].Subject);
+        Assert.Equal("primeiro", vm.SelectedCommit?.Subject);
+    });
+
+    [Fact]
     public Task Repositorio_sem_commits_nao_escolhe_nada_e_diz_isso() => Com(async home =>
     {
         var dir = Path.Combine(home, "vazio");

@@ -1,3 +1,7 @@
+## 1.0.0.45 — 15/10/2026
+- **Histórico se atualiza sozinho**: commit, troca de branch, tag ou fetch feitos por fora (no terminal, em outro programa) aparecem no Histórico sem precisar trocar de aba. Salvar arquivo no editor não mexe na lista, então a rolagem e o commit escolhido ficam onde estavam.
+- **F5 atualiza o repositório aberto**: obtém do remoto (contadores do que há para enviar e puxar ficam em dia) e recarrega a aba visível. Funciona de qualquer lugar da janela.
+
 ## 1.0.0.44 — 13/10/2026
 - **Grafo do Histórico em repositórios grandes**: com dezenas de branches abertas ao mesmo tempo, as linhas do grafo passavam por cima da mensagem dos commits. Agora o grafo fica na própria coluna.
 - Quando as linhas não cabem, elas se aproximam e ficam mais finas, em vez de invadir o texto. Em repositório com poucas branches nada muda.

@@ -1484,7 +1484,7 @@ public sealed partial class MainViewModel : ObservableObject
         try
         {
             await RefreshRepoAsync(repoId);
-            if (SelectedTab == 0 && Changes is not null) await Changes.ReloadAsync(silent: true);
+            await RecarregarAbaAsync();
         }
         catch (Exception e)
         {
@@ -1494,6 +1494,32 @@ public sealed partial class MainViewModel : ObservableObject
         {
             _reloading = false;
         }
+    }
+
+    /// <summary>
+    /// Recarga silenciosa da aba visível: commit, checkout ou fetch feitos por fora também
+    /// mudam o histórico, não só a lista de alterações.
+    /// </summary>
+    private async Task RecarregarAbaAsync()
+    {
+        switch (SelectedTab)
+        {
+            case 0 when Changes is not null: await Changes.ReloadAsync(silent: true); break;
+            case 1 when History is not null: await History.LoadAsync(soSeMudou: true); break;
+        }
+    }
+
+    /// <summary>
+    /// F5: obtém do remoto (ahead/behind e branches remotas em dia) e recarrega a aba.
+    /// Com outra operação em andamento, só relê o que está em disco.
+    /// </summary>
+    [RelayCommand]
+    private async Task Atualizar()
+    {
+        if (CurrentRepo is not { } repo) return;
+        if (!Busy) await Fetch();
+        await RefreshRepoAsync(repo.Id);
+        await RecarregarAbaAsync();
     }
 
     /// <summary>Recarrega a aba visível — usado quando a paleta do tema muda.</summary>
@@ -1705,6 +1731,7 @@ public sealed partial class MainViewModel : ObservableObject
             var outp = await action(repo.Path);
             await RefreshRepoAsync(repo.Id);
             if (SelectedTab == 0 && Changes is not null) await Changes.ReloadAsync();
+            if (SelectedTab == 1 && History is not null) await History.LoadAsync(soSeMudou: true);
 
             var aviso = resumo?.Invoke(antes, CurrentRepo?.Id == repo.Id ? CurrentStatus : null)
                         ?? new Aviso($"{nome} concluído", MensagensGit.Traduzir(outp));

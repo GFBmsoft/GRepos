@@ -79,6 +79,7 @@ public sealed class RepoWatcher : IDisposable
         return !(inside.StartsWith("HEAD", StringComparison.OrdinalIgnoreCase)
                  || inside.StartsWith("index", StringComparison.OrdinalIgnoreCase)
                  || inside.StartsWith("refs/", StringComparison.OrdinalIgnoreCase)
+                 || inside.StartsWith("packed-refs", StringComparison.OrdinalIgnoreCase)
                  || inside.StartsWith("MERGE_", StringComparison.OrdinalIgnoreCase)
                  || inside.StartsWith("logs/refs/stash", StringComparison.OrdinalIgnoreCase));
     }

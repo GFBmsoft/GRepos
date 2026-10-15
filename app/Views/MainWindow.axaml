@@ -232,7 +232,7 @@
 
           <!-- clique direito em Obter/Puxar: o que mais vem junto (tags, branches) -->
           <controls:ToolButton Grid.Column="1" Label="Obter" Icon="{StaticResource IconFetch}"
-                               ToolTip.Tip="Buscar novidades do remoto (fetch). Clique direito: opções"
+                               ToolTip.Tip="Buscar novidades do remoto (fetch). F5 obtém e recarrega a tela. Clique direito: opções"
                                IsEnabled="{Binding !Busy}" Command="{Binding FetchCommand}">
             <controls:ToolButton.ContextMenu>
               <ContextMenu>

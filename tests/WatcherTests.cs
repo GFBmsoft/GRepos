@@ -17,6 +17,7 @@ public class RepoWatcherFilterTests
     [InlineData(@"D:\proj\.git\index", false)]               // stage feito por fora
     [InlineData(@"D:\proj\.git\refs\heads\main", false)]     // commit por fora
     [InlineData(@"D:\proj\.git\logs\refs\stash", false)]     // stash por fora
+    [InlineData(@"D:\proj\.git\packed-refs", false)]         // fetch --prune, gc
     public void Filtra_ruido_do_git_mas_nao_o_que_muda_a_tela(string caminho, bool ignorado)
     {
         Assert.Equal(ignorado, RepoWatcher.ShouldIgnore(caminho));

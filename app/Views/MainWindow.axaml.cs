@@ -77,6 +77,14 @@ public partial class MainWindow : Window, IDialogService
         var caixa = this.FindControl<TextBox>("CaixaFiltro");
         if (caixa is null) return;
 
+        // F5: obtém e recarrega o repositório aberto, de qualquer lugar da janela
+        if (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None)
+        {
+            if (DataContext is MainViewModel m) m.AtualizarCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         // no terminal o Ctrl+F é do bash (avança o cursor), não do filtro
         if ((e.Source as Visual)?.FindAncestorOfType<AvaloniaTerminal.TerminalControl>(includeSelf: true) is not null)
             return;

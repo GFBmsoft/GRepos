@@ -249,7 +249,11 @@ public sealed partial class HistoryViewModel : ObservableObject
     [RelayCommand]
     private void LimparBusca() => Busca = "";
 
-    public async Task LoadAsync()
+    /// <param name="soSeMudou">
+    /// Recarga automática (disco mudou, F5): se o log é o mesmo, não toca na lista, para
+    /// não perder a rolagem nem o arquivo aberto a cada salvamento no editor.
+    /// </param>
+    public async Task LoadAsync(bool soSeMudou = false)
     {
         try
         {
@@ -266,6 +270,7 @@ public sealed partial class HistoryViewModel : ObservableObject
                     .Select(c => new GraphRow { Commit = c }).ToList();
             }
             if (termo != Busca) return; // a busca mudou enquanto o git respondia
+            if (soSeMudou && MesmoLog(rows)) return;
             var max = Math.Max(1, GraphBuilder.MaxLanes(rows));
             var escolhido = SelectedCommit?.Commit.Hash;
 
@@ -296,6 +301,12 @@ public sealed partial class HistoryViewModel : ObservableObject
             _main.Notify(e.Message, true);
         }
     }
+
+    /// <summary>Mesmos commits, na mesma ordem e com as mesmas refs (branch andou, tag nova).</summary>
+    private bool MesmoLog(List<GraphRow> rows) =>
+        rows.Count == Commits.Count
+        && rows.Zip(Commits).All(p => p.First.Commit.Hash == p.Second.Commit.Hash
+                                      && p.First.Commit.Refs.SequenceEqual(p.Second.Commit.Refs));
 
     private async Task LoadDetailAsync(CommitRowViewModel? row)
     {
