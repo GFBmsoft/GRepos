@@ -29,6 +29,18 @@ public class MensagensGitTests
     }
 
     [Fact]
+    public void F5_tem_aviso_proprio_com_os_dois_lados()
+    {
+        const string t = "Alterações verificadas";
+        Assert.Equal(new Aviso(t, "develop está em dia com o remoto."), MensagensGit.Verificado(S()));
+        Assert.Equal(new Aviso(t, "Há 2 commits para puxar em develop."), MensagensGit.Verificado(S(behind: 2)));
+        Assert.Equal(new Aviso(t, "Há 1 commit para enviar em develop."), MensagensGit.Verificado(S(ahead: 1)));
+        Assert.Equal(new Aviso(t, "Há 3 commits para puxar e 1 commit para enviar em develop."),
+            MensagensGit.Verificado(S(ahead: 1, behind: 3)));
+        Assert.Contains("ainda não tem par no remoto", MensagensGit.Verificado(S("imp/x", upstream: null)).Detalhe);
+    }
+
+    [Fact]
     public void Puxar_conta_os_commits_que_chegaram()
     {
         var chegaram = MensagensGit.Puxado(S(behind: 4, head: "aaa"), S(head: "bbb"));

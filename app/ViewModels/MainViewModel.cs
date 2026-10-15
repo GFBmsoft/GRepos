@@ -409,6 +409,66 @@ public sealed partial class MainViewModel : ObservableObject
         foreach (var p in new[] { nameof(TemCi), nameof(CiCor), nameof(CiRotulo), nameof(CiTooltip),
                                   nameof(TemCiOuGitHub) })
             OnPropertyChanged(p);
+        AjustarVigiaDaEsteira();
+    }
+
+    // --------------------------------------------- acompanhamento da esteira
+    // A consulta era feita só ao selecionar o repositório: com ele aberto, "rodando"
+    // ficava na barra depois de a execução terminar. Enquanto roda (ou logo depois de
+    // um envio, que dispara uma nova), a esteira é consultada de tempos em tempos;
+    // parada, nenhuma consulta — a cota da API é por hora.
+
+    private static readonly TimeSpan IntervaloDaEsteira = TimeSpan.FromSeconds(15);
+
+    /// <summary>Quanto tempo depois de enviar vale esperar a execução nova aparecer.</summary>
+    private static readonly TimeSpan EsperaAposEnviar = TimeSpan.FromSeconds(90);
+
+    private DispatcherTimer? _vigiaEsteira;
+    private DateTime _esperarEsteiraAte;
+    private bool _consultandoEsteira;
+
+    private void AjustarVigiaDaEsteira()
+    {
+        var vigiar = _ciSlug.Length > 0 && (CiSituacao == "rodando" || DateTime.UtcNow < _esperarEsteiraAte);
+        if (!vigiar)
+        {
+            _vigiaEsteira?.Stop();
+            return;
+        }
+        if (_vigiaEsteira is null)
+        {
+            _vigiaEsteira = new DispatcherTimer { Interval = IntervaloDaEsteira };
+            _vigiaEsteira.Tick += (_, _) =>
+            {
+                if (CurrentRepo is { } r) _ = AtualizarEsteiraAsync(r);
+                AjustarVigiaDaEsteira(); // o prazo do envio vence mesmo sem mudar a situação
+            };
+        }
+        if (!_vigiaEsteira.IsEnabled) _vigiaEsteira.Start();
+    }
+
+    /// <summary>Reconsulta só a esteira, sem o guardado, mantendo remoto e PRs como estão.</summary>
+    private async Task AtualizarEsteiraAsync(Repo repo)
+    {
+        if (_ciSlug.Length == 0 || _consultandoEsteira) return;
+        _consultandoEsteira = true;
+        try
+        {
+            var run = await GitHubService.UltimaExecucaoAsync(
+                _ciSlug, CurrentStatus?.Branch ?? "", _ciUsuario, semCache: true);
+            if (SelectedNode?.Repo.Id != repo.Id) return;
+            CiDetalhe = run.Detalhe;
+            CiUrl = run.Url;
+            CiSituacao = run.Situacao;
+        }
+        catch (Exception)
+        {
+            // informativo: a próxima volta tenta de novo
+        }
+        finally
+        {
+            _consultandoEsteira = false;
+        }
     }
 
     partial void OnCiDetalheChanged(string value) => OnPropertyChanged(nameof(CiTooltip));
@@ -429,10 +489,11 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task AtualizarRemotoAsync(Repo repo)
     {
         RemoteWebUrl = "";
+        _ciSlug = "";
+        _esperarEsteiraAte = default;
         CiSituacao = "";
         CiDetalhe = "";
         CiUrl = "";
-        _ciSlug = "";
         _ciUsuario = "";
         TemGitHub = false;
         PrsAbertos = 0;
@@ -1510,16 +1571,42 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// F5: obtém do remoto (ahead/behind e branches remotas em dia) e recarrega a aba.
-    /// Com outra operação em andamento, só relê o que está em disco.
+    /// F5: obtém do remoto (ahead/behind e branches remotas em dia), recarrega a aba e
+    /// reconsulta a esteira. O aviso é próprio ("Verificando alterações"), para não se
+    /// confundir com o do botão Obter. Com outra operação em andamento, só relê o disco.
     /// </summary>
     [RelayCommand]
     private async Task Atualizar()
     {
         if (CurrentRepo is not { } repo) return;
-        if (!Busy) await Fetch();
-        await RefreshRepoAsync(repo.Id);
-        await RecarregarAbaAsync();
+        if (Busy)
+        {
+            await RefreshRepoAsync(repo.Id);
+            await RecarregarAbaAsync();
+            return;
+        }
+
+        Busy = true;
+        Avisar("andamento", "Verificando alterações…", repo.Name);
+        try
+        {
+            await ComSincronizacaoAsync(repo.Path, GitService.FetchAsync(repo.Path, BuscarTodasAsTags));
+            await RefreshRepoAsync(repo.Id);
+            await RecarregarAbaAsync();
+            await AtualizarEsteiraAsync(repo);
+
+            var aviso = MensagensGit.Verificado(CurrentRepo?.Id == repo.Id ? CurrentStatus : null);
+            Avisar("sucesso", aviso.Titulo, aviso.Detalhe);
+        }
+        catch (Exception e)
+        {
+            var aviso = MensagensGit.Erro("verificar as alterações", e.Message);
+            Avisar("erro", aviso.Titulo, aviso.Detalhe);
+        }
+        finally
+        {
+            Busy = false;
+        }
     }
 
     /// <summary>Recarrega a aba visível — usado quando a paleta do tema muda.</summary>
@@ -1821,9 +1908,16 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task Push() => RunAsync(
-        p => GitService.PushAsync(p, string.IsNullOrEmpty(CurrentStatus?.Upstream)),
-        "Enviar", "enviar", MensagensGit.Enviado);
+    private async Task Push()
+    {
+        await RunAsync(
+            p => GitService.PushAsync(p, string.IsNullOrEmpty(CurrentStatus?.Upstream)),
+            "Enviar", "enviar", MensagensGit.Enviado);
+
+        // o envio costuma disparar a esteira, que leva alguns segundos para aparecer na API
+        _esperarEsteiraAte = DateTime.UtcNow + EsperaAposEnviar;
+        AjustarVigiaDaEsteira();
+    }
 
     /// <summary>Desfaz a última ação do repositório (commit, reset, merge, checkout…), lida do reflog.</summary>
     [RelayCommand]

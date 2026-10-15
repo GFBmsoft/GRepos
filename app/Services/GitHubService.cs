@@ -458,10 +458,15 @@ public static class GitHubService
     /// <summary>Esquece o token em memória, forçando nova leitura do gerenciador.</summary>
     public static void EsquecerTokens() => Tokens.Clear();
 
-    public static async Task<CiRun> UltimaExecucaoAsync(string slug, string branch, string usuario = "")
+    /// <param name="semCache">
+    /// F5 e o acompanhamento de execução em andamento: o guardado de até 90 s mostrava
+    /// "rodando" numa esteira que já tinha terminado.
+    /// </param>
+    public static async Task<CiRun> UltimaExecucaoAsync(string slug, string branch, string usuario = "",
+        bool semCache = false)
     {
         var chave = slug + "@" + branch;
-        if (Cache.TryGetValue(chave, out var guardado) && DateTime.UtcNow - guardado.Quando < Validade)
+        if (!semCache && Cache.TryGetValue(chave, out var guardado) && DateTime.UtcNow - guardado.Quando < Validade)
             return guardado.Run;
 
         var run = await ConsultarAsync(slug, branch, usuario);

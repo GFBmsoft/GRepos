@@ -1,3 +1,7 @@
+## 1.0.0.46 — 15/10/2026
+- **Status da esteira em dia**: com o repositório aberto, a barra mostrava "Esteira rodando" depois de a execução já ter terminado. Agora, enquanto a esteira roda, o status é consultado a cada 15 segundos e muda sozinho para "ok" ou "quebrou" quando ela termina. Depois de **Enviar**, o app também fica de olho por um minuto e meio, que é quando a execução nova costuma aparecer.
+- **F5 com aviso próprio**: aparece "Verificando alterações…" e, no fim, "Alterações verificadas" com o que há para puxar e para enviar. O F5 também atualiza o status da esteira.
+
 ## 1.0.0.45 — 15/10/2026
 - **Histórico se atualiza sozinho**: commit, troca de branch, tag ou fetch feitos por fora (no terminal, em outro programa) aparecem no Histórico sem precisar trocar de aba. Salvar arquivo no editor não mexe na lista, então a rolagem e o commit escolhido ficam onde estavam.
 - **F5 atualiza o repositório aberto**: obtém do remoto (contadores do que há para enviar e puxar ficam em dia) e recarrega a aba visível. Funciona de qualquer lugar da janela.

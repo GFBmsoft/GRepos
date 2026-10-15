@@ -30,6 +30,25 @@ public static class MensagensGit
             : new Aviso("Obter concluído", $"Nada novo no remoto para {depois.Branch}.");
     }
 
+    /// <summary>
+    /// F5: aviso próprio, separado do "Obter" do botão. Diz os dois lados — o que há
+    /// para puxar e o que há para enviar —, que é o que se quer saber ao atualizar.
+    /// </summary>
+    public static Aviso Verificado(RepoStatus? depois)
+    {
+        const string titulo = "Alterações verificadas";
+        if (depois is null) return new Aviso(titulo);
+        if (string.IsNullOrEmpty(depois.Upstream))
+            return new Aviso(titulo, $"A branch {depois.Branch} ainda não tem par no remoto.");
+
+        var partes = new System.Collections.Generic.List<string>();
+        if (depois.Behind > 0) partes.Add($"{Commits(depois.Behind)} para puxar");
+        if (depois.Ahead > 0) partes.Add($"{Commits(depois.Ahead)} para enviar");
+        return partes.Count == 0
+            ? new Aviso(titulo, $"{depois.Branch} está em dia com o remoto.")
+            : new Aviso(titulo, $"Há {string.Join(" e ", partes)} em {depois.Branch}.");
+    }
+
     /// <summary>Quantos commits chegaram: os que faltavam antes menos os que ainda faltam.</summary>
     public static Aviso Puxado(RepoStatus? antes, RepoStatus? depois)
     {
