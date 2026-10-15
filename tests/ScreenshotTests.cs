@@ -1070,16 +1070,16 @@ public class ScreenshotTests
         window.Measure(new Size(1000, 640));
         window.Arrange(new Rect(0, 0, 1000, 640));
 
-        // só os ícones da sidebar: são eles que a largura mínima precisa comportar.
-        // Contar os da janela inteira pegava junto o do rodapé, que é menor de propósito.
+        // só os ícones coloridos do topo da sidebar: são eles que a largura mínima precisa
+        // comportar. Preferências foi para o rodapé, numa linha só dela
         var sidebar = window.GetVisualDescendants().OfType<Border>()
             .First(b => b.Classes.Contains("panel"));
 
         var botoes = sidebar.GetVisualDescendants().OfType<Button>()
-            .Where(b => b.Classes.Contains("icon"))
+            .Where(b => b.Classes.Contains("colorido"))
             .ToList();
 
-        Assert.Equal(4, botoes.Count);
+        Assert.Equal(3, botoes.Count);
         foreach (var b in botoes)
             Assert.True(b.Bounds.Width >= 28, $"ícone espremido: {b.Bounds.Width:F0}px");
 

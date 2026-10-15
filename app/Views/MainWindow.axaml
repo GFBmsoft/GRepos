@@ -12,7 +12,7 @@
 
   <Grid x:Name="Layout">
     <Grid.ColumnDefinitions>
-      <!-- a sidebar não encolhe além do logo + os quatro ícones da barra;
+      <!-- a sidebar não encolhe além do logo + os três ícones da barra;
            a largura escolhida no divisor é guardada e volta na próxima abertura -->
       <ColumnDefinition Width="280" MinWidth="196" />
       <ColumnDefinition Width="4" />
@@ -21,24 +21,38 @@
 
     <!-- ===================================================== sidebar -->
     <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
-      <Grid RowDefinitions="Auto,Auto,*">
+      <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="10,10,6,8">
+        <!-- cada ação com uma cor da paleta: verde acrescenta, roxo agrupa, azul atualiza -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" Margin="10,10,10,8">
           <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                       ClipToBounds="True">
             <TextBlock Text="G" FontWeight="Bold" FontSize="15" />
             <TextBlock Text="Repos" FontWeight="Bold" FontSize="15"
                        Foreground="{DynamicResource Accent}" />
           </StackPanel>
-          <Button Grid.Column="1" Classes="ghost icon" Content="&#xE710;"
-                  ToolTip.Tip="Adicionar repositório" Command="{Binding AddRepoCommand}" />
-          <Button Grid.Column="2" Classes="ghost icon" Content="&#xE8F4;"
-                  ToolTip.Tip="Novo grupo" Command="{Binding AddGroupCommand}" />
-          <Button Grid.Column="3" Classes="ghost icon" Content="&#xE72C;"
+          <Button Grid.Column="1" Classes="colorido"
+                  ToolTip.Tip="Adicionar repositório" Command="{Binding AddRepoCommand}">
+            <Panel Classes="fundo">
+              <Border Classes="tinta" Background="{DynamicResource Green}" />
+              <TextBlock Classes="glifo" Text="&#xE710;" Foreground="{DynamicResource Green}" />
+            </Panel>
+          </Button>
+          <Button Grid.Column="2" Classes="colorido"
+                  ToolTip.Tip="Novo grupo" Command="{Binding AddGroupCommand}">
+            <Panel Classes="fundo">
+              <Border Classes="tinta" Background="{DynamicResource Purple}" />
+              <TextBlock Classes="glifo" Text="&#xE8F4;" Foreground="{DynamicResource Purple}" />
+            </Panel>
+          </Button>
+          <Button Grid.Column="3" Classes="colorido"
                   ToolTip.Tip="Atualizar todos" IsEnabled="{Binding !Scanning}"
-                  Command="{Binding RefreshAllCommand}" />
-          <Button Grid.Column="4" Classes="ghost icon" Content="&#xE713;"
-                  ToolTip.Tip="Preferências" Command="{Binding OpenSettingsCommand}" />
+                  Command="{Binding RefreshAllCommand}">
+            <Panel Classes="fundo">
+              <Border Classes="tinta" Background="{DynamicResource Accent}" />
+              <TextBlock Classes="glifo" Text="&#xE72C;" Foreground="{DynamicResource Accent}" />
+            </Panel>
+          </Button>
         </Grid>
 
         <TextBox Grid.Row="1" x:Name="CaixaFiltro" Margin="10,0,10,8"
@@ -211,6 +225,23 @@
 
           </ListBox.DataTemplates>
         </ListBox>
+
+        <!-- preferências no rodapé da sidebar, longe das ações do dia a dia -->
+        <Border Grid.Row="3" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="8,6">
+          <Button Classes="secaoTopo" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                  Padding="2,2,8,2" ToolTip.Tip="Preferências: tema, contas, autenticação e notas da versão"
+                  Command="{Binding OpenSettingsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="9">
+              <Panel Width="26" Height="26">
+                <Border CornerRadius="7" Opacity="0.14" Background="{DynamicResource Orange}" />
+                <TextBlock Text="&#xE713;" FontSize="13" Foreground="{DynamicResource Orange}"
+                           FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Panel>
+              <TextBlock Text="Preferências" FontSize="12" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </Border>
 
       </Grid>
     </Border>

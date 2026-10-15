@@ -315,6 +315,49 @@
   </Style>
 
   <!-- botão só de ícone: a legenda vive no ToolTip -->
+  <!-- botão de ícone com a cor da paleta como fundo suave, no tom das pílulas de grupo.
+       A cor vem de um Border.tinta dentro do botão: o fundo fica translúcido e o
+       glifo, na cor cheia -->
+  <Style Selector="Button.colorido">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="Margin" Value="4,0,0,0" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <!-- o fundo ocupa o botão inteiro; sem tamanho próprio ficava do tamanho do glifo -->
+  <Style Selector="Button.colorido Panel.fundo">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+  </Style>
+  <Style Selector="Button.colorido:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.colorido:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.colorido Border.tinta">
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Opacity" Value="0.16" />
+  </Style>
+  <Style Selector="Button.colorido:pointerover Border.tinta">
+    <Setter Property="Opacity" Value="0.28" />
+  </Style>
+  <Style Selector="Button.colorido:pressed Border.tinta">
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
+  <Style Selector="Button.colorido:disabled">
+    <Setter Property="Opacity" Value="0.45" />
+  </Style>
+  <Style Selector="Button.colorido TextBlock.glifo">
+    <Setter Property="FontFamily" Value="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
   <Style Selector="Button.icon">
     <Setter Property="FontFamily" Value="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol" />
     <Setter Property="FontSize" Value="14" />

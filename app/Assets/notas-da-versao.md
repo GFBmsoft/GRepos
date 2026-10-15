@@ -1,3 +1,7 @@
+## 1.0.0.48 — 15/10/2026
+- **Sidebar mais colorida**: os botões de adicionar repositório (verde), novo grupo (roxo) e atualizar (azul) ganharam fundo na cor da paleta, no mesmo tom das pílulas de grupo.
+- **Preferências no rodapé da sidebar**, com o nome escrito, longe das ações do dia a dia.
+
 ## 1.0.0.47 — 15/10/2026
 - **Log dos passos da esteira**: clique num passo para ver o log dele logo abaixo, com os erros em destaque. O botão **log** do job abre o texto inteiro no editor.
 - **Artefatos**: a janela da esteira lista o que a execução gerou; **Baixar** extrai na pasta escolhida.
