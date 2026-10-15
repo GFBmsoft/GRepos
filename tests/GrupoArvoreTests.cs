@@ -218,9 +218,31 @@ public class ArvoreComSubgruposTests
         main.MostrarPainel(dbisam);
         Assert.Equal(3, main.Painel!.Cartoes.Count);
 
-        // uma seção por subgrupo, na ordem da árvore, com o caminho no título
-        Assert.Equal(new[] { "DBISAM", "DBISAM / Fiscal", "DBISAM / Fiscal / NFe" }, main.Painel.Secoes.Select(s => s.Titulo));
-        Assert.All(main.Painel.Secoes, s => Assert.True(s.MostraTitulo));
+        // uma seção por subgrupo, dentro da do pai, na ordem da árvore
+        var raiz = Assert.Single(main.Painel.Secoes);
+        Assert.Equal(new[] { "DBISAM", "Fiscal", "NFe" }, main.Painel.TodasAsSecoes.Select(s => s.Titulo));
+        Assert.All(main.Painel.TodasAsSecoes, s => Assert.True(s.MostraTitulo));
+        Assert.Equal("3", raiz.Contagem); // o pai conta o que está nas subpastas também
+        return Task.CompletedTask;
+    });
+
+    [Fact]
+    public Task Painel_geral_agrupa_por_pasta_e_subpasta_como_a_arvore() => Com((main, d) =>
+    {
+        var (dbisam, fiscal, nfe) = Montar(main);
+
+        main.MostrarPainel(null);
+
+        Assert.Equal(new[] { "DBISAM", "Sem grupo" }, main.Painel!.Secoes.Select(s => s.Titulo));
+        var fiscalSecao = Assert.Single(main.Painel.Secoes[0].Subsecoes);
+        Assert.Equal(fiscal, fiscalSecao.GrupoId);
+        Assert.Equal(nfe, Assert.Single(fiscalSecao.Subsecoes).GrupoId);
+        Assert.Equal(new[] { "Financeiro" }, main.Painel.Secoes[0].Cartoes.Select(c => c.Nome));
+
+        // recolher o pai pela árvore fecha a seção dele, e com ela as de dentro
+        main.ToggleGroupCommand.Execute(main.Tree.OfType<GroupNode>().Single(g => g.Id == dbisam));
+        Assert.True(main.Painel.Secoes[0].Recolhido);
+        Assert.False(main.Painel.Secoes[0].MostraCartoes);
         return Task.CompletedTask;
     });
 

@@ -514,6 +514,35 @@ public class UiSmokeTests
         var vm = new PainelViewModel("Módulos", "5 repositório(s)",
             new[] { limpo, sujo, semCi, consultando, comErro }, main);
 
+        // pasta com subpastas: a lista de dentro reusa o modelo da seção, e só aparece
+        // erro de binding nele se as subseções estiverem populadas
+        vm.Secoes = new System.Collections.ObjectModel.ObservableCollection<SecaoPainelViewModel>
+        {
+            new()
+            {
+                Titulo = "DBISAM", MostraTitulo = true,
+                Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel> { limpo },
+                Subsecoes = new System.Collections.ObjectModel.ObservableCollection<SecaoPainelViewModel>
+                {
+                    new()
+                    {
+                        Titulo = "Componentes", MostraTitulo = true,
+                        Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel> { sujo, semCi },
+                    },
+                    new()
+                    {
+                        Titulo = "Projetos", MostraTitulo = true, Recolhido = true,
+                        Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel> { consultando },
+                    },
+                },
+            },
+            new()
+            {
+                Titulo = "Sem grupo", MostraTitulo = true,
+                Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel> { comErro },
+            },
+        };
+
         // o cartão de perfil é outro template: precisa ser construído aqui também
         vm.Perfil = new PerfilViewModel("GFBmsoft", new[] { limpo.Repo, sujo.Repo })
         {

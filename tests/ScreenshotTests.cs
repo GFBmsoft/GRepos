@@ -516,14 +516,27 @@ public class ScreenshotTests
         var vm = new PainelViewModel("Todos os repositórios", "", cartoes, main);
         vm.Subtitulo = vm.Resumo;
 
-        // no painel geral cada grupo é uma seção, como o MainViewModel monta
+        // no painel geral cada grupo é uma seção, com os subgrupos dentro, como o MainViewModel monta
         vm.Secoes = new System.Collections.ObjectModel.ObservableCollection<SecaoPainelViewModel>
         {
             new()
             {
-                Titulo = "Manuais - BMSoft", Cor = "#DB4C9B", MostraTitulo = true,
-                Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel>(
-                    cartoes.Take(3)),
+                Titulo = "DBISAM", Cor = "#F0883E", MostraTitulo = true,
+                Subsecoes = new System.Collections.ObjectModel.ObservableCollection<SecaoPainelViewModel>
+                {
+                    new()
+                    {
+                        Titulo = "Componentes", Cor = "#F0883E", MostraTitulo = true,
+                        Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel>(
+                            cartoes.Take(3)),
+                    },
+                    new()
+                    {
+                        Titulo = "Projetos", Cor = "#F0883E", MostraTitulo = true, Recolhido = true,
+                        Cartoes = new System.Collections.ObjectModel.ObservableCollection<CartaoRepoViewModel>(
+                            cartoes.Skip(1).Take(2)),
+                    },
+                },
             },
             new()
             {

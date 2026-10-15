@@ -202,9 +202,11 @@
        </StackPanel>
       </Border>
 
-      <!-- uma seção por grupo; no painel de um grupo só o título fica escondido -->
+      <!-- uma seção por grupo, com as subpastas dentro, como na árvore. O modelo fica em
+           DataTemplates, e não em ItemTemplate, para a lista de subseções de dentro achá-lo;
+           no painel de um grupo sem subgrupos só o título fica escondido -->
       <ItemsControl ItemsSource="{Binding Secoes}">
-        <ItemsControl.ItemTemplate>
+        <ItemsControl.DataTemplates>
           <DataTemplate DataType="vm:SecaoPainelViewModel">
             <StackPanel Margin="0,0,0,10">
 
@@ -229,8 +231,11 @@
                 </StackPanel>
               </Button>
 
-              <ItemsControl ItemsSource="{Binding Cartoes}" Classes="cartoes"
-                            IsVisible="{Binding MostraCartoes}">
+              <!-- corpo recuado sob o título: subpastas primeiro, depois os repositórios -->
+              <StackPanel Margin="{Binding RecuoDoCorpo}" IsVisible="{Binding MostraCartoes}">
+              <ItemsControl ItemsSource="{Binding Subsecoes}" IsVisible="{Binding TemSubsecoes}" />
+
+              <ItemsControl ItemsSource="{Binding Cartoes}" Classes="cartoes">
                 <!-- o cartão aberto ocupa a fileira sozinho. A marca vai no contêiner, que
                      é o filho que a grade enxerga; o ">" do Avalonia segue o pai lógico, que
                      é este ItemsControl, e a classe evita pegar as listas de dentro do cartão
@@ -451,9 +456,10 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
+              </StackPanel>
             </StackPanel>
           </DataTemplate>
-        </ItemsControl.ItemTemplate>
+        </ItemsControl.DataTemplates>
       </ItemsControl>
      </StackPanel>
     </ScrollViewer>

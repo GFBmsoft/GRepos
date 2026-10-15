@@ -1,3 +1,6 @@
+## 1.0.0.49 — 15/10/2026
+- **Painel agrupado como a árvore**: em vez de "DBISAM / Componentes" e "DBISAM / Projetos" soltos, o painel mostra a pasta **DBISAM** com as subpastas dentro, recuadas. A contagem e o resumo de uma pasta fechada incluem o que está nas subpastas, e recolher a pasta esconde tudo o que há nela.
+
 ## 1.0.0.48 — 15/10/2026
 - **Sidebar mais colorida**: os botões de adicionar repositório (verde), novo grupo (roxo) e atualizar (azul) ganharam fundo na cor da paleta, no mesmo tom das pílulas de grupo.
 - **Preferências no rodapé da sidebar**, com o nome escrito, longe das ações do dia a dia.

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GRepos.Models;
@@ -292,7 +293,22 @@ public sealed partial class SecaoPainelViewModel : ObservableObject
 
     public ObservableCollection<CartaoRepoViewModel> Cartoes { get; init; } = new();
 
-    public string Contagem => Cartoes.Count.ToString();
+    /// <summary>Subgrupos, dentro da seção do pai — a mesma pasta e subpasta da árvore.</summary>
+    public ObservableCollection<SecaoPainelViewModel> Subsecoes { get; init; } = new();
+
+    public bool TemSubsecoes => Subsecoes.Count > 0;
+
+    /// <summary>A seção e as de dentro, em ordem de árvore.</summary>
+    public IEnumerable<SecaoPainelViewModel> ComSubsecoes =>
+        Subsecoes.SelectMany(s => s.ComSubsecoes).Prepend(this);
+
+    /// <summary>Os repositórios da seção e de todas as subseções.</summary>
+    public IEnumerable<CartaoRepoViewModel> TodosOsCartoes => ComSubsecoes.SelectMany(s => s.Cartoes);
+
+    /// <summary>Sob um título, o conteúdo entra recuado, como um nível a mais na árvore.</summary>
+    public Thickness RecuoDoCorpo => MostraTitulo ? new Thickness(16, 0, 0, 0) : default;
+
+    public string Contagem => TodosOsCartoes.Count().ToString();
 
     /// <summary>
     /// Seção fechada, como o grupo recolhido na árvore — e sincronizada com ela. Só o
@@ -311,10 +327,11 @@ public sealed partial class SecaoPainelViewModel : ObservableObject
         get
         {
             var partes = new List<string>();
-            var sujos = Cartoes.Count(c => c.MostraSujo || c.MostraConflito);
-            var enviar = Cartoes.Count(c => c.MostraAhead);
-            var receber = Cartoes.Count(c => c.MostraBehind);
-            var quebrados = Cartoes.Count(c => c.CiSituacao == "falha");
+            var cartoes = TodosOsCartoes.ToList();
+            var sujos = cartoes.Count(c => c.MostraSujo || c.MostraConflito);
+            var enviar = cartoes.Count(c => c.MostraAhead);
+            var receber = cartoes.Count(c => c.MostraBehind);
+            var quebrados = cartoes.Count(c => c.CiSituacao == "falha");
 
             if (sujos > 0) partes.Add($"{sujos} com alterações");
             if (enviar > 0) partes.Add($"{enviar} a enviar");
@@ -337,7 +354,7 @@ public sealed partial class SecaoPainelViewModel : ObservableObject
 
         // cartão aberto dentro de seção fechada continuaria consultando a esteira à toa
         if (value)
-            foreach (var c in Cartoes) c.Expandido = false;
+            foreach (var c in TodosOsCartoes) c.Expandido = false;
     }
 
     /// <summary>Status ou esteira mudaram: o resumo da seção fechada acompanha.</summary>
@@ -468,8 +485,11 @@ public sealed partial class PainelViewModel : ObservableObject
 
     public void AtualizarPendencias()
     {
-        foreach (var s in Secoes) s.AtualizarPendencias();
+        foreach (var s in TodasAsSecoes) s.AtualizarPendencias();
     }
+
+    /// <summary>Seções de todos os níveis, em ordem de árvore.</summary>
+    public IEnumerable<SecaoPainelViewModel> TodasAsSecoes => Secoes.SelectMany(s => s.ComSubsecoes);
 
     private static async Task CarregarEsteiraAsync(CartaoRepoViewModel cartao)
     {

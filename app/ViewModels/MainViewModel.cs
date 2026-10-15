@@ -192,27 +192,11 @@ public sealed partial class MainViewModel : ObservableObject
         var painel = new PainelViewModel(titulo, "", cartoes, this);
         painel.Subtitulo = painel.Resumo;
 
-        // no painel geral, cada grupo é uma seção; no de um grupo, uma seção só e sem
-        // título, que seria repetir o cabeçalho logo acima
-        // grupo com subgrupos também ganha uma seção por subgrupo, com título; as seções
-        // seguem a ordem da árvore
-        var ordem = GruposEmArvore().Select((g, i) => (g.Grupo.Id, i)).ToDictionary(x => x.Id, x => x.i);
+        // no painel geral, cada grupo é uma seção com os subgrupos dentro, como pasta e
+        // subpasta na árvore; no de um grupo, uma seção só e sem título, que seria repetir o
+        // cabeçalho logo acima — a não ser que ele tenha subgrupos, e aí todos ganham título
         var geral = grupoId is null || painel.Cartoes.Select(c => c.Repo.GroupId ?? "").Distinct().Count() > 1;
-        painel.Secoes = new ObservableCollection<SecaoPainelViewModel>(
-            painel.Cartoes
-                .GroupBy(c => c.Repo.GroupId ?? "")
-                .OrderBy(g => ordem.TryGetValue(g.Key, out var posicao) ? posicao : int.MaxValue)
-                .Select(g => new SecaoPainelViewModel
-                {
-                    GrupoId = g.Key,
-                    Titulo = NomeDoGrupo(g.Key),
-                    Cor = CorDoGrupo(g.Key),
-                    MostraTitulo = geral,
-                    Cartoes = new ObservableCollection<CartaoRepoViewModel>(g),
-                    // recolhido na árvore, recolhido no painel: é o mesmo grupo
-                    Recolhido = geral && _ws.Groups.Any(x => x.Id == g.Key && x.Collapsed),
-                    AoAlternar = AlternarGrupoDoPainel,
-                }));
+        painel.Secoes = new ObservableCollection<SecaoPainelViewModel>(MontarSecoes(painel.Cartoes, grupoId, geral));
 
         Painel = painel;
 
@@ -221,6 +205,64 @@ public sealed partial class MainViewModel : ObservableObject
             MostrarPerfil(_perfilEscolhido ?? _ws.Settings.GithubUser);
 
         _ = CarregarPainelAsync();
+    }
+
+    /// <summary>
+    /// Seções do painel em árvore: cada grupo com os repositórios dele e, dentro, uma
+    /// seção por subgrupo. Grupo sem nada em lugar nenhum abaixo dele não aparece.
+    /// </summary>
+    private List<SecaoPainelViewModel> MontarSecoes(IEnumerable<CartaoRepoViewModel> cartoes, string? grupoId, bool comTitulo)
+    {
+        var conhecidos = _ws.Groups.Select(g => g.Id).ToHashSet();
+        var porGrupo = cartoes
+            .GroupBy(c => c.Repo.GroupId is { } gid && conhecidos.Contains(gid) ? gid : "")
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var vistos = new HashSet<string>();
+
+        SecaoPainelViewModel? Montar(Group g)
+        {
+            if (!vistos.Add(g.Id)) return null; // ciclo gravado à mão no JSON
+
+            var filhas = GrupoArvore.Filhos(_ws.Groups, g.Id).Select(Montar).OfType<SecaoPainelViewModel>().ToList();
+            var proprios = porGrupo.GetValueOrDefault(g.Id) ?? new();
+            if (proprios.Count == 0 && filhas.Count == 0) return null;
+
+            return new SecaoPainelViewModel
+            {
+                GrupoId = g.Id,
+                Titulo = g.Name,
+                Cor = CorDoGrupo(g.Id),
+                MostraTitulo = comTitulo,
+                Cartoes = new ObservableCollection<CartaoRepoViewModel>(proprios),
+                Subsecoes = new ObservableCollection<SecaoPainelViewModel>(filhas),
+                // recolhido na árvore, recolhido no painel: é o mesmo grupo
+                Recolhido = comTitulo && g.Collapsed,
+                AoAlternar = AlternarGrupoDoPainel,
+            };
+        }
+
+        SecaoPainelViewModel SemGrupo(List<CartaoRepoViewModel> lista) => new()
+        {
+            Titulo = NomeDoGrupo(""),
+            Cor = CorDoGrupo(""),
+            MostraTitulo = comTitulo,
+            Cartoes = new ObservableCollection<CartaoRepoViewModel>(lista),
+            AoAlternar = AlternarGrupoDoPainel,
+        };
+
+        if (grupoId == "") return new() { SemGrupo(cartoes.ToList()) };
+
+        if (grupoId is not null)
+            return _ws.Groups.FirstOrDefault(g => g.Id == grupoId) is { } grupo && Montar(grupo) is { } raiz
+                ? new() { raiz }
+                : new();
+
+        // raízes na ordem da árvore — os presos num ciclo também, que ela põe na raiz
+        var secoes = GruposEmArvore().Where(g => g.Nivel == 0).Select(g => Montar(g.Grupo))
+            .OfType<SecaoPainelViewModel>().ToList();
+        if (porGrupo.GetValueOrDefault("") is { Count: > 0 } soltos) secoes.Add(SemGrupo(soltos));
+        return secoes;
     }
 
     /// <summary>Conta que o cartão de perfil está mostrando; nula é a principal.</summary>
@@ -1761,7 +1803,7 @@ public sealed partial class MainViewModel : ObservableObject
         RebuildTree();
 
         // o painel geral aberto acompanha a árvore
-        if (Painel?.Secoes.FirstOrDefault(s => s.GrupoId == g.Id && s.MostraTitulo) is { } secao)
+        if (Painel?.TodasAsSecoes.FirstOrDefault(s => s.GrupoId == g.Id && s.MostraTitulo) is { } secao)
             secao.Recolhido = g.Collapsed;
     }
 
