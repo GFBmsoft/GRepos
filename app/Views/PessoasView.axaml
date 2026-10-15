@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GRepos.ViewModels"
+             xmlns:svc="using:GRepos.Services"
+             x:Class="GRepos.Views.PessoasView"
+             x:DataType="vm:PessoasViewModel">
+
+  <!-- resumo de responsáveis, revisores e marco; "Ajustar" troca pelo editor -->
+  <StackPanel IsVisible="{Binding TemNumero}">
+    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !Editando}">
+      <TextBlock Text="{Binding Resumo}" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                 TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Resumo}" />
+      <Button Grid.Column="1" Classes="tiny" Content="Ajustar" Margin="6,0,0,0"
+              Command="{Binding EditarCommand}"
+              ToolTip.Tip="Escolher responsáveis, revisores e marco" />
+    </Grid>
+
+    <Border IsVisible="{Binding Editando}" Padding="8,6" Margin="0,4,0,0" CornerRadius="5"
+            Background="{DynamicResource Bg}" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="1">
+      <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <TextBlock Text="Conta" Classes="faint" FontSize="10.5" />
+          <TextBlock Grid.Column="1" Text="responsável" Classes="faint" FontSize="10.5" Width="78"
+                     TextAlignment="Center" />
+          <TextBlock Grid.Column="2" Text="revisor" Classes="faint" FontSize="10.5" Width="60"
+                     TextAlignment="Center" IsVisible="{Binding EhPr}" />
+        </Grid>
+        <ScrollViewer MaxHeight="150">
+          <ItemsControl ItemsSource="{Binding Pessoas}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="vm:PessoaViewModel">
+                <Grid ColumnDefinitions="*,Auto,Auto" Height="24">
+                  <TextBlock Text="{Binding Login}" FontSize="11.5" VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                  <CheckBox Grid.Column="1" IsChecked="{Binding Responsavel}" Width="78"
+                            HorizontalContentAlignment="Center" Padding="0" MinHeight="0"
+                            ToolTip.Tip="Responsável (assignee)" />
+                  <CheckBox Grid.Column="2" IsChecked="{Binding Revisor}" Width="60" Padding="0" MinHeight="0"
+                            IsVisible="{Binding $parent[UserControl].DataContext.EhPr}"
+                            ToolTip.Tip="Pedir revisão" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+
+        <Grid ColumnDefinitions="Auto,*" IsVisible="{Binding TemMarcos}">
+          <TextBlock Text="Marco" Classes="faint" FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0" />
+          <ComboBox Grid.Column="1" ItemsSource="{Binding Marcos}" SelectedItem="{Binding MarcoEscolhido}"
+                    HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate DataType="svc:Marco">
+                <TextBlock Text="{Binding Titulo}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+          <Button Classes="tiny" Content="Cancelar" Command="{Binding CancelarCommand}" />
+          <Button Classes="tiny destacado" Content="Salvar" IsEnabled="{Binding PodeSalvar}"
+                  Command="{Binding SalvarCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

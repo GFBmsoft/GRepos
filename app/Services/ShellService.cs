@@ -19,6 +19,15 @@ public static class ShellService
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
+    /// <summary>Abre um arquivo que o próprio app gravou (log, por exemplo) no programa padrão.</summary>
+    public static void AbrirArquivo(string caminho)
+    {
+        if (!File.Exists(caminho))
+            throw new FileNotFoundException("Arquivo não encontrado: " + caminho);
+
+        Process.Start(new ProcessStartInfo(Path.GetFullPath(caminho)) { UseShellExecute = true });
+    }
+
     public static void AbrirPasta(string caminho)
     {
         if (!Directory.Exists(caminho))

@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        x:Class="GRepos.Views.PublicarRepoWindow"
+        x:DataType="vm:PublicarRepoViewModel"
+        Title="Publicar no GitHub" Width="480" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <StackPanel Margin="16" Spacing="4">
+    <TextBlock Text="Publicar no GitHub" FontSize="14.5" FontWeight="SemiBold" />
+    <TextBlock Classes="faint" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10">
+      <Run Text="Cria o repositório vazio com" />
+      <Run Text="{Binding Conta}" />
+      <Run Text=", liga como origin e envia a branch atual." />
+    </TextBlock>
+
+    <Border Padding="10,8" CornerRadius="6" Margin="0,0,0,8" Background="{DynamicResource BgRaised}"
+            BorderThickness="1" BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" />
+    </Border>
+
+    <TextBlock Text="Dono" Classes="faint" FontSize="11" />
+    <ComboBox ItemsSource="{Binding Donos}" SelectedItem="{Binding Dono}" HorizontalAlignment="Stretch"
+              Margin="0,0,0,8" />
+
+    <TextBlock Text="Nome" Classes="faint" FontSize="11" />
+    <TextBox Text="{Binding Nome}" />
+    <TextBlock Text="{Binding AvisoDoNome}" Foreground="{DynamicResource Yellow}" FontSize="11"
+               TextWrapping="Wrap" IsVisible="{Binding TemAvisoDoNome}" />
+
+    <TextBlock Text="Descrição (opcional)" Classes="faint" FontSize="11" Margin="0,8,0,0" />
+    <TextBox Text="{Binding Descricao}" />
+
+    <CheckBox Content="Privado" IsChecked="{Binding Privado}" Margin="0,8,0,0"
+              ToolTip.Tip="Só você (e quem você convidar) vê o repositório" />
+
+    <Grid ColumnDefinitions="*,Auto" Margin="0,14,0,0">
+      <TextBlock Text="{Binding Progresso}" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                 TextTrimming="CharacterEllipsis" />
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+        <Button Content="Cancelar" MinWidth="80" Click="Cancelar" IsEnabled="{Binding !Executando}" />
+        <Button Content="Publicar" MinWidth="100" Classes="primary" IsEnabled="{Binding PodePublicar}"
+                Command="{Binding PublicarCommand}" />
+      </StackPanel>
+    </Grid>
+  </StackPanel>
+</Window>

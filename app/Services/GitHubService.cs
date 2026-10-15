@@ -22,6 +22,7 @@ public sealed class CiRun
 /// <summary>Arquivo anexado a uma release.</summary>
 public sealed class ReleaseAsset
 {
+    public long Id { get; init; }
     public string Nome { get; init; } = "";
     public long Tamanho { get; init; }
     public string Url { get; init; } = "";
@@ -30,6 +31,7 @@ public sealed class ReleaseAsset
 /// <summary>Release publicada no GitHub — a fonte da atualização do próprio app.</summary>
 public sealed class Release
 {
+    public long Id { get; init; }
     public string Tag { get; init; } = "";
     public string Nome { get; init; } = "";
     public string Url { get; init; } = "";
@@ -38,6 +40,10 @@ public sealed class Release
     public string Notas { get; init; } = "";
     public DateTime? Publicada { get; init; }
     public List<ReleaseAsset> Arquivos { get; init; } = new();
+
+    /// <summary>Rascunho só aparece para quem tem acesso de escrita; não tem data de publicação.</summary>
+    public bool Rascunho { get; init; }
+    public bool PreRelease { get; init; }
 
     /// <summary>
     /// O executável que não precisa de nada instalado. É o único que serve para trocar
@@ -95,6 +101,9 @@ public sealed class PullRequest
     public string Origem { get; init; } = "";
     public string Destino { get; init; } = "";
 
+    /// <summary>"dono/repo" de onde a origem vem: diferente do repositório quando o PR é de um fork.</summary>
+    public string OrigemRepo { get; init; } = "";
+
     /// <summary>Commit da ponta da origem: é por ele que se consultam as verificações.</summary>
     public string Sha { get; init; } = "";
     public string Corpo { get; init; } = "";
@@ -113,6 +122,13 @@ public sealed class PullRequest
 
     /// <summary>Comentários da conversa mais os feitos em linhas do código.</summary>
     public int Comentarios { get; init; }
+
+    public List<string> Responsaveis { get; init; } = new();
+
+    /// <summary>Revisão pedida e ainda não feita (quem já revisou sai desta lista).</summary>
+    public List<string> Revisores { get; init; } = new();
+    public string Marco { get; init; } = "";
+    public int MarcoNumero { get; init; }
 }
 
 /// <summary>Etiqueta (label) de uma issue: "bug", "enhancement"… com a cor que o GitHub dá a ela.</summary>
@@ -176,6 +192,10 @@ public sealed class Issue
     public DateTime? Atualizada { get; init; }
     public List<Etiqueta> Etiquetas { get; init; } = new();
     public List<string> Responsaveis { get; init; } = new();
+
+    /// <summary>Marco (milestone): título e número; zero quando não há.</summary>
+    public string Marco { get; init; } = "";
+    public int MarcoNumero { get; init; }
 }
 
 /// <summary>Uma verificação (check run) do commit de um PR.</summary>
@@ -217,11 +237,17 @@ public sealed class CiEtapa
     public string Nome { get; init; } = "";
     public string Situacao { get; init; } = "nenhum";
     public TimeSpan? Duracao { get; init; }
+
+    /// <summary>Início e fim do passo: é por eles que o log do job é recortado por passo.</summary>
+    public DateTime? Inicio { get; init; }
+    public DateTime? Fim { get; init; }
 }
 
 /// <summary>Job de uma execução, com seus passos em ordem.</summary>
 public sealed class CiJob
 {
+    /// <summary>Id do job na API: é o endereço do log dele.</summary>
+    public long Id { get; init; }
     public string Nome { get; init; } = "";
     public string Situacao { get; init; } = "nenhum";
     public string Url { get; init; } = "";
@@ -233,7 +259,7 @@ public sealed class CiJob
 /// Status da esteira pela API do GitHub. O token sai do credential manager que o
 /// próprio git usa — nada de pedir senha nem guardar credencial aqui.
 /// </summary>
-public static class GitHubService
+public static partial class GitHubService
 {
     private static readonly HttpClient Http = CriarCliente();
 
@@ -592,10 +618,13 @@ public static class GitHubService
                         Nome = Texto(s, "name"),
                         Situacao = Traduzir(Texto(s, "status"), Texto(s, "conclusion")),
                         Duracao = Intervalo(s),
+                        Inicio = Data(s, "started_at"),
+                        Fim = Data(s, "completed_at"),
                     });
 
             lista.Add(new CiJob
             {
+                Id = Longo(j, "id"),
                 Nome = Texto(j, "name"),
                 Situacao = Traduzir(Texto(j, "status"), Texto(j, "conclusion")),
                 Url = Texto(j, "html_url"),
@@ -976,6 +1005,8 @@ public static class GitHubService
             Estado = estado,
             Atualizado = Data(p, "updated_at"),
             Origem = temOrigem ? Texto(origem, "ref") : "",
+            OrigemRepo = temOrigem && origem.TryGetProperty("repo", out var repoOrigem) && repoOrigem.ValueKind == JsonValueKind.Object
+                ? Texto(repoOrigem, "full_name") : "",
             Destino = temDestino ? Texto(destino, "ref") : "",
             Sha = temOrigem ? Texto(origem, "sha") : "",
             Corpo = Texto(p, "body"),
@@ -985,6 +1016,10 @@ public static class GitHubService
             Removidas = Inteiro(p, "deletions"),
             Mesclagem = Texto(p, "mergeable_state"),
             Comentarios = Inteiro(p, "comments") + Inteiro(p, "review_comments"),
+            Responsaveis = Logins(p, "assignees"),
+            Revisores = Logins(p, "requested_reviewers"),
+            Marco = MarcoDe(p).Titulo,
+            MarcoNumero = MarcoDe(p).Numero,
         };
     }
 
@@ -1078,7 +1113,8 @@ public static class GitHubService
     /// Escrita nos pull requests. O GitHub explica a recusa no corpo da resposta
     /// ("A pull request already exists…"), e é isso que interessa mostrar.
     /// </summary>
-    private static async Task<string> EscreverPrAsync(HttpMethod metodo, string url, object corpo, string usuario, string oque)
+    private static async Task<string> EscreverPrAsync(HttpMethod metodo, string url, object corpo, string usuario, string oque,
+        string? permissao = null)
     {
         var token = await TokenAsync(usuario);
         if (string.IsNullOrEmpty(token))
@@ -1094,11 +1130,12 @@ public static class GitHubService
         if (resp.IsSuccessStatusCode) return texto;
 
         throw new InvalidOperationException(
-            $"Não foi possível {oque}: " + MotivoDaRecusa((int)resp.StatusCode, texto));
+            $"Não foi possível {oque}: " + MotivoDaRecusa((int)resp.StatusCode, texto, permissao));
     }
 
     /// <summary>Traduz a recusa do GitHub; separado da rede para ser testado.</summary>
-    public static string MotivoDaRecusa(int codigo, string json)
+    /// <param name="permissao">O que falta ao token num 403, quando não é PR nem issue (release, segredo…).</param>
+    public static string MotivoDaRecusa(int codigo, string json, string? permissao = null)
     {
         var mensagens = new List<string>();
         try
@@ -1127,6 +1164,8 @@ public static class GitHubService
         var bruto = string.Join(" ", mensagens);
         bool Tem(string trecho) => bruto.Contains(trecho, StringComparison.OrdinalIgnoreCase);
 
+        if (Tem("tag_name already_exists"))
+            return "já existe uma release com essa tag. Edite a que existe.";
         if (Tem("already exists"))
             return "já existe um pull request aberto desta branch para o mesmo destino.";
         if (Tem("No commits between"))
@@ -1135,6 +1174,10 @@ public static class GitHubService
             return "a branch de origem não existe no GitHub. Envie a branch (Enviar) e tente de novo.";
         if (Tem("base invalid"))
             return "a branch de destino não existe no GitHub.";
+        if (Tem("pull request author"))
+            return "quem abriu o PR não pode ser revisor dele. Tire essa pessoa da lista de revisores.";
+        if (Tem("collaborators"))
+            return "só quem tem acesso ao repositório pode revisar.";
         if (Tem("your own pull request"))
             return "o GitHub não deixa aprovar nem pedir mudanças no próprio pull request. Comentar pode.";
         if (Tem("not mergeable"))
@@ -1145,6 +1188,7 @@ public static class GitHubService
         return codigo switch
         {
             401 => "o token não foi aceito.",
+            403 when permissao is not null => $"o token não tem permissão de escrita em {permissao}.",
             403 => "o token não tem permissão de escrita em pull requests e issues. Um PAT clássico precisa do " +
                    "escopo \"repo\"; um fine-grained, de \"Pull requests\" e \"Issues: Read and write\" neste repositório.",
             404 => "repositório ou pull request não encontrado — ou o token não enxerga este repositório.",
@@ -1448,6 +1492,8 @@ public static class GitHubService
                 Atualizada = Data(i, "updated_at"),
                 Etiquetas = etiquetas,
                 Responsaveis = responsaveis,
+                Marco = MarcoDe(i).Titulo,
+                MarcoNumero = MarcoDe(i).Numero,
             });
         }
         return lista;
@@ -1505,6 +1551,7 @@ public static class GitHubService
             foreach (var a in assets.EnumerateArray())
                 arquivos.Add(new ReleaseAsset
                 {
+                    Id = Longo(a, "id"),
                     Nome = Texto(a, "name"),
                     Tamanho = a.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number
                         ? s.GetInt64() : 0,
@@ -1513,6 +1560,9 @@ public static class GitHubService
 
         return new Release
         {
+            Id = Longo(raiz, "id"),
+            Rascunho = raiz.TryGetProperty("draft", out var rasc) && rasc.ValueKind == JsonValueKind.True,
+            PreRelease = raiz.TryGetProperty("prerelease", out var pre) && pre.ValueKind == JsonValueKind.True,
             Tag = Texto(raiz, "tag_name"),
             Nome = Texto(raiz, "name"),
             Url = Texto(raiz, "html_url"),

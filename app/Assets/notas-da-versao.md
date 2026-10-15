@@ -1,3 +1,13 @@
+## 1.0.0.47 — 15/10/2026
+- **Log dos passos da esteira**: clique num passo para ver o log dele logo abaixo, com os erros em destaque. O botão **log** do job abre o texto inteiro no editor.
+- **Artefatos**: a janela da esteira lista o que a execução gerou; **Baixar** extrai na pasta escolhida.
+- **Releases**: novo botão na barra para criar, editar, publicar rascunho, excluir e anexar arquivos. Sugere a próxima tag e pode gerar as notas pelo GitHub.
+- **Trazer PR para a máquina**: na janela de pull requests, busca o PR e muda para a branch dele (PR de fork vira `pr/N`).
+- **Responsáveis, revisores e marco**: botão **Ajustar** nas janelas de pull requests e de issues.
+- **Publicar no GitHub** e **Fazer fork**: pela paleta (Ctrl+P). Publicar cria o repositório, liga como origin e envia a branch atual.
+- **Esperando por você**: cartão no painel geral com os PRs que pedem sua revisão, o que está atribuído a você e os seus PRs abertos.
+- **Segredos e variáveis** do GitHub Actions: botão na janela da esteira e na paleta. O segredo é cifrado antes de sair da máquina.
+
 ## 1.0.0.46 — 15/10/2026
 - **Status da esteira em dia**: com o repositório aberto, a barra mostrava "Esteira rodando" depois de a execução já ter terminado. Agora, enquanto a esteira roda, o status é consultado a cada 15 segundos e muda sozinho para "ok" ou "quebrou" quando ela termina. Depois de **Enviar**, o app também fica de olho por um minuto e meio, que é quando a execução nova costuma aparecer.
 - **F5 com aviso próprio**: aparece "Verificando alterações…" e, no fim, "Alterações verificadas" com o que há para puxar e para enviar. O F5 também atualiza o status da esteira.

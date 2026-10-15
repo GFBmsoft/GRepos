@@ -74,6 +74,15 @@ public interface IDialogService
 
     /// <summary>Pull requests do repositório: lista, detalhe, criar e mesclar.</summary>
     Task ShowPullRequestsAsync(PullRequestsViewModel vm) => Task.CompletedTask;
+
+    /// <summary>Releases do repositório: criar, editar, anexar arquivos e publicar.</summary>
+    Task ShowReleasesAsync(ReleasesViewModel vm) => Task.CompletedTask;
+
+    /// <summary>Publicar no GitHub um repositório que só existe na máquina.</summary>
+    Task ShowPublicarRepoAsync(PublicarRepoViewModel vm) => Task.CompletedTask;
+
+    /// <summary>Segredos e variáveis do GitHub Actions do repositório.</summary>
+    Task ShowSegredosAsync(SegredosViewModel vm) => Task.CompletedTask;
 }
 
 public sealed partial class MainViewModel : ObservableObject
@@ -244,6 +253,9 @@ public sealed partial class MainViewModel : ObservableObject
             },
         };
         _ = Painel.Perfil.CarregarAsync();
+
+        Painel.Esperando = new PendenciasViewModel(login);
+        _ = Painel.Esperando.CarregarAsync();
     }
 
     private async Task CarregarPainelAsync()
@@ -367,6 +379,13 @@ public sealed partial class MainViewModel : ObservableObject
     private string _ciUsuario = "";
 
     public bool TemRemoto => RemoteWebUrl.Length > 0;
+
+    /// <summary>
+    /// Confirmado que não há origin: só então a paleta oferece "Publicar no GitHub".
+    /// TemRemoto fica falso por um instante a cada troca, enquanto o remoto é lido.
+    /// </summary>
+    [ObservableProperty] private bool _semRemoto;
+
     public bool TemCi => CiSituacao.Length > 0 && CiSituacao != "nenhum";
 
     /// <summary>Verde passou, vermelho quebrou, amarelo rodando — a cor é o recado.</summary>
@@ -489,6 +508,7 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task AtualizarRemotoAsync(Repo repo)
     {
         RemoteWebUrl = "";
+        SemRemoto = false;
         _ciSlug = "";
         _esperarEsteiraAte = default;
         CiSituacao = "";
@@ -503,6 +523,7 @@ public sealed partial class MainViewModel : ObservableObject
             var remoto = await GitService.RemoteUrlAsync(repo.Path);
             if (SelectedNode?.Repo.Id != repo.Id) return; // trocou de repositório no meio
             RemoteWebUrl = GitService.WebUrl(remoto);
+            SemRemoto = remoto.Length == 0;
 
             var slug = GitHubService.Slug(remoto);
             if (slug is null) return;
@@ -735,7 +756,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (usuario.Length == 0) usuario = _ws.Settings.GithubUser;
 
-        var contexto = new ContextoPr(slug, branch, usuario, repo.Name) { DestinoInicial = destino };
+        var contexto = new ContextoPr(slug, branch, usuario, repo.Name) { DestinoInicial = destino, RepoPath = repo.Path };
         try
         {
             var s = await GitService.SituacaoParaPrAsync(repo.Path, branch);
@@ -837,6 +858,92 @@ public sealed partial class MainViewModel : ObservableObject
         {
             if (usuario.Length == 0) usuario = _ws.Settings.GithubUser;
             await _dialogs.ShowIssuesAsync(new IssuesViewModel(slug, usuario, repo.Name));
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    /// <summary>Conta do GitHub para o repositório: a escolhida para ele, senão a das preferências.</summary>
+    private string ContaPara(Repo repo) =>
+        !string.IsNullOrWhiteSpace(repo.Conta) ? repo.Conta.Trim() : _ws.Settings.GithubUser;
+
+    /// <summary>Repositório só local: cria no GitHub, liga como origin e envia.</summary>
+    [RelayCommand]
+    private async Task PublicarNoGitHub()
+    {
+        if (CurrentRepo is not { } repo) return;
+        try
+        {
+            var vm = new PublicarRepoViewModel(repo.Path, ContaPara(repo));
+            await _dialogs.ShowPublicarRepoAsync(vm);
+            if (vm.Criado.Length == 0) return;
+
+            await RefreshRepoAsync(repo.Id);
+            await AtualizarRemotoAsync(repo);
+            Avisar("sucesso", "Publicado no GitHub", $"{vm.Criado} criado e ligado como origin.");
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    /// <summary>
+    /// Fork na conta do usuário, ligado como mais um remoto com o nome da conta. O
+    /// origin continua apontando para o original: Puxar segue trazendo de lá.
+    /// </summary>
+    [RelayCommand]
+    private async Task FazerFork()
+    {
+        if (CurrentRepo is not { } repo || _ciSlug.Length == 0) return;
+        var conta = _ciUsuario.Length > 0 ? _ciUsuario : ContaPara(repo);
+        var remoto = conta.Length > 0 ? conta : "fork";
+
+        if (!await _dialogs.ConfirmAsync("Fazer fork",
+                $"Criar uma cópia de {_ciSlug} na conta {conta} e ligar como o remoto \"{remoto}\"?\n\n" +
+                "O origin continua sendo o repositório original."))
+            return;
+
+        try
+        {
+            var fork = await GitHubService.ForkAsync(_ciSlug, conta);
+            await GitService.AdicionarRemotoAsync(repo.Path, remoto, GitHubService.UrlDoRemoto(conta, fork));
+            Avisar("sucesso", "Fork criado",
+                $"{fork} ligado como o remoto \"{remoto}\". O GitHub termina a cópia em alguns segundos.");
+        }
+        catch (Exception e)
+        {
+            var aviso = MensagensGit.Erro("fazer o fork", e.Message);
+            Avisar("erro", aviso.Titulo, aviso.Detalhe);
+        }
+    }
+
+    [RelayCommand]
+    private async Task AbrirSegredos()
+    {
+        if (CurrentRepo is not { } repo || _ciSlug.Length == 0) return;
+        try
+        {
+            var usuario = _ciUsuario.Length > 0 ? _ciUsuario : _ws.Settings.GithubUser;
+            await _dialogs.ShowSegredosAsync(new SegredosViewModel(_ciSlug, usuario, repo.Name));
+        }
+        catch (Exception e)
+        {
+            Notify(e.Message, true);
+        }
+    }
+
+    [RelayCommand]
+    private async Task AbrirReleases()
+    {
+        if (CurrentRepo is not { } repo || _ciSlug.Length == 0) return;
+        try
+        {
+            var usuario = _ciUsuario.Length > 0 ? _ciUsuario : _ws.Settings.GithubUser;
+            await _dialogs.ShowReleasesAsync(
+                new ReleasesViewModel(_ciSlug, usuario, repo.Name, repo.Path, CurrentStatus?.Branch ?? ""));
         }
         catch (Exception e)
         {
@@ -966,7 +1073,9 @@ public sealed partial class MainViewModel : ObservableObject
             Acao("Branches…", $"trocar, criar, mesclar em {nome}", OpenBranchesCommand);
             Acao("Pull requests…", $"ver, criar e mesclar em {nome}", AbrirPullRequestsCommand, TemGitHub);
             Acao("Issues…", $"abertas, fechadas e etiquetas de {nome}", AbrirIssuesCommand, TemGitHub);
+            Acao("Releases…", $"criar, editar e anexar arquivos em {nome}", AbrirReleasesCommand, TemGitHub);
             Acao("Esteira…", $"execuções do GitHub Actions de {nome}", AbrirEsteiraCommand, TemCi);
+            Acao("Segredos e variáveis…", $"do GitHub Actions de {nome}", AbrirSegredosCommand, TemGitHub);
             Acao("Comparar branches ou commits…", $"o que muda de uma ponta para a outra em {nome}", CompararCommand);
             Acao("Pastas de trabalho (worktrees)…", $"outra branch de {nome} em outra pasta", OpenWorktreesCommand);
             Acao("Esconder (stash)…", $"guardar ou recuperar alterações de {nome}", OpenStashCommand);
@@ -974,6 +1083,8 @@ public sealed partial class MainViewModel : ObservableObject
             Acao("Terminal", $"Git Bash na pasta de {nome}", AlternarTerminalCommand);
             Acao("Abrir a pasta", atual.Path, AbrirPastaCommand);
             Acao("Abrir no GitHub", RemoteWebUrl, AbrirRemotoCommand, TemRemoto);
+            Acao("Publicar no GitHub…", $"criar o repositório e enviar {nome}", PublicarNoGitHubCommand, SemRemoto);
+            Acao("Fazer fork no GitHub…", $"cópia de {_ciSlug} na sua conta, ligada como remoto", FazerForkCommand, TemGitHub);
             Acao("Configurar repositório…", nome, OpenRepoConfigCommand);
         }
 

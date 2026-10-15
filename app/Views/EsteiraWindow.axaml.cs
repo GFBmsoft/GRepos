@@ -14,7 +14,7 @@ public partial class EsteiraWindow : Window
 
     public EsteiraWindow(string slug, string branch, string usuario, string repoNome, IDialogService? dialogs = null, int visiveis = 6) : this()
     {
-        var vm = new EsteiraViewModel(slug, branch, usuario, repoNome, dialogs, visiveis);
+        var vm = new EsteiraViewModel(slug, branch, usuario, repoNome, dialogs, visiveis) { ComArtefatos = true };
         DataContext = vm;
 
         // a consulta periódica vive enquanto a janela existe: fechada, não há
@@ -26,4 +26,10 @@ public partial class EsteiraWindow : Window
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 
     private void Fechar(object? sender, RoutedEventArgs e) => Close();
+
+    private async void AbrirSegredos(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not EsteiraViewModel vm || vm.Slug.Length == 0) return;
+        await new SegredosWindow(new SegredosViewModel(vm.Slug, vm.Usuario, vm.RepoNome)).ShowDialog(this);
+    }
 }

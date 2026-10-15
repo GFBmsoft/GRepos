@@ -360,6 +360,12 @@ public partial class MainWindow : Window, IDialogService
     public Task ShowPullRequestsAsync(PullRequestsViewModel vm) =>
         new PullRequestsWindow(vm).ShowDialog(this);
 
+    public Task ShowReleasesAsync(ReleasesViewModel vm) => new ReleasesWindow(vm).ShowDialog(this);
+
+    public Task ShowPublicarRepoAsync(PublicarRepoViewModel vm) => new PublicarRepoWindow(vm).ShowDialog(this);
+
+    public Task ShowSegredosAsync(SegredosViewModel vm) => new SegredosWindow(vm).ShowDialog(this);
+
     public Task ShowStashAsync(MainViewModel main, Repo repo) =>
         new StashWindow(main, repo).ShowDialog(this);
 

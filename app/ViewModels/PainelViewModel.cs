@@ -398,6 +398,13 @@ public sealed partial class PainelViewModel : ObservableObject
 
     partial void OnPerfilChanged(PerfilViewModel? value) => OnPropertyChanged(nameof(TemPerfil));
 
+    /// <summary>"Esperando por você" — também só no painel geral, da conta do perfil.</summary>
+    [ObservableProperty] private PendenciasViewModel? _esperando;
+
+    public bool TemEsperando => Esperando is not null;
+
+    partial void OnEsperandoChanged(PendenciasViewModel? value) => OnPropertyChanged(nameof(TemEsperando));
+
     public bool Vazio => Cartoes.Count == 0;
 
     /// <summary>Com um repositório só não há lote: valem os botões dele.</summary>
@@ -532,10 +539,12 @@ public sealed partial class PainelViewModel : ObservableObject
 
         // o cartão de perfil também: Atualizar é o pedido explícito de dados novos
         var perfil = Perfil?.CarregarAsync(forcar: true);
+        var esperando = Esperando?.CarregarAsync(forcar: true);
 
         await _main.RefreshAllAsync();
         _main.AtualizarCartoesDoPainel();
         await CarregarEsteirasAsync();
         if (perfil is not null) await perfil;
+        if (esperando is not null) await esperando;
     }
 }

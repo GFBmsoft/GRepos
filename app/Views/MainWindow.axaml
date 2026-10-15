@@ -320,6 +320,10 @@
                                  IsVisible="{Binding TemGitHub}"
                                  ToolTip.Tip="Issues do repositório: abertas, fechadas e etiquetas"
                                  Command="{Binding AbrirIssuesCommand}" />
+            <controls:ToolButton Label="Releases" Icon="{StaticResource IconRelease}"
+                                 IsVisible="{Binding TemGitHub}"
+                                 ToolTip.Tip="Releases do repositório: criar, editar, anexar arquivos e publicar"
+                                 Command="{Binding AbrirReleasesCommand}" />
             <controls:ToolButton Label="{Binding CiRotulo}" Icon="{StaticResource IconEsteira}"
                                  ToolTip.Tip="{Binding CiTooltip}" IsVisible="{Binding TemCi}"
                                  Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}"

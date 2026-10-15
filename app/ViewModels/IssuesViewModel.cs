@@ -90,6 +90,12 @@ public sealed partial class IssuesViewModel : ObservableObject
         {
             if (e.PropertyName == nameof(ConversaViewModel.Novo)) OnPropertyChanged(nameof(EstadoRotulo));
         };
+
+        Pessoas = new PessoasViewModel(slug, usuario, ehPr: false)
+        {
+            AoFalhar = mensagem => Erro = mensagem,
+            AoMudar = () => Selecionada is { } i ? RecarregarAsync(i.Issue.Numero) : Task.CompletedTask,
+        };
     }
 
     public string Title { get; }
@@ -102,6 +108,9 @@ public sealed partial class IssuesViewModel : ObservableObject
     public ConversaViewModel Editor { get; }
 
     public ObservableCollection<ComentarioViewModel> Comentarios => Editor.Itens;
+
+    /// <summary>Responsáveis e marco da issue escolhida.</summary>
+    public PessoasViewModel Pessoas { get; }
     [ObservableProperty] private bool _mostrarFechadas;
     [ObservableProperty] private string _busca = "";
     [ObservableProperty] private bool _carregando;
@@ -167,6 +176,10 @@ public sealed partial class IssuesViewModel : ObservableObject
         foreach (var p in new[] { nameof(SemSelecao), nameof(TemSelecao), nameof(SemComentarios),
                                   nameof(MostraDetalhe), nameof(EstadoRotulo), nameof(PodeMudarEstado) })
             OnPropertyChanged(p);
+
+        // sempre, mesmo na mesma issue: a recarga traz os responsáveis novos
+        Pessoas.Mostrar(numero, value?.Issue.Responsaveis ?? new List<string>(), Array.Empty<string>(),
+            new Marco(value?.Issue.MarcoNumero ?? 0, value?.Issue.Marco ?? ""));
 
         if (value is not null && !mesma) _ = CarregarComentariosAsync(value);
     }

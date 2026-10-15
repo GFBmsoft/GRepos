@@ -1,0 +1,218 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        xmlns:views="using:GRepos.Views"
+        xmlns:local="using:GRepos"
+        x:Class="GRepos.Views.ReleasesWindow"
+        x:DataType="vm:ReleasesViewModel"
+        Title="Releases" Width="1040" Height="680" MinWidth="760" MinHeight="460"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="11" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="330,10,*">
+
+      <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Grid.Row="0" Padding="8,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="sectionTitle" Text="RELEASES" VerticalAlignment="Center" />
+              <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                      Content="Nova" Command="{Binding NovaReleaseCommand}"
+                      ToolTip.Tip="Criar uma release: tag, notas e arquivos" />
+            </Grid>
+          </Border>
+
+          <TextBlock Grid.Row="1" Text="Carregando…" Classes="faint" Margin="12,10"
+                     IsVisible="{Binding Carregando}" />
+          <TextBlock Grid.Row="1" Text="Nenhuma release neste repositório." Classes="faint" Margin="12,10"
+                     TextWrapping="Wrap" IsVisible="{Binding Vazio}" />
+
+          <ListBox Grid.Row="1" ItemsSource="{Binding Lista}" SelectedItem="{Binding Selecionada}"
+                   Background="Transparent" Padding="0,0,4,0">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:ReleaseItemViewModel">
+                <StackPanel Margin="6,5" Spacing="2">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" FontSize="12"
+                               TextTrimming="CharacterEllipsis" />
+                    <Border Grid.Column="1" Classes="chip" Margin="6,0,0,0" IsVisible="{Binding TemSelo}"
+                            BorderBrush="{Binding SeloCor, Converter={x:Static local:Converters.ResourceBrush}}">
+                      <TextBlock Text="{Binding Selo}" FontSize="10"
+                                 Foreground="{Binding SeloCor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                    </Border>
+                  </Grid>
+                  <TextBlock Text="{Binding Rodape}" Classes="faint" FontSize="10.5"
+                             TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+        <Panel>
+          <TextBlock Text="Escolha uma release à esquerda." Classes="faint" Margin="12,10"
+                     IsVisible="{Binding SemSelecao}" />
+
+          <Grid RowDefinitions="Auto,*" IsVisible="{Binding MostraDetalhe}">
+            <Border Grid.Row="0" Padding="12,9" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,0,0,1">
+              <Grid ColumnDefinitions="*,Auto">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="{Binding Selecionada.Titulo}" FontSize="13" FontWeight="SemiBold"
+                             TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding Selecionada.Rodape}" Classes="faint" FontSize="11"
+                             TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
+                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                          Content="Publicar" IsVisible="{Binding Selecionada.Release.Rascunho}"
+                          IsEnabled="{Binding PodePublicar}" Command="{Binding PublicarCommand}"
+                          ToolTip.Tip="Publicar este rascunho" />
+                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                          Content="Editar" IsEnabled="{Binding PodeAgir}" Command="{Binding EditarReleaseCommand}"
+                          ToolTip.Tip="Editar título, notas, rascunho e pré-release" />
+                  <Button Classes="tiny danger" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                          Content="Excluir" IsEnabled="{Binding PodeAgir}" Command="{Binding ExcluirReleaseCommand}"
+                          ToolTip.Tip="Excluir a release (a tag continua)" />
+                </StackPanel>
+              </Grid>
+            </Border>
+
+            <ScrollViewer Grid.Row="1" Padding="0,0,4,0">
+              <StackPanel Margin="12,10">
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                  <TextBlock Classes="sectionTitle" Text="ARQUIVOS" VerticalAlignment="Center" />
+                  <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                          Content="Anexar…" IsEnabled="{Binding PodeAgir}" Command="{Binding AnexarCommand}"
+                          ToolTip.Tip="Enviar arquivos para esta release" />
+                </Grid>
+                <TextBlock Text="Nenhum arquivo anexado." Classes="faint" FontSize="11.5"
+                           IsVisible="{Binding !Selecionada.TemArquivos}" Margin="0,0,0,6" />
+                <ItemsControl ItemsSource="{Binding Selecionada.Arquivos}" Margin="0,0,0,12">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:AnexoViewModel">
+                      <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,4">
+                        <TextBlock Text="{Binding Nome}" FontSize="12" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="{Binding Tamanho}" Classes="faint" FontSize="10.5"
+                                   VerticalAlignment="Center" Margin="8,0" />
+                        <Button Grid.Column="2" Classes="tiny" Content="Excluir"
+                                Command="{Binding $parent[Window].DataContext.ExcluirAnexoCommand}"
+                                CommandParameter="{Binding}" ToolTip.Tip="Tirar este arquivo da release" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Classes="sectionTitle" Text="NOTAS" Margin="0,0,0,4" />
+                <views:MarkdownView Markdown="{Binding Selecionada.Notas}" />
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+
+          <!-- ========================================== release nova ou em edição -->
+          <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding Editando}">
+            <Border Grid.Row="0" Padding="12,8" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,0,0,1">
+              <TextBlock Classes="sectionTitle" Text="{Binding FormCabecalho}" />
+            </Border>
+
+            <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*" Margin="12,10">
+              <Grid Grid.Row="0" ColumnDefinitions="*,12,*">
+                <StackPanel>
+                  <TextBlock Text="Tag" Classes="faint" FontSize="11" Margin="0,0,0,3" />
+                  <AutoCompleteBox Text="{Binding FormTag}" ItemsSource="{Binding TagsLocais}"
+                                   FilterMode="StartsWith" MinimumPrefixLength="0"
+                                   Watermark="1.0.0.47" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" IsVisible="{Binding TagNova}">
+                  <TextBlock Text="Tag nova, criada a partir de" Classes="faint" FontSize="11" Margin="0,0,0,3" />
+                  <TextBox Text="{Binding FormAlvo}" Watermark="branch ou commit" />
+                </StackPanel>
+              </Grid>
+
+              <TextBlock Grid.Row="1" Text="Título" Classes="faint" FontSize="11" Margin="0,10,0,3" />
+              <TextBox Grid.Row="2" Text="{Binding FormTitulo}" Watermark="Vazio usa o nome da tag" />
+
+              <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="16" Margin="0,10,0,0">
+                <CheckBox Content="Rascunho" IsChecked="{Binding FormRascunho}"
+                          ToolTip.Tip="Só quem tem acesso de escrita vê; publique quando estiver pronto" />
+                <CheckBox Content="Pré-release" IsChecked="{Binding FormPreRelease}"
+                          ToolTip.Tip="Marca como versão de teste; não vira a mais recente" />
+              </StackPanel>
+
+              <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,10,0,4">
+                <TextBlock Text="Arquivos a enviar" Classes="faint" FontSize="11" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="Adicionar…" Command="{Binding AdicionarArquivosCommand}" />
+              </Grid>
+              <ItemsControl Grid.Row="5" ItemsSource="{Binding FormArquivos}" IsVisible="{Binding TemFormArquivos}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:AnexoViewModel">
+                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,3">
+                      <TextBlock Text="{Binding Nome}" FontSize="12" VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Tamanho}" Classes="faint" FontSize="10.5"
+                                 VerticalAlignment="Center" Margin="8,0" />
+                      <Button Grid.Column="2" Classes="tiny" Content="Tirar"
+                              Command="{Binding $parent[Window].DataContext.TirarArquivoCommand}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <Grid Grid.Row="6" ColumnDefinitions="*,Auto" Margin="0,10,0,3">
+                <TextBlock Text="Notas (aceitam Markdown)" Classes="faint" FontSize="11" VerticalAlignment="Center" />
+                <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                        Content="Gerar notas" Command="{Binding GerarNotasCommand}"
+                        ToolTip.Tip="O GitHub lista os PRs e quem contribuiu desde a tag anterior" />
+              </Grid>
+              <TextBox Grid.Row="7" Text="{Binding FormNotas}" AcceptsReturn="True" TextWrapping="Wrap"
+                       VerticalContentAlignment="Top" />
+            </Grid>
+
+            <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
+                    BorderThickness="0,1,0,0">
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding Progresso}" Classes="faint" FontSize="11" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                  <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarFormCommand}"
+                          IsEnabled="{Binding !Executando}" />
+                  <Button Content="{Binding SalvarRotulo}" MinWidth="130" Classes="primary"
+                          IsEnabled="{Binding PodeSalvar}" Command="{Binding SalvarFormCommand}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Grid>
+        </Panel>
+      </Border>
+    </Grid>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,10,0,0">
+      <TextBlock Grid.Column="0" Text="{Binding Progresso}" Classes="faint" FontSize="11"
+                 VerticalAlignment="Center" IsVisible="{Binding !Editando}" />
+      <Button Grid.Column="1" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
+      <Button Grid.Column="2" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}" />
+      <Button Grid.Column="3" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

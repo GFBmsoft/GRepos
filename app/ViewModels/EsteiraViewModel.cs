@@ -65,8 +65,47 @@ public sealed partial class CiEtapaViewModel : ObservableObject
     partial void OnEtapaChanged(CiEtapa value)
     {
         foreach (var p in new[] { nameof(Nome), nameof(Simbolo), nameof(Cor), nameof(DuracaoTexto),
-                                  nameof(Quebrou), nameof(Peso), nameof(Pulado), nameof(CorDoNome) })
+                                  nameof(Quebrou), nameof(Peso), nameof(Pulado), nameof(CorDoNome),
+                                  nameof(PodeVerLog), nameof(DicaDoPasso) })
             OnPropertyChanged(p);
+    }
+
+    // ------------------------------------------------------- log do passo
+    // Clicar no passo abre o log dele logo abaixo, como no GitHub. O texto do erro
+    // era o que faltava: a tela dizia qual passo quebrou, mas não por quê.
+
+    /// <summary>O job dono do passo: é dele o log que a API entrega.</summary>
+    public CiJobViewModel? Job { get; init; }
+
+    /// <summary>Passo que não começou (pulado, na fila) não tem log.</summary>
+    public bool PodeVerLog => Etapa.Inicio is not null;
+
+    public string DicaDoPasso => PodeVerLog ? "Clique para ver o log deste passo" : "Este passo não rodou: não tem log";
+
+    [ObservableProperty] private bool _logAberto;
+    [ObservableProperty] private bool _carregandoLog;
+    [ObservableProperty] private string _logTexto = "";
+    [ObservableProperty] private string _logErros = "";
+    [ObservableProperty] private string _logAviso = "";
+
+    public bool TemLogErros => LogErros.Length > 0;
+    public bool TemLogAviso => LogAviso.Length > 0;
+    public bool TemLogTexto => LogTexto.Length > 0;
+
+    partial void OnLogErrosChanged(string value) => OnPropertyChanged(nameof(TemLogErros));
+    partial void OnLogAvisoChanged(string value) => OnPropertyChanged(nameof(TemLogAviso));
+    partial void OnLogTextoChanged(string value) => OnPropertyChanged(nameof(TemLogTexto));
+
+    public void MostrarLog(LogDoPasso trecho)
+    {
+        LogErros = string.Join("\n", trecho.Erros.Distinct());
+        LogTexto = trecho.Texto;
+        LogAviso = trecho.Texto.Length == 0
+            ? "O log não trouxe linhas para este passo."
+            : trecho.Cortadas > 0
+                ? $"Mostrando as últimas {LogDaEsteira.LimiteDeLinhas} linhas ({trecho.Cortadas} antes delas). " +
+                  "\"log\" no job abre o texto inteiro no editor."
+                : "";
     }
 }
 
@@ -94,7 +133,26 @@ public sealed partial class CiJobViewModel : ObservableObject
         item => item.Etapa.Numero.ToString(),
         modelo => modelo.Numero.ToString(),
         (item, modelo) => item.Etapa = modelo,
-        modelo => new CiEtapaViewModel { Etapa = modelo });
+        modelo => new CiEtapaViewModel { Etapa = modelo, Job = this });
+}
+
+/// <summary>Um artefato da execução, com o botão de baixar.</summary>
+public sealed partial class ArtefatoViewModel : ObservableObject
+{
+    public Artefato Artefato { get; init; } = new();
+
+    public string Nome => Artefato.Nome;
+
+    public string Detalhe => Artefato.Expirado
+        ? "expirou"
+        : Rotulos.Bytes(Artefato.Tamanho) +
+          (Artefato.ExpiraEm is { } d ? $" · até {d.ToLocalTime():dd/MM/yyyy}" : "");
+
+    public bool PodeBaixar => !Artefato.Expirado && !Baixando;
+
+    [ObservableProperty] private bool _baixando;
+
+    partial void OnBaixandoChanged(bool value) => OnPropertyChanged(nameof(PodeBaixar));
 }
 
 /// <summary>Cartão de uma execução na coluna da esquerda.</summary>
@@ -167,6 +225,7 @@ public sealed partial class EsteiraViewModel : ObservableObject
         _branch = branch;
         _usuario = usuario;
         _dialogs = dialogs;
+        RepoNome = repoNome;
         Referencia = branch;
         Title = repoNome.Length > 0 ? $"Esteira — {repoNome}" : "Esteira";
         Subtitulo = slug;
@@ -186,6 +245,11 @@ public sealed partial class EsteiraViewModel : ObservableObject
     [ObservableProperty] private bool _somenteBranch;
 
     public bool PodeFiltrarPorBranch => _branch.Length > 0;
+
+    // quem abre outra janela a partir desta (segredos e variáveis) precisa do mesmo repositório
+    public string Slug => _slug;
+    public string Usuario => _usuario;
+    public string RepoNome { get; }
 
     public string FiltroTexto => _branch.Length > 0
         ? $"só a branch {_branch}"
@@ -340,7 +404,12 @@ public sealed partial class EsteiraViewModel : ObservableObject
         _jobsCarregadosDe = 0;
         OnPropertyChanged(nameof(SemJobs));
 
+        Artefatos.Clear();
+        _artefatosDe = 0;
+        OnPropertyChanged(nameof(TemArtefatos));
+
         if (value is not null) _ = CarregarJobsAsync(value);
+        if (value is { Rodando: false }) _ = CarregarArtefatosAsync(value);
     }
 
     // ------------------------------------------------ disparar e reexecutar
@@ -540,6 +609,9 @@ public sealed partial class EsteiraViewModel : ObservableObject
         {
             await CarregarAsync(silencioso: true);
             if (Selecionada is not null) await CarregarJobsAsync(Selecionada, silencioso: true);
+            // os artefatos sobem no fim: a execução que acabou de terminar ganha os dela
+            if (Selecionada is { Rodando: false } s && _artefatosDe != s.Execucao.Id)
+                await CarregarArtefatosAsync(s);
             AjustarRitmo();
         }
         finally
@@ -625,6 +697,136 @@ public sealed partial class EsteiraViewModel : ObservableObject
         {
             if (!silencioso) CarregandoJobs = false;
             OnPropertyChanged(nameof(SemJobs));
+        }
+    }
+
+    // ------------------------------------------------------------ logs
+
+    /// <summary>Log de job que terminou não muda mais: uma consulta só por job.</summary>
+    private readonly Dictionary<long, string> _logs = new();
+
+    private async Task<string> LogDoJobAsync(CiJob job)
+    {
+        if (_logs.TryGetValue(job.Id, out var guardado)) return guardado;
+        var log = await GitHubService.LogDoJobAsync(_slug, job.Id, _usuario);
+        if (job.Situacao != "rodando") _logs[job.Id] = log;
+        return log;
+    }
+
+    /// <summary>Abre (ou fecha) o log do passo logo abaixo dele.</summary>
+    [RelayCommand]
+    private async Task AlternarLogAsync(CiEtapaViewModel? etapa)
+    {
+        if (etapa?.Job is not { } job) return;
+        if (etapa.LogAberto)
+        {
+            etapa.LogAberto = false;
+            return;
+        }
+        if (!etapa.PodeVerLog) return;
+
+        etapa.LogAberto = true;
+        etapa.CarregandoLog = true;
+        etapa.LogAviso = "";
+        try
+        {
+            var log = await LogDoJobAsync(job.Job);
+            etapa.MostrarLog(LogDaEsteira.DoPasso(log, job.Job.Etapas, etapa.Etapa.Numero));
+        }
+        catch (Exception e)
+        {
+            etapa.LogTexto = "";
+            etapa.LogErros = "";
+            etapa.LogAviso = job.Job.Situacao == "rodando"
+                ? "O log deste job fica disponível quando ele terminar."
+                : e.Message;
+        }
+        finally
+        {
+            etapa.CarregandoLog = false;
+        }
+    }
+
+    /// <summary>O log inteiro do job, limpo, no editor de texto padrão.</summary>
+    [RelayCommand]
+    private async Task AbrirLogDoJobAsync(CiJobViewModel? job)
+    {
+        if (job is null || job.Job.Id == 0) return;
+        Erro = "";
+        try
+        {
+            var log = await LogDoJobAsync(job.Job);
+            var pasta = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GRepos", "logs");
+            System.IO.Directory.CreateDirectory(pasta);
+            var arquivo = System.IO.Path.Combine(pasta,
+                GitHubService.NomeDePasta($"{_slug.Replace('/', '-')}-{job.Nome}-{job.Job.Id}") + ".log");
+            await System.IO.File.WriteAllTextAsync(arquivo, LogDaEsteira.Inteiro(log));
+            ShellService.AbrirArquivo(arquivo);
+        }
+        catch (Exception e)
+        {
+            Erro = job.Job.Situacao == "rodando"
+                ? "O log deste job fica disponível quando ele terminar."
+                : e.Message;
+        }
+    }
+
+    // ------------------------------------------------------- artefatos
+
+    /// <summary>
+    /// Só a janela consulta artefatos; o cartão do painel mostra uma execução por
+    /// repositório, e uma chamada a mais por cartão gastaria cota à toa.
+    /// </summary>
+    public bool ComArtefatos { get; init; }
+
+    [ObservableProperty] private ObservableCollection<ArtefatoViewModel> _artefatos = new();
+    private long _artefatosDe;
+
+    public bool TemArtefatos => Artefatos.Count > 0;
+
+    partial void OnArtefatosChanged(ObservableCollection<ArtefatoViewModel> value) => OnPropertyChanged(nameof(TemArtefatos));
+
+    private async Task CarregarArtefatosAsync(CiExecucaoViewModel cartao)
+    {
+        if (!ComArtefatos || _slug.Length == 0) return;
+        try
+        {
+            var lista = await GitHubService.ArtefatosAsync(_slug, cartao.Execucao.Id, _usuario);
+            if (Selecionada?.Execucao.Id != cartao.Execucao.Id) return;
+
+            _artefatosDe = cartao.Execucao.Id;
+            Artefatos = new ObservableCollection<ArtefatoViewModel>(
+                lista.Select(a => new ArtefatoViewModel { Artefato = a }));
+        }
+        catch (Exception)
+        {
+            // sem artefatos na tela; o passo a passo segue
+        }
+    }
+
+    /// <summary>Baixa e extrai na pasta escolhida, e abre a pasta — o "gh run download".</summary>
+    [RelayCommand]
+    private async Task BaixarArtefatoAsync(ArtefatoViewModel? artefato)
+    {
+        if (artefato is null || !artefato.PodeBaixar || _dialogs is null) return;
+
+        var pasta = await _dialogs.PickFolderAsync($"Onde salvar \"{artefato.Nome}\"");
+        if (string.IsNullOrEmpty(pasta)) return;
+
+        artefato.Baixando = true;
+        Erro = "";
+        try
+        {
+            var destino = await GitHubService.BaixarArtefatoAsync(_slug, artefato.Artefato, pasta, _usuario);
+            ShellService.AbrirPasta(destino);
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            artefato.Baixando = false;
         }
     }
 

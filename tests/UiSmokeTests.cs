@@ -617,6 +617,13 @@ public class UiSmokeTests
 
         var vm = new PainelViewModel("Módulos", "", new[] { aberto, semCi }, main);
 
+        // "esperando por você" com as três colunas: uma com mais do que cabe, uma vazia
+        var esperando = new PendenciasViewModel("GFBmsoft");
+        GRepos.Services.Pendencia P(int n) => new() { Numero = n, Titulo = "Item " + n, Repo = "GFBmsoft/GRepos", EhPr = true };
+        esperando.Aplicar(System.Linq.Enumerable.Range(1, 8).Select(P), new[] { P(20) }, System.Array.Empty<GRepos.Services.Pendencia>());
+        vm.Esperando = esperando;
+        Assert.True(esperando.Colunas[0].TemResto);
+
         Assert.True(esteira.PodeCancelar);       // rodando: Parar disponível
         Assert.False(esteira.PodeReexecutar);    // e Reexecutar não
 
@@ -746,6 +753,20 @@ public class UiSmokeTests
                 new CiEtapaViewModel { Etapa = new GRepos.Services.CiEtapa { Numero = 3, Nome = "Artefato (runtime)", Situacao = "pulado" } },
             },
         });
+
+        // log do passo aberto e artefatos: os templates novos também precisam montar
+        var quebrado = vm.Jobs[0].Etapas[1];
+        quebrado.LogAberto = true;
+        quebrado.MostrarLog(new GRepos.Services.LogDoPasso
+        {
+            Texto = "$ dotnet test\n✕ Process completed with exit code 1.", Erros = { "Process completed with exit code 1." },
+        });
+        vm.Artefatos = new System.Collections.ObjectModel.ObservableCollection<ArtefatoViewModel>
+        {
+            new() { Artefato = new GRepos.Services.Artefato { Id = 7, Nome = "GRepos-standalone", Tamanho = 96_615_044 } },
+            new() { Artefato = new GRepos.Services.Artefato { Id = 8, Nome = "antigo", Expirado = true } },
+        };
+        Assert.True(vm.TemArtefatos);
 
         var window = new EsteiraWindow { DataContext = vm, Width = 900, Height = 640 };
         window.Show();
@@ -895,6 +916,11 @@ public class UiSmokeTests
         window.Arrange(new Rect(0, 0, 1080, 700));
         Assert.True(meu.Editando);
 
+        vm.Pessoas.MontarEditor(new[] { "GFBmsoft" }, new[] { new GRepos.Services.Marco(1, "1.1") });
+        window.Measure(new Size(1080, 700));
+        window.Arrange(new Rect(0, 0, 1080, 700));
+        Assert.True(vm.Pessoas.Editando);
+
         vm.MontarFormEtiquetas(new[] { "bug" });
         vm.NovaCommand.Execute(null);
         window.Measure(new Size(1080, 700));
@@ -904,6 +930,80 @@ public class UiSmokeTests
         window.Close();
     }
 
+
+
+    [AvaloniaFact]
+    public void PublicarRepoWindow_monta_com_donos_e_aviso_de_nome()
+    {
+        var vm = new PublicarRepoViewModel(@"C:\repos\Notas Fiscais", "GFBmsoft");
+        vm.Donos.Add("BMSoft");
+        vm.Nome = "nome inválido";
+
+        var window = new PublicarRepoWindow { DataContext = vm };
+        window.Show();
+        window.Measure(new Size(480, 500));
+        window.Arrange(new Rect(0, 0, 480, 500));
+        Assert.True(vm.TemAvisoDoNome);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SegredosWindow_monta_com_as_duas_listas_e_o_formulario()
+    {
+        var vm = new SegredosViewModel("GFBmsoft/GRepos", "GFBmsoft", "GRepos");
+        vm.Aplicar(
+            new[] { new GRepos.Services.ItemDeActions { Nome = "DEPLOY_TOKEN", Atualizado = System.DateTime.UtcNow } },
+            new[] { new GRepos.Services.ItemDeActions { Nome = "AMBIENTE", Valor = "producao" } });
+
+        var window = new SegredosWindow { DataContext = vm, Width = 900, Height = 600 };
+        window.Show();
+        vm.NovaVariavelCommand.Execute(null);
+        vm.FormNome = "nome com espaço";
+        window.Measure(new Size(900, 600));
+        window.Arrange(new Rect(0, 0, 900, 600));
+        Assert.True(vm.Editando);
+        Assert.True(vm.TemProblemaNoNome);
+        window.Close();
+    }
+    [AvaloniaFact]
+    public void ReleasesWindow_monta_com_lista_arquivos_e_formulario()
+    {
+        var vm = new ReleasesViewModel("GFBmsoft/GRepos", "GFBmsoft", "GRepos");
+        vm.Aplicar(new[]
+        {
+            new GRepos.Services.Release
+            {
+                Id = 2, Tag = "1.0.0.47", Nome = "GRepos 1.0.0.47", Rascunho = true, Notas = "## Novidades\n- log da esteira",
+                Arquivos = { new GRepos.Services.ReleaseAsset { Id = 20, Nome = "GRepos-1.0.0.47.exe", Tamanho = 29_000_000 } },
+            },
+            new GRepos.Services.Release { Id = 1, Tag = "1.0.0.46", PreRelease = true, Publicada = System.DateTime.UtcNow },
+        });
+
+        var window = new ReleasesWindow { DataContext = vm, Width = 1040, Height = 680 };
+        window.Show();
+        window.Measure(new Size(1040, 680));
+        window.Arrange(new Rect(0, 0, 1040, 680));
+        Assert.True(vm.MostraDetalhe);
+        Assert.True(vm.PodePublicar);
+
+        // o formulário com um arquivo na lista de envio: template que só existe nele
+        var arquivo = System.IO.Path.GetTempFileName();
+        try
+        {
+            vm.EditarReleaseCommand.Execute(null);
+            vm.AcrescentarArquivos(new[] { arquivo, arquivo });
+            window.Measure(new Size(1040, 680));
+            window.Arrange(new Rect(0, 0, 1040, 680));
+            Assert.True(vm.Editando);
+            Assert.Single(vm.FormArquivos);
+        }
+        finally
+        {
+            System.IO.File.Delete(arquivo);
+        }
+
+        window.Close();
+    }
     /// <summary>As três abas do PR têm templates próprios: cada uma precisa ser montada.</summary>
     [AvaloniaFact]
     public void PullRequestsWindow_monta_as_abas_de_conversa_commits_e_arquivos()
@@ -1175,6 +1275,14 @@ public class UiSmokeTests
 
         Assert.True(vm.MostraDetalhe);
         Assert.True(vm.PodeMesclar);
+
+        // editor de responsáveis, revisores e marco aberto: o template das pessoas também monta
+        vm.Pessoas.Mostrar(42, new[] { "GFBmsoft" }, new[] { "ana" }, new GRepos.Services.Marco(3, "1.1"));
+        vm.Pessoas.MontarEditor(new[] { "GFBmsoft", "bia" }, new[] { new GRepos.Services.Marco(3, "1.1") });
+        window.Measure(new Size(940, 640));
+        window.Arrange(new Rect(0, 0, 940, 640));
+        Assert.Equal(3, vm.Pessoas.Pessoas.Count);
+        Assert.True(vm.PodeTrazer is false); // sem a pasta do repositório não há o que trazer
 
         // o formulário de PR novo usa outros controles: precisa ser montado também
         vm.NovoCommand.Execute(null);

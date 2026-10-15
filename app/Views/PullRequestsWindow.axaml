@@ -21,6 +21,11 @@
             BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
       <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
     </Border>
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Green}" IsVisible="{Binding TemInfo}">
+      <TextBlock Text="{Binding Info}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
 
     <!-- lista à esquerda; à direita o detalhe do escolhido ou o formulário de PR novo -->
     <Grid Grid.Row="2" ColumnDefinitions="330,10,*">
@@ -99,6 +104,7 @@
                            Foreground="{DynamicResource Accent}" TextTrimming="CharacterEllipsis" />
                 <TextBlock Text="{Binding DetalheResumo}" Classes="faint" FontSize="11"
                            TextTrimming="CharacterEllipsis" />
+                <views:PessoasView DataContext="{Binding Pessoas}" />
                 <TextBlock Text="{Binding MesclagemTexto}" FontSize="11.5" TextWrapping="Wrap"
                            Foreground="{Binding MesclagemCor, Converter={x:Static local:Converters.ResourceBrush}}" />
                 <!-- o Actions em uma frase: aguardando começar, rodando (e o quê), quebrou ou passou -->
@@ -222,7 +228,7 @@
             <!-- mesclar e fechar escrevem no GitHub: os dois confirmam antes -->
             <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
                     BorderThickness="0,1,0,0">
-              <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+              <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
                 <ComboBox Grid.Column="0" MinWidth="170" ItemsSource="{Binding Metodos}"
                           SelectedItem="{Binding Metodo}" VerticalAlignment="Center"
                           ToolTip.Tip="Como os commits entram na branch de destino" />
@@ -230,7 +236,10 @@
                         Classes="primary" IsEnabled="{Binding PodeMesclar}"
                         Command="{Binding MesclarCommand}"
                         ToolTip.Tip="Mescla o pull request no GitHub" />
-                <Button Grid.Column="3" Content="Fechar PR" MinWidth="88" Classes="danger"
+                <Button Grid.Column="3" Content="Trazer para a máquina" MinWidth="88" Margin="0,0,8,0"
+                        IsEnabled="{Binding PodeTrazer}" Command="{Binding TrazerCommand}"
+                        ToolTip.Tip="Busca o PR e muda o repositório para a branch dele, para testar aqui" />
+                <Button Grid.Column="4" Content="Fechar PR" MinWidth="88" Classes="danger"
                         IsEnabled="{Binding PodeFechar}" Command="{Binding FecharPrCommand}"
                         ToolTip.Tip="Fecha o pull request sem mesclar" />
               </Grid>

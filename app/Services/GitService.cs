@@ -630,6 +630,80 @@ public static class GitService
     public static Task<string> CreateTagAsync(string repo, string name, string hash) =>
         Run(repo, "tag", name, hash);
 
+    /// <summary>O remoto que fala com o GitHub: origin quando existe, senão o primeiro.</summary>
+    public static async Task<string> RemotoPrincipalAsync(string repo)
+    {
+        var remotos = (await Run(repo, "remote"))
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return remotos.Contains("origin") ? "origin" : remotos.FirstOrDefault() ?? "origin";
+    }
+
+    /// <summary>
+    /// Traz um pull request para a máquina e muda para ele — o "gh pr checkout". PR do
+    /// próprio repositório usa a branch dele (criada acompanhando a do remoto, ou
+    /// avançada se já existe); PR de fork, cuja branch não está no remoto, vira
+    /// <c>pr/N</c>, buscada pelo endereço que o GitHub mantém para todo PR. Nada é
+    /// forçado: se a branch local divergiu, o git recusa e explica.
+    /// </summary>
+    /// <returns>A branch em que o repositório ficou.</returns>
+    public static async Task<string> TrazerPullRequestAsync(string repo, int numero, string origem, bool deFork)
+    {
+        var remoto = await RemotoPrincipalAsync(repo);
+        var atual = (await Run(repo, "rev-parse", "--abbrev-ref", "HEAD")).Trim();
+
+        if (!deFork && origem.Length > 0)
+        {
+            await RedeAsync(repo, "fetch", remoto, origem);
+            if (await ExisteBranchAsync(repo, origem))
+            {
+                if (atual != origem) await Run(repo, "checkout", origem);
+                await Run(repo, "merge", "--ff-only", $"{remoto}/{origem}");
+            }
+            else
+            {
+                await Run(repo, "checkout", "-b", origem, "--track", $"{remoto}/{origem}");
+            }
+            return origem;
+        }
+
+        var local = $"pr/{numero}";
+        if (atual == local)
+        {
+            // não dá para buscar direto para a branch em que se está: busca e avança
+            await RedeAsync(repo, "fetch", remoto, $"pull/{numero}/head");
+            await Run(repo, "merge", "--ff-only", "FETCH_HEAD");
+        }
+        else
+        {
+            await RedeAsync(repo, "fetch", remoto, $"pull/{numero}/head:{local}");
+            await Run(repo, "checkout", local);
+        }
+        return local;
+    }
+
+    private static async Task<bool> ExisteBranchAsync(string repo, string nome)
+    {
+        try
+        {
+            await Run(repo, "rev-parse", "--verify", "--quiet", $"refs/heads/{nome}");
+            return true;
+        }
+        catch (GitException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Envia uma tag que só existe aqui (a release precisa dela no GitHub).</summary>
+    public static async Task EnviarTagAsync(string repo, string tag) =>
+        await RedeAsync(repo, "push", await RemotoPrincipalAsync(repo), "refs/tags/" + tag);
+
+    /// <summary>Tags locais, da mais nova para a mais antiga (pela data de criação).</summary>
+    public static async Task<List<string>> TagsAsync(string repo) =>
+        (await Run(repo, "for-each-ref", "--sort=-creatordate", "--format=%(refname:short)", "refs/tags"))
+        .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .ToList();
+
     /// <summary>Aplica um patch (bloco isolado) no index.</summary>
     public static Task ApplyPatchAsync(string repo, string patch, bool cached, bool reverse)
     {
@@ -998,6 +1072,23 @@ public static class GitService
 
     public static Task<string> SetRemoteUrlAsync(string repo, string url) =>
         Run(repo, "remote", "set-url", "origin", url);
+
+    public static Task<string> AdicionarRemotoAsync(string repo, string nome, string url) =>
+        Run(repo, "remote", "add", nome, url);
+
+    /// <summary>O repositório já tem algum commit? Sem nenhum, não há o que enviar.</summary>
+    public static async Task<bool> TemCommitsAsync(string repo)
+    {
+        try
+        {
+            await Run(repo, "rev-parse", "--verify", "--quiet", "HEAD");
+            return true;
+        }
+        catch (GitException)
+        {
+            return false;
+        }
+    }
 
     public static Task<string> CheckoutAsync(string repo, string name) => Run(repo, "checkout", name);
 

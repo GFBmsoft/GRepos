@@ -149,11 +149,9 @@
                     </ItemsPanelTemplate>
                   </ItemsControl.ItemsPanel>
                 </ItemsControl>
-                <TextBlock Classes="faint" FontSize="11" TextTrimming="CharacterEllipsis">
-                  <Run Text="{Binding Selecionada.Rodape, Mode=OneWay}" />
-                  <Run Text=" · " />
-                  <Run Text="{Binding Selecionada.Responsaveis, Mode=OneWay}" />
-                </TextBlock>
+                <TextBlock Text="{Binding Selecionada.Rodape}" Classes="faint" FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+                <views:PessoasView DataContext="{Binding Pessoas}" />
               </StackPanel>
             </Border>
 

@@ -1,0 +1,130 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GRepos.ViewModels"
+        x:Class="GRepos.Views.SegredosWindow"
+        x:DataType="vm:SegredosViewModel"
+        Title="Segredos e variáveis" Width="900" Height="600" MinWidth="680" MinHeight="420"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource Bg}">
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="14">
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,10">
+      <TextBlock Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Subtitulo}" Classes="faint" FontSize="11" />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
+            Background="{DynamicResource BgRaised}" BorderThickness="1"
+            BorderBrush="{DynamicResource Red}" IsVisible="{Binding TemErro}">
+      <TextBlock Text="{Binding Erro}" TextWrapping="Wrap" TextTrimming="None" />
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,10,*">
+
+      <!-- segredos: o valor nunca volta da API; só se cria, troca ou apaga -->
+      <Border Grid.Column="0" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="sectionTitle" Text="SEGREDOS" />
+              <TextBlock Classes="faint" FontSize="10.5" TextWrapping="Wrap"
+                         Text="Senhas e tokens: o workflow lê, ninguém vê. ${{ secrets.NOME }}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Grid.Row="1" Text="Nenhum segredo neste repositório." Classes="faint" Margin="12,10"
+                     IsVisible="{Binding SemSegredos}" />
+          <ListBox Grid.Row="1" ItemsSource="{Binding Segredos}" SelectedItem="{Binding SegredoSelecionado}"
+                   Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:ItemDeActionsViewModel">
+                <Grid ColumnDefinitions="*,Auto" Margin="4,3">
+                  <TextBlock Text="{Binding Nome}" Classes="mono" FontSize="12" TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="1" Text="{Binding Quando}" Classes="faint" FontSize="10.5" Margin="8,0,0,0" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="10,7" HorizontalAlignment="Right">
+            <Button Classes="tiny" Content="Novo" Command="{Binding NovoSegredoCommand}" />
+            <Button Classes="tiny" Content="Trocar valor" IsEnabled="{Binding TemSegredoEscolhido}"
+                    Command="{Binding TrocarSegredoCommand}" />
+            <Button Classes="tiny danger" Content="Excluir" IsEnabled="{Binding TemSegredoEscolhido}"
+                    Command="{Binding ExcluirSegredoCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- variáveis: texto comum, que qualquer um com acesso ao repositório lê -->
+      <Border Grid.Column="2" Classes="card" Padding="0" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+            <StackPanel Spacing="2">
+              <TextBlock Classes="sectionTitle" Text="VARIÁVEIS" />
+              <TextBlock Classes="faint" FontSize="10.5" TextWrapping="Wrap"
+                         Text="Configuração sem segredo, visível a quem tem acesso. ${{ vars.NOME }}" />
+            </StackPanel>
+          </Border>
+          <TextBlock Grid.Row="1" Text="Nenhuma variável neste repositório." Classes="faint" Margin="12,10"
+                     IsVisible="{Binding SemVariaveis}" />
+          <ListBox Grid.Row="1" ItemsSource="{Binding Variaveis}" SelectedItem="{Binding VariavelSelecionada}"
+                   Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="vm:ItemDeActionsViewModel">
+                <StackPanel Margin="4,3">
+                  <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Text="{Binding Nome}" Classes="mono" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding Quando}" Classes="faint" FontSize="10.5" Margin="8,0,0,0" />
+                  </Grid>
+                  <TextBlock Text="{Binding Valor}" Classes="faint" FontSize="11" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="10,7" HorizontalAlignment="Right">
+            <Button Classes="tiny" Content="Nova" Command="{Binding NovaVariavelCommand}" />
+            <Button Classes="tiny" Content="Editar" IsEnabled="{Binding TemVariavelEscolhida}"
+                    Command="{Binding EditarVariavelCommand}" />
+            <Button Classes="tiny danger" Content="Excluir" IsEnabled="{Binding TemVariavelEscolhida}"
+                    Command="{Binding ExcluirVariavelCommand}" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- o formulário entra embaixo das listas, sem esconder o que já existe -->
+    <Border Grid.Row="3" Classes="card" Padding="12,10" Margin="0,10,0,0" IsVisible="{Binding Editando}">
+      <StackPanel Spacing="4">
+        <TextBlock Classes="sectionTitle" Text="{Binding FormCabecalho}" />
+        <Grid ColumnDefinitions="220,12,*">
+          <StackPanel>
+            <TextBlock Text="Nome" Classes="faint" FontSize="11" />
+            <TextBox Text="{Binding FormNome}" IsEnabled="{Binding NomeEditavel}" Classes="mono"
+                     Watermark="DEPLOY_TOKEN" />
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="Valor" Classes="faint" FontSize="11" />
+            <TextBox Text="{Binding FormValor}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Text="{Binding ProblemaNoNome}" Foreground="{DynamicResource Yellow}" FontSize="11"
+                   IsVisible="{Binding TemProblemaNoNome}" />
+        <TextBlock Classes="faint" FontSize="10.5" TextWrapping="Wrap" IsVisible="{Binding FormEhSegredo}"
+                   Text="O valor sai daqui cifrado com a chave do repositório; depois de salvo, nem o GitHub mostra de novo." />
+        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,4,0,0">
+          <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarFormCommand}" />
+          <Button Content="Salvar" MinWidth="100" Classes="primary" IsEnabled="{Binding PodeSalvar}"
+                  Command="{Binding SalvarCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,10,0,0">
+      <Button Grid.Column="1" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
+      <Button Grid.Column="2" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}" />
+      <Button Grid.Column="3" Content="Fechar" MinWidth="88" Click="Fechar" />
+    </Grid>
+  </Grid>
+</Window>

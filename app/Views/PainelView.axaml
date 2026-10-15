@@ -150,6 +150,58 @@
        </DockPanel>
       </Border>
 
+      <!-- o "gh status": o que espera por você em todos os repositórios, da conta do perfil -->
+      <Border Classes="card" Margin="0,0,0,12" Padding="14,10" IsVisible="{Binding TemEsperando}">
+       <StackPanel DataContext="{Binding Esperando}" Spacing="8">
+        <Grid ColumnDefinitions="*,Auto">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Classes="sectionTitle" Text="ESPERANDO POR VOCÊ" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding Resumo}" Classes="faint" FontSize="11" VerticalAlignment="Center" />
+          </StackPanel>
+          <TextBlock Grid.Column="1" Text="Consultando…" Classes="faint" FontSize="11"
+                     IsVisible="{Binding Carregando}" />
+        </Grid>
+        <TextBlock Text="{Binding Erro}" Foreground="{DynamicResource Red}" FontSize="11"
+                   TextWrapping="Wrap" IsVisible="{Binding TemErro}" />
+
+        <ItemsControl ItemsSource="{Binding Colunas}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Rows="1" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="vm:ColunaDePendencias">
+              <StackPanel Margin="0,0,14,0" Spacing="2">
+                <TextBlock Text="{Binding Cabecalho}" Classes="faint" FontSize="10.5" FontWeight="SemiBold"
+                           Margin="0,0,0,2" />
+                <TextBlock Text="{Binding Vazio}" Classes="faint" FontSize="11" TextWrapping="Wrap"
+                           IsVisible="{Binding SemItens}" />
+                <ItemsControl ItemsSource="{Binding Itens}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:PendenciaViewModel">
+                      <Button Classes="secaoTopo" Padding="4,2" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch" ToolTip.Tip="{Binding Tooltip}"
+                              Command="{Binding AbrirCommand}">
+                        <StackPanel>
+                          <TextBlock Text="{Binding Titulo}" FontSize="11.5" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding Rodape}" Classes="faint" FontSize="10.5"
+                                     TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Button Classes="tiny" HorizontalAlignment="Left" Content="{Binding RestoTexto}"
+                        IsVisible="{Binding TemResto}"
+                        Command="{Binding AbrirRestoCommand}" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+       </StackPanel>
+      </Border>
+
       <!-- uma seção por grupo; no painel de um grupo só o título fica escondido -->
       <ItemsControl ItemsSource="{Binding Secoes}">
         <ItemsControl.ItemTemplate>

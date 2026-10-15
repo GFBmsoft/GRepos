@@ -107,11 +107,12 @@
                      Margin="12,10" TextWrapping="Wrap" IsVisible="{Binding SemJobs}" />
 
           <ScrollViewer Grid.Row="1" Padding="0,0,4,0">
+            <StackPanel>
             <ItemsControl ItemsSource="{Binding Jobs}" Margin="10,8">
               <ItemsControl.ItemTemplate>
                 <DataTemplate DataType="vm:CiJobViewModel">
                   <StackPanel Margin="0,0,0,14">
-                    <Grid ColumnDefinitions="16,*,Auto" Margin="0,0,0,4">
+                    <Grid ColumnDefinitions="16,*,Auto,Auto" Margin="0,0,0,4">
                       <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="13"
                                  VerticalAlignment="Center"
                                  Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
@@ -120,23 +121,55 @@
                                  TextTrimming="CharacterEllipsis" />
                       <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
                                  FontSize="10.5" VerticalAlignment="Center" />
+                      <Button Grid.Column="3" Classes="tiny" Content="log" Margin="8,0,0,0"
+                              ToolTip.Tip="Abrir o log inteiro deste job no editor de texto"
+                              Command="{Binding $parent[Window].DataContext.AbrirLogDoJobCommand}"
+                              CommandParameter="{Binding}" />
                     </Grid>
 
+                    <!-- clicar no passo abre o log dele logo abaixo, como no GitHub -->
                     <ItemsControl ItemsSource="{Binding Etapas}" Margin="22,0,0,0">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="vm:CiEtapaViewModel">
-                          <Grid ColumnDefinitions="14,*,Auto" Height="22">
-                            <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="11"
-                                       VerticalAlignment="Center"
-                                       Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
-                            <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11.5"
-                                       Margin="6,0" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       Foreground="{Binding CorDoNome, Converter={x:Static local:Converters.ResourceBrush}}"
-                                       FontWeight="{Binding Peso}" />
-                            <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
-                                       FontSize="10.5" VerticalAlignment="Center" />
-                          </Grid>
+                          <StackPanel>
+                            <Button Classes="secaoTopo" Padding="0" Height="22"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                    ToolTip.Tip="{Binding DicaDoPasso}"
+                                    Command="{Binding $parent[Window].DataContext.AlternarLogCommand}"
+                                    CommandParameter="{Binding}">
+                              <Grid ColumnDefinitions="14,*,Auto">
+                                <TextBlock Grid.Column="0" Text="{Binding Simbolo}" FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Foreground="{Binding Cor, Converter={x:Static local:Converters.ResourceBrush}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Nome}" FontSize="11.5"
+                                           Margin="6,0" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{Binding CorDoNome, Converter={x:Static local:Converters.ResourceBrush}}"
+                                           FontWeight="{Binding Peso}" />
+                                <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
+                                           FontSize="10.5" VerticalAlignment="Center" Margin="0,0,4,0" />
+                              </Grid>
+                            </Button>
+
+                            <Border IsVisible="{Binding LogAberto}" Margin="0,2,0,8" Padding="8,6"
+                                    CornerRadius="5" Background="{DynamicResource Bg}"
+                                    BorderBrush="{DynamicResource BorderSoft}" BorderThickness="1">
+                              <StackPanel Spacing="6">
+                                <TextBlock Text="Carregando o log…" Classes="faint" FontSize="11"
+                                           IsVisible="{Binding CarregandoLog}" />
+                                <TextBlock Text="{Binding LogAviso}" Classes="faint" FontSize="11"
+                                           TextWrapping="Wrap" IsVisible="{Binding TemLogAviso}" />
+                                <SelectableTextBlock Text="{Binding LogErros}" FontSize="11.5" TextWrapping="Wrap"
+                                                     Foreground="{DynamicResource Red}" FontWeight="SemiBold"
+                                                     IsVisible="{Binding TemLogErros}" />
+                                <ScrollViewer MaxHeight="320" HorizontalScrollBarVisibility="Auto"
+                                              IsVisible="{Binding TemLogTexto}">
+                                  <SelectableTextBlock Text="{Binding LogTexto}" FontSize="11"
+                                                       FontFamily="{DynamicResource MonoFont}" />
+                                </ScrollViewer>
+                              </StackPanel>
+                            </Border>
+                          </StackPanel>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -144,6 +177,29 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <!-- o que a execução gerou (upload-artifact): baixa e extrai, como o gh run download -->
+            <StackPanel IsVisible="{Binding TemArtefatos}" Margin="10,0,10,10">
+              <TextBlock Classes="sectionTitle" Text="ARTEFATOS" Margin="0,0,0,6" />
+              <ItemsControl ItemsSource="{Binding Artefatos}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="vm:ArtefatoViewModel">
+                    <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,4">
+                      <TextBlock Grid.Column="0" Text="{Binding Nome}" FontSize="12"
+                                 VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Grid.Column="1" Text="{Binding Detalhe}" Classes="faint" FontSize="10.5"
+                                 VerticalAlignment="Center" Margin="8,0" />
+                      <Button Grid.Column="2" Classes="tiny" Content="Baixar"
+                              IsEnabled="{Binding PodeBaixar}"
+                              ToolTip.Tip="Baixar e extrair numa pasta à sua escolha"
+                              Command="{Binding $parent[Window].DataContext.BaixarArtefatoCommand}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+            </StackPanel>
           </ScrollViewer>
         </Grid>
       </Border>
@@ -184,7 +240,7 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto,Auto,Auto" Margin="0,10,0,0">
+    <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="0,10,0,0">
       <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal" Spacing="5">
           <TextBlock Text="✓" Foreground="{DynamicResource Green}" FontSize="12" />
@@ -211,11 +267,13 @@
                    VerticalAlignment="Center" />
       </StackPanel>
 
-      <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
+      <Button Grid.Column="2" Content="Segredos e variáveis…" Margin="0,0,8,0" Click="AbrirSegredos"
+              ToolTip.Tip="Segredos e variáveis que os workflows deste repositório usam" />
+      <Button Grid.Column="3" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
               IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
-      <Button Grid.Column="3" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
+      <Button Grid.Column="4" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
               Command="{Binding AbrirNoGitHubCommand}" />
-      <Button Grid.Column="4" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Grid.Column="5" Content="Fechar" MinWidth="88" Click="Fechar" />
     </Grid>
   </Grid>
 </Window>

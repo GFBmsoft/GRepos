@@ -30,6 +30,9 @@ public sealed record ContextoPr(string Slug, string Branch, string Usuario, stri
     /// janela abre direto no formulário de PR novo.
     /// </summary>
     public string DestinoInicial { get; init; } = "";
+
+    /// <summary>Pasta do repositório: sem ela não há como trazer um PR para a máquina.</summary>
+    public string RepoPath { get; init; } = "";
 }
 
 /// <summary>Forma de mesclar, com o nome que o GitHub mostra no botão.</summary>
@@ -162,6 +165,12 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         _ctx = contexto;
         _dialogs = dialogs;
 
+        Pessoas = new PessoasViewModel(contexto.Slug, contexto.Usuario, ehPr: true)
+        {
+            AoFalhar = mensagem => Erro = mensagem,
+            AoMudar = RecarregarEscolhidoAsync,
+        };
+
         Editor = new ConversaViewModel(contexto.Slug, contexto.Usuario)
         {
             AoFalhar = mensagem => Erro = mensagem,
@@ -292,9 +301,12 @@ public sealed partial class PullRequestsViewModel : ObservableObject
     public bool PodeMesclar => !Executando && SituacaoDeMesclagem(Selecionada?.Pr, Detalhe).Mesclavel;
     public bool PodeFechar => !Executando && Selecionada is { Pr.Aberto: true };
 
+    /// <summary>Trazer para a máquina só faz sentido com a pasta do repositório e o PR aberto.</summary>
+    public bool PodeTrazer => !Executando && _ctx.RepoPath.Length > 0 && Selecionada is { Pr.Aberto: true };
+
     private void AvisarBotoes()
     {
-        foreach (var p in new[] { nameof(PodeMesclar), nameof(PodeFechar), nameof(PodeCriar), nameof(AvisoNovo),
+        foreach (var p in new[] { nameof(PodeMesclar), nameof(PodeFechar), nameof(PodeTrazer), nameof(PodeCriar), nameof(AvisoNovo),
                                   nameof(PodeRevisar), nameof(PodePedirMudancas), nameof(RevisarDica),
                                   nameof(PodeEditarPr), nameof(PodeSalvarPr) })
             OnPropertyChanged(p);
@@ -311,7 +323,18 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         AvisarBotoes();
     }
 
-    partial void OnDetalheChanged(PullRequest? value) => AvisarDetalhe();
+    /// <summary>Responsáveis, revisores e marco do PR escolhido.</summary>
+    public PessoasViewModel Pessoas { get; }
+
+    partial void OnDetalheChanged(PullRequest? value)
+    {
+        AvisarDetalhe();
+        MostrarPessoas(value ?? Selecionada?.Pr);
+    }
+
+    private void MostrarPessoas(PullRequest? pr) =>
+        Pessoas.Mostrar(pr?.Numero ?? 0, pr?.Responsaveis ?? new List<string>(), pr?.Revisores ?? new List<string>(),
+            new Marco(pr?.MarcoNumero ?? 0, pr?.Marco ?? ""));
 
     partial void OnSelecionadaChanged(PrViewModel? value)
     {
@@ -321,6 +344,7 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         Detalhe = null;
         Verificacoes.Clear();
         AvisarDetalhe();
+        MostrarPessoas(value?.Pr);
 
         if (value is not null)
         {
@@ -1060,6 +1084,53 @@ public sealed partial class PullRequestsViewModel : ObservableObject
 
         await EscreverAsync(() => GitHubService.FecharPullRequestAsync(_ctx.Slug, item.Pr.Numero, _ctx.Usuario));
     }
+
+    /// <summary>
+    /// Traz o PR para a máquina e muda para a branch dele — o "gh pr checkout". Confirma
+    /// antes: troca a branch do repositório, e alteração não salva vai junto.
+    /// </summary>
+    [RelayCommand]
+    private async Task TrazerAsync()
+    {
+        var item = Selecionada;
+        if (item is null || !PodeTrazer) return;
+
+        var deFork = item.Pr.OrigemRepo.Length > 0 &&
+                     !item.Pr.OrigemRepo.Equals(_ctx.Slug, StringComparison.OrdinalIgnoreCase);
+        var branch = deFork ? $"pr/{item.Pr.Numero}" : item.Pr.Origem;
+
+        if (_dialogs is not null && !await _dialogs.ConfirmAsync(
+                "Trazer para a máquina",
+                $"Trazer {item.Numero} \"{item.Titulo}\" e mudar o repositório para a branch {branch}?\n\n" +
+                (deFork ? $"O PR vem de um fork ({item.Pr.OrigemRepo}); a branch local se chama {branch}.\n" : "") +
+                "Se ela já existe aqui, é só avançada; alterações não salvas vão junto para ela."))
+            return;
+
+        Executando = true;
+        Erro = "";
+        Info = "";
+        try
+        {
+            var ficou = await GitService.TrazerPullRequestAsync(_ctx.RepoPath, item.Pr.Numero, item.Pr.Origem, deFork);
+            Alterou = true;
+            Info = $"O repositório está agora na branch {ficou}, com o conteúdo do PR {item.Numero}.";
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            Executando = false;
+        }
+    }
+
+    /// <summary>O que deu certo e merece ser dito (o PR trazido), no lugar do erro.</summary>
+    [ObservableProperty] private string _info = "";
+
+    public bool TemInfo => Info.Length > 0;
+
+    partial void OnInfoChanged(string value) => OnPropertyChanged(nameof(TemInfo));
 
     private async Task EscreverAsync(Func<Task> acao)
     {

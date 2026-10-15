@@ -71,4 +71,14 @@ public static class Rotulos
         if (t.TotalMinutes >= 1) return $"{(int)t.TotalMinutes}m {t.Seconds:00}s";
         return $"{Math.Max(0, (int)t.TotalSeconds)}s";
     }
+
+    /// <summary>Tamanho de arquivo: "820 B", "14,2 KB", "28,7 MB".</summary>
+    public static string Bytes(long bytes)
+    {
+        var pt = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+        if (bytes < 1024) return $"{Math.Max(0, bytes)} B";
+        if (bytes < 1024 * 1024) return (bytes / 1024.0).ToString("0.#", pt) + " KB";
+        if (bytes < 1024L * 1024 * 1024) return (bytes / 1024.0 / 1024).ToString("0.#", pt) + " MB";
+        return (bytes / 1024.0 / 1024 / 1024).ToString("0.##", pt) + " GB";
+    }
 }
