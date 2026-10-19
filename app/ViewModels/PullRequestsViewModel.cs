@@ -224,7 +224,7 @@ public sealed partial class PullRequestsViewModel : ObservableObject
     partial void OnMostrarFechadosChanged(bool value)
     {
         OnPropertyChanged(nameof(TextoVazio));
-        _ = CarregarAsync();
+        if (!_semRecarga) _ = CarregarAsync();
     }
 
     partial void OnExecutandoChanged(bool value) => AvisarBotoes();
@@ -1068,8 +1068,37 @@ public sealed partial class PullRequestsViewModel : ObservableObject
                 $"Forma: {Metodo.Nome}. Isso altera a branch {item.Pr.Destino} no GitHub e não tem desfazer por aqui."))
             return;
 
-        await EscreverAsync(() => GitHubService.MesclarPullRequestAsync(_ctx.Slug, item.Pr.Numero, Metodo.Id, _ctx.Usuario));
+        Executando = true;
+        Erro = "";
+        Info = "";
+        try
+        {
+            await GitHubService.MesclarPullRequestAsync(_ctx.Slug, item.Pr.Numero, Metodo.Id, _ctx.Usuario);
+            Alterou = true;
+            Info = $"PR {item.Numero} mesclado com sucesso em {item.Pr.Destino}.";
+
+            // mesclado ele sai dos abertos: a lista passa a mostrar os fechados, com ele
+            // selecionado, para se ver o resultado
+            _semRecarga = true;
+            MostrarFechados = true;
+            _semRecarga = false;
+            Executando = false;
+            await CarregarAsync();
+            Selecionada = Lista.FirstOrDefault(p => p.Pr.Numero == item.Pr.Numero) ?? Selecionada;
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+        finally
+        {
+            _semRecarga = false;
+            Executando = false;
+        }
     }
+
+    /// <summary>Troca de filtro feita pelo próprio código, que já recarrega em seguida.</summary>
+    private bool _semRecarga;
 
     [RelayCommand]
     private async Task FecharPrAsync()

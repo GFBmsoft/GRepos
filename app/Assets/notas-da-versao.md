@@ -1,3 +1,6 @@
+## 1.0.0.50 — 19/10/2026
+- **Merge confirmado na tela de pull requests**: ao mesclar, aparece a mensagem de sucesso e a lista passa a mostrar os fechados e mesclados, com o PR recém-mesclado selecionado.
+
 ## 1.0.0.49 — 15/10/2026
 - **Painel agrupado como a árvore**: em vez de "DBISAM / Componentes" e "DBISAM / Projetos" soltos, o painel mostra a pasta **DBISAM** com as subpastas dentro, recuadas. A contagem e o resumo de uma pasta fechada incluem o que está nas subpastas, e recolher a pasta esconde tudo o que há nela.
 
