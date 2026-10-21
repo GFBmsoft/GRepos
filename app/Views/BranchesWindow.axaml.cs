@@ -30,6 +30,7 @@ public partial class BranchesWindow : Window
             Confirmar = (titulo, mensagem) => new ConfirmWindow(titulo, mensagem).ShowDialog<bool>(this),
             EditarFluxo = atual => new GitFlowWindow(atual).ShowDialog<GitFlowConfig?>(this),
             MostrarPullRequests = prs => new PullRequestsWindow(prs).ShowDialog(this),
+            FecharJanela = Close,
         };
         DataContext = vm;
         Opened += async (_, _) => await vm.CarregarAsync();

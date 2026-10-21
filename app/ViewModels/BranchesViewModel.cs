@@ -111,6 +111,12 @@ public sealed partial class BranchesViewModel : ObservableObject
     public Func<string, string, Task<bool>>? Confirmar { get; set; }
     public Func<GitFlowConfig, Task<GitFlowConfig?>>? EditarFluxo { get; set; }
 
+    /// <summary>
+    /// Trocar de branch encerra a visita à janela: o usuário volta direto para o
+    /// repositório, que quem abriu a janela recarrega ao fechá-la.
+    /// </summary>
+    public Action? FecharJanela { get; set; }
+
     public string BranchAtual => _todas.FirstOrDefault(b => b.IsHead && !b.IsRemote)?.Name ?? "";
 
     public bool PodeFinalizar => GitFlow.PassosFinalizar(BranchAtual, Fluxo).Count > 0;
@@ -322,12 +328,20 @@ public sealed partial class BranchesViewModel : ObservableObject
         await ExecutarAsync(() => GitService.PushBranchAsync(_repo.Path, novo.Develop));
     }
 
-    private async Task ExecutarAsync(Func<Task> acao)
+    private async Task ExecutarAsync(Func<Task> acao, bool fecharAoTerminar = false)
     {
         Busy = true;
         try
         {
             await acao();
+
+            // a recarga fica para quem abriu a janela; fazê-la aqui seria em dobro
+            if (fecharAoTerminar && FecharJanela is not null)
+            {
+                FecharJanela();
+                return;
+            }
+
             await _main.RefreshRepoAsync(_repo.Id);
             await CarregarAsync();
         }
@@ -350,14 +364,15 @@ public sealed partial class BranchesViewModel : ObservableObject
     private Task Trocar(BranchItemViewModel item) =>
         ExecutarAsync(() => item.IsRemote
             ? GitService.CheckoutRemotaAsync(_repo.Path, item.Name)
-            : GitService.CheckoutAsync(_repo.Path, item.Name));
+            : GitService.CheckoutAsync(_repo.Path, item.Name),
+            fecharAoTerminar: true);
 
     [RelayCommand]
     private Task Criar() => ExecutarAsync(async () =>
     {
         await GitService.CreateBranchAsync(_repo.Path, NovaBranch.Trim(), true);
         NovaBranch = "";
-    });
+    }, fecharAoTerminar: true);
 
     // ------------------------------------- mesclar, rebase e pull request
 

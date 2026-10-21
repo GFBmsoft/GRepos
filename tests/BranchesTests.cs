@@ -180,6 +180,48 @@ public class BranchesViewModelTests
     }
 
     [Fact]
+    public async Task Trocar_ou_criar_fecha_a_janela_e_volta_para_o_repositorio()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            var vm = Vm(dir);
+            var fechou = 0;
+            vm.FecharJanela = () => fechou++;
+            await vm.CarregarAsync();
+
+            await vm.TrocarCommand.ExecuteAsync(vm.Locais.First(b => b.Name == "feat/SincEstoques"));
+            Assert.Equal(1, fechou);
+            Assert.Equal("feat/SincEstoques", (await GitService.RunAsync(dir, new[] { "branch", "--show-current" })).Trim());
+
+            vm.NovaBranch = "feat/RefatoracaoRest";
+            await vm.CriarCommand.ExecuteAsync(null);
+            Assert.Equal(2, fechou);
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
+    public async Task Troca_que_falha_deixa_a_janela_aberta_com_o_erro()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            var vm = Vm(dir);
+            var fechou = false;
+            vm.FecharJanela = () => fechou = true;
+            await vm.CarregarAsync();
+
+            var inexistente = new BranchItemViewModel { Branch = new Branch { Name = "feat/NaoExiste" } };
+            await vm.TrocarCommand.ExecuteAsync(inexistente);
+
+            Assert.False(fechou);
+            Assert.True(vm.TemErro);
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
     public async Task Repositorio_inacessivel_mostra_o_erro_na_propria_tela()
     {
         var dir = Path.Combine(Path.GetTempPath(), "grepos-vazio-" + Path.GetRandomFileName());

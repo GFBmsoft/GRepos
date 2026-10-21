@@ -1,3 +1,6 @@
+## 1.0.0.51 — 21/10/2026
+- **Trocar de branch volta para o repositório**: na janela de Branches, o **Trocar** e o **Criar e trocar** fecham a janela assim que a troca dá certo, e você já cai no repositório na branch nova. Se a troca falhar, a janela continua aberta com o erro.
+
 ## 1.0.0.50 — 19/10/2026
 - **Merge confirmado na tela de pull requests**: ao mesclar, aparece a mensagem de sucesso e a lista passa a mostrar os fechados e mesclados, com o PR recém-mesclado selecionado.
 
