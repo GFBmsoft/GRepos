@@ -326,6 +326,47 @@ public class UiSmokeTests
         window.Close();
     }
 
+    /// <summary>
+    /// A linha entre "Preparado" e "Alterações locais" se arrasta: puxada para baixo, a
+    /// lista de cima cresce e a de baixo encolhe; puxada demais, para no mínimo da de baixo.
+    /// </summary>
+    [AvaloniaFact]
+    public void ChangesView_divisor_entre_as_listas_redimensiona()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new ChangesViewModel(DemoRepo(), main, split: true);
+        var view = new ChangesView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        window.UpdateLayout();
+
+        var preparados = view.FindControl<ListBox>("ListaStaged")!;
+        var locais = view.FindControl<ListBox>("ListaUnstaged")!;
+        var (alturaDeCima, alturaDeBaixo) = (preparados.Bounds.Height, locais.Bounds.Height);
+
+        var divisor = view.GetVisualDescendants().OfType<GridSplitter>()
+            .Single(d => d.ResizeDirection == GridResizeDirection.Rows);
+        var alca = divisor.TranslatePoint(new Point(divisor.Bounds.Width / 2, divisor.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(alca, MouseButton.Left);
+        window.MouseMove(alca + new Point(0, 120));
+        window.MouseUp(alca + new Point(0, 120), MouseButton.Left);
+        window.UpdateLayout();
+
+        Assert.Equal(alturaDeCima + 120, preparados.Bounds.Height, 1);
+        Assert.Equal(alturaDeBaixo - 120, locais.Bounds.Height, 1);
+
+        // até o fim da tela: a lista de baixo fica no mínimo, com o cabeçalho inteiro
+        alca = divisor.TranslatePoint(new Point(divisor.Bounds.Width / 2, divisor.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(alca, MouseButton.Left);
+        window.MouseMove(alca + new Point(0, 2000));
+        window.MouseUp(alca + new Point(0, 2000), MouseButton.Left);
+        window.UpdateLayout();
+
+        var linhas = ((Grid)divisor.Parent!).RowDefinitions;
+        Assert.Equal(linhas[2].MinHeight, linhas[2].ActualHeight, 1);
+        window.Close();
+    }
+
     /// <summary>Arquivo em conflito com os botões Meu/Deles e a faixa do merge em andamento.</summary>
     [AvaloniaFact]
     public void ChangesView_monta_com_conflito_e_operacao_em_andamento()

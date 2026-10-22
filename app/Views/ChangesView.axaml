@@ -36,9 +36,19 @@
           </StackPanel>
         </StackPanel>
       </Border>
-      <Grid RowDefinitions="Auto,*,Auto,*,Auto">
+      <!-- as duas listas dividem a altura e o divisor entre elas se arrasta: com muitos
+           arquivos de um lado, dá para dar mais espaço a ele. Os mínimos guardam o
+           cabeçalho com os botões e ao menos uma linha de arquivo -->
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" MinHeight="64" />
+          <RowDefinition Height="5" />
+          <RowDefinition Height="*" MinHeight="96" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
+       <DockPanel Grid.Row="0">
+        <Border DockPanel.Dock="Top" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="*,Auto">
             <!-- com a coluna estreita é o título que é cortado, não o botão que sai dela -->
             <StackPanel Grid.Column="0" Orientation="Horizontal" ClipToBounds="True">
@@ -46,14 +56,14 @@
               <TextBlock Classes="faint" FontSize="10" Margin="6,0,6,0"
                          VerticalAlignment="Center" Text="{Binding Staged.Count}" />
             </StackPanel>
-            <Button Grid.Column="1" Classes="tiny" Content="{Binding RemoverRotulo}" Margin="6,0,0,0"
+            <Button Grid.Column="1" Classes="acao" Content="{Binding RemoverRotulo}" Margin="6,0,0,0"
                     ToolTip.Tip="Tira do commit. Ctrl ou Shift + clique marcam vários arquivos."
                     Command="{Binding UnstageAllCommand}" />
           </Grid>
         </Border>
 
         <!-- Multiple: clique simples seleciona um; Ctrl ou Shift + clique marcam vários -->
-        <ListBox Grid.Row="1" Name="ListaStaged" SelectionMode="Multiple"
+        <ListBox Name="ListaStaged" SelectionMode="Multiple"
                  ItemsSource="{Binding Staged}" SelectedItem="{Binding SelectedStaged}">
           <ListBox.ContextMenu>
             <ContextMenu>
@@ -77,8 +87,16 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+       </DockPanel>
 
-        <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,1,0,1">
+        <!-- a linha que separa as listas é a alça: o divisor transparente fica por cima dela -->
+        <Border Grid.Row="1" Height="1" VerticalAlignment="Center" IsHitTestVisible="False"
+                Background="{DynamicResource BorderSoft}" />
+        <GridSplitter Grid.Row="1" Background="Transparent" ResizeDirection="Rows"
+                      ToolTip.Tip="Arraste para dividir a altura entre as duas listas" />
+
+       <DockPanel Grid.Row="2">
+        <Border DockPanel.Dock="Top" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
           <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,Auto,*">
             <TextBlock Grid.Column="0" Classes="sectionTitle" Text="ALTERAÇÕES LOCAIS" />
             <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
@@ -100,18 +118,19 @@
             <!-- botões numa segunda linha: com "selecionados (N)" não cabem ao lado do título -->
             <!-- WrapPanel: sem largura para os dois lado a lado, o segundo desce em vez de
                  sair por cima do painel de diferenças -->
-            <WrapPanel Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Right" Margin="0,6,0,0">
-              <Button Classes="tiny danger" Content="{Binding DescartarRotulo}" Margin="6,0,0,0"
+            <WrapPanel Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Right" Margin="0,6,0,0"
+                       LineSpacing="4">
+              <Button Classes="acao danger" Content="{Binding DescartarRotulo}" Margin="6,0,0,0"
                       ToolTip.Tip="Desfaz as alterações locais (o que está preparado fica). Pede confirmação."
                       Command="{Binding DiscardAllCommand}" />
-              <Button Classes="tiny" Content="{Binding PrepararRotulo}" Margin="6,0,0,0"
+              <Button Classes="acao" Content="{Binding PrepararRotulo}" Margin="6,0,0,0"
                       ToolTip.Tip="Prepara para commit. Ctrl ou Shift + clique marcam vários arquivos."
                       Command="{Binding StageAllCommand}" />
             </WrapPanel>
           </Grid>
         </Border>
 
-        <ListBox Grid.Row="3" Name="ListaUnstaged" SelectionMode="Multiple"
+        <ListBox Name="ListaUnstaged" SelectionMode="Multiple"
                  ItemsSource="{Binding Unstaged}" SelectedItem="{Binding SelectedUnstaged}">
           <ListBox.ContextMenu>
             <ContextMenu>
@@ -163,8 +182,9 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
+       </DockPanel>
 
-        <Border Grid.Row="4" Padding="8" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
+        <Border Grid.Row="3" Padding="8" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
           <StackPanel Spacing="7">
             <TextBox Name="Mensagem" Watermark="Mensagem de commit (Ctrl+Enter faz o commit)"
                      AcceptsReturn="True" MinHeight="64"

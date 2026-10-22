@@ -1,3 +1,7 @@
+## 1.0.0.52 — 22/10/2026
+- **Listas de alterações redimensionáveis**: a linha entre "Preparado para commit" e "Alterações locais" agora se arrasta. Com muitos arquivos de um lado, puxe a linha para dar mais espaço a essa lista.
+- **Preparar tudo, Descartar tudo e Remover tudo em pílula**, no mesmo estilo das ações do Histórico: ficam mais fáceis de achar e de clicar.
+
 ## 1.0.0.51 — 21/10/2026
 - **Trocar de branch volta para o repositório**: na janela de Branches, o **Trocar** e o **Criar e trocar** fecham a janela assim que a troca dá certo, e você já cai no repositório na branch nova. Se a troca falhar, a janela continua aberta com o erro.
 
