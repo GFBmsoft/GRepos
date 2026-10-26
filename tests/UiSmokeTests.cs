@@ -20,6 +20,7 @@ public static class TestAppBuilder
     public static AppBuilder BuildAvaloniaApp() => AppBuilder
         .Configure<App>()
         .UseSkia()
+        .WithInterFont()
         .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
 }
 
@@ -797,22 +798,27 @@ public class UiSmokeTests
         Render(view, new object());
     }
 
-    [AvaloniaFact]
-    public void EsteiraWindow_monta_com_execucoes_e_passos()
+    internal static EsteiraViewModel EsteiraPopulada()
     {
-        var vm = new EsteiraViewModel("bmsoft/financeiro", "main", "GFBmsoft", "Financeiro");
+        // sem slug nada vai à API: nem a escolha do cartão nem a consulta periódica
+        var vm = new EsteiraViewModel("", "main", "GFBmsoft", "Financeiro") { Subtitulo = "bmsoft/financeiro" };
 
-        // cartões e passos populados: é o que constrói os ItemTemplates de verdade
-        vm.Execucoes.Add(new CiExecucaoViewModel
+        // cartões e passos populados: é o que constrói os ItemTemplates de verdade. A lista
+        // entra pelo mesmo caminho do carregamento (30 da API, 6 na tela), como na EV18
+        var execucoes = System.Linq.Enumerable.Range(0, 30).Select(i => new GRepos.Services.CiExecucao
         {
-            Execucao = new GRepos.Services.CiExecucao
-            {
-                Id = 1, Numero = 42, Situacao = "falha", Workflow = "build",
-                Titulo = "Fix missing files", Branch = "main", Autor = "GFBmsoft",
-                Url = "https://github.com/x/y/actions/runs/1",
-                Criada = System.DateTime.UtcNow.AddMinutes(-12),
-            },
-        });
+            Id = 30 - i, Numero = 113 - i, Situacao = i == 0 ? "falha" : "sucesso", Workflow = "build",
+            Titulo = i % 2 == 0 ? "fix: Seta da bandeja do Windows achada pelo nome do processo" : "Fix missing files",
+            Branch = i % 2 == 0 ? "1.0.0.57" : "main", Autor = "GFBmsoft",
+            Url = "https://github.com/x/y/actions/runs/1",
+            Criada = System.DateTime.UtcNow.AddMinutes(-12 - 60 * i),
+        }).ToList();
+        typeof(EsteiraViewModel).GetField("_todas", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .SetValue(vm, execucoes);
+        typeof(EsteiraViewModel).GetMethod("AplicarFiltro", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .Invoke(vm, null);
+        Assert.Same(vm.Execucoes[0], vm.Selecionada);
+
         vm.Jobs.Add(new CiJobViewModel
         {
             Job = new GRepos.Services.CiJob { Nome = "build", Situacao = "falha" },
@@ -838,11 +844,27 @@ public class UiSmokeTests
         };
         Assert.True(vm.TemArtefatos);
 
+        // o texto do ritmo só aparece com a consulta periódica ligada, e é ele que faltava
+        // caber no rodapé (EV18). IniciarAsync também busca os workflows na API: aqui o
+        // timer é ligado direto, e sem slug o ciclo dele não consulta nada
+        var timer = (Avalonia.Threading.DispatcherTimer)typeof(EsteiraViewModel)
+            .GetField("_timer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(vm)!;
+        timer.Start();
+        Assert.NotEmpty(vm.RitmoTexto);
+        return vm;
+    }
+
+    [AvaloniaFact]
+    public void EsteiraWindow_monta_com_execucoes_e_passos()
+    {
+        var vm = EsteiraPopulada();
         var window = new EsteiraWindow { DataContext = vm, Width = 900, Height = 640 };
         window.Show();
         window.Measure(new Size(900, 640));
         window.Arrange(new Rect(0, 0, 900, 640));
         window.Close();
+        vm.Parar();
     }
 
     /// <summary>

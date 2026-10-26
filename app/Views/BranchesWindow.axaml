@@ -4,7 +4,7 @@
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.BranchesWindow"
         x:DataType="vm:BranchesViewModel"
-        Title="Branches" Width="780" Height="640" MinWidth="560" MinHeight="400"
+        Title="Branches" Width="780" Height="640" MinWidth="660" MinHeight="400"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Bg}">
 
@@ -64,6 +64,9 @@
     </DataTemplate>
   </Window.Resources>
 
+  <!-- MinWidth: abaixo de uns 630 os botões ao lado do campo de nova branch não deixam
+       espaço para ele, e ele vai parar por baixo do "Criar e trocar". Quem confere é o
+       EncavaladosTests -->
   <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="14">
 
     <TextBlock Grid.Row="0" Text="{Binding Title}" FontSize="14.5" FontWeight="SemiBold"

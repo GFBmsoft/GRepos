@@ -208,11 +208,11 @@ public class ScreenshotTests
             await vm.InitAsync();
 
             // a primeira passada de layout é a que mede o vão
-            ShotJanela(janela, "aviso-barra-vazia", 1400, 300);
+            ShotJanela(janela, "aviso-barra-vazia", 1440, 300);
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             vm.SelecionarRepositorio(vm.Tree.OfType<RepoNode>().Single().Id);
             Assert.True(vm.HasSelection);
-            ShotJanela(janela, "aviso-barra-vazia", 1400, 300);
+            ShotJanela(janela, "aviso-barra-vazia", 1440, 300);
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             Assert.True(vm.VaoDaBarra >= MainViewModel.VaoMinimoParaAviso, $"vão de {vm.VaoDaBarra}");
 
@@ -226,20 +226,26 @@ public class ScreenshotTests
                 vm.Avisar(tipo, titulo, detalhe);
                 Assert.True(vm.AvisoNaBarra);
                 Assert.False(vm.AvisoNoRodape);
-                ShotJanela(janela, "aviso-barra-" + tipo, 1400, 300);
+                ShotJanela(janela, "aviso-barra-" + tipo, 1440, 300);
             }
 
             vm.Avisar("erro", "Não foi possível enviar", "O remoto tem commits que você ainda não tem. Use Puxar e envie de novo.");
             Assert.False(vm.AvisoNaBarra);
             Assert.True(vm.AvisoNoRodape);
-            ShotJanela(janela, "aviso-barra-erro", 1400, 300);
+            ShotJanela(janela, "aviso-barra-erro", 1440, 300);
 
-            // janela estreita: o vão some e o aviso volta para o cartão de baixo
+            // janela na mínima com a barra cheia (repositório do GitHub): o vão fica estreito
+            // e o aviso volta para o cartão de baixo. O estado do GitHub entra direto, depois
+            // de a consulta do remoto (sem origin) terminar, que ela zera tudo ao começar
+            for (var i = 0; i < 100 && !vm.SemRemoto; i++) await Task.Delay(50);
+            vm.RemoteWebUrl = "https://github.com/bmsoft/financeiro";
+            vm.TemGitHub = true;
+            vm.CiSituacao = "sucesso";
             vm.Avisar("sucesso", "Puxar concluído", "3 commits novos em develop.");
-            ShotJanela(janela, "aviso-barra-estreita", 900, 300);
+            ShotJanela(janela, "aviso-barra-estreita", 1240, 300);
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             Assert.True(vm.AvisoNoRodape, $"vão de {vm.VaoDaBarra}");
-            ShotJanela(janela, "aviso-barra-estreita", 900, 300);
+            ShotJanela(janela, "aviso-barra-estreita", 1240, 300);
 
             janela.Close();
         }
@@ -370,6 +376,20 @@ public class ScreenshotTests
         var janela = new CompararWindow { DataContext = UiSmokeTests.CompararPopulado() };
         ShotJanela(janela, "comparar", 1180, 760);
         janela.Close();
+    }
+
+    /// <summary>EV18: a Esteira no tamanho com que abre e no mínimo, com o rodapé inteiro à vista.</summary>
+    [AvaloniaFact]
+    public void Esteira_no_tamanho_padrao_e_no_minimo()
+    {
+        foreach (var (w, h, nome) in new[] { (900, 640, "esteira"), (680, 420, "esteira-minima") })
+        {
+            var vm = UiSmokeTests.EsteiraPopulada();
+            var janela = new EsteiraWindow { DataContext = vm };
+            ShotJanela(janela, nome, w, h);
+            janela.Close();
+            vm.Parar();
+        }
     }
 
     [AvaloniaFact]

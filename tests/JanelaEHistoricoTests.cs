@@ -113,12 +113,12 @@ public class JanelaEHistoricoTests
     public Task Janela_abre_no_tamanho_guardado_centralizada_e_guarda_ao_fechar() => Com(async _ =>
     {
         var ws = new Workspace();
-        ws.Settings.JanelaLargura = 1100;
+        ws.Settings.JanelaLargura = 1300;
         ws.Settings.JanelaAltura = 700;
         WorkspaceStore.Save(ws);
 
         var janela = new MainWindow();
-        Assert.Equal((1100, 700), (janela.Width, janela.Height));
+        Assert.Equal((1300, 700), (janela.Width, janela.Height));
         Assert.Equal(WindowStartupLocation.CenterScreen, janela.WindowStartupLocation);
         Assert.Equal(WindowState.Normal, janela.WindowState);
 
@@ -130,11 +130,11 @@ public class JanelaEHistoricoTests
         // fechou maximizada: reabre maximizada, e o tamanho normal de antes fica guardado
         var lido = WorkspaceStore.Load().Settings;
         Assert.True(lido.JanelaMaximizada);
-        Assert.Equal((1100, 700), (lido.JanelaLargura, lido.JanelaAltura));
+        Assert.Equal((1300, 700), (lido.JanelaLargura, lido.JanelaAltura));
 
         var outra = new MainWindow();
         Assert.Equal(WindowState.Maximized, outra.WindowState);
-        Assert.Equal((1100, 700), (outra.Width, outra.Height));
+        Assert.Equal((1300, 700), (outra.Width, outra.Height));
     });
 
     // -------------------------------------------------------------- histórico

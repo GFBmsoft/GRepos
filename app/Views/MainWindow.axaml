@@ -6,17 +6,19 @@
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="GRepos" Width="1440" Height="900" MinWidth="960" MinHeight="600"
+        Title="GRepos" Width="1440" Height="900" MinWidth="1240" MinHeight="600"
         Icon="avares://GRepos/Assets/app.ico"
         Background="{DynamicResource Bg}">
 
   <Grid x:Name="Layout">
     <Grid.ColumnDefinitions>
       <!-- a sidebar não encolhe além do logo + os três ícones da barra;
-           a largura escolhida no divisor é guardada e volta na próxima abertura -->
+           a largura escolhida no divisor é guardada e volta na próxima abertura.
+           O conteúdo não fica mais estreito que a barra de ferramentas compacta (só
+           ícones, nome e branch compridos): com a sidebar padrão, cabe na mínima, 1240 -->
       <ColumnDefinition Width="280" MinWidth="196" />
       <ColumnDefinition Width="4" />
-      <ColumnDefinition Width="*" MinWidth="420" />
+      <ColumnDefinition Width="*" MinWidth="950" />
     </Grid.ColumnDefinitions>
 
     <!-- ===================================================== sidebar -->
@@ -251,14 +253,17 @@
     <!-- ======================================================== main -->
     <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto">
 
-      <!-- barra de ferramentas -->
-      <Border Grid.Row="0" Background="{DynamicResource BgPanel}" Padding="10,4"
+      <!-- barra de ferramentas: sem espaço, fica só com os ícones (BarraCompacta) -->
+      <Border Grid.Row="0" x:Name="Barra" Background="{DynamicResource BgPanel}" Padding="10,4"
               BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
               IsVisible="{Binding HasSelection}">
         <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
           <StackPanel Grid.Column="0" Margin="2,0,12,0" VerticalAlignment="Center">
-            <TextBlock Text="{Binding RepoTitle}" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding RepoPath}" Classes="faint" FontSize="10.5" MaxWidth="300" />
+            <!-- os dois com teto: nome comprido empurrava os botões da direita para fora -->
+            <TextBlock Text="{Binding RepoTitle}" FontWeight="SemiBold" MaxWidth="200"
+                       ToolTip.Tip="{Binding RepoTitle}" />
+            <TextBlock Text="{Binding RepoPath}" Classes="faint" FontSize="10.5" MaxWidth="200"
+                       ToolTip.Tip="{Binding RepoPath}" />
           </StackPanel>
 
           <!-- clique direito em Obter/Puxar: o que mais vem junto (tags, branches) -->
@@ -296,7 +301,7 @@
                                ToolTip.Tip="Enviar os commits locais (push)"
                                IsEnabled="{Binding !Busy}" Command="{Binding PushCommand}" />
           <!-- fora da main o botão fica destacado: é fácil esquecer em que branch se está -->
-          <controls:ToolButton Grid.Column="4" Label="{Binding BranchCaption}"
+          <controls:ToolButton Grid.Column="4" Label="{Binding BranchCaption}" Classes="semCompactar"
                                Icon="{StaticResource IconBranch}"
                                Classes.destacado="{Binding ForaDaPrincipal}"
                                ToolTip.Tip="{Binding BranchTooltip}"

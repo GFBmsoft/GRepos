@@ -1,3 +1,8 @@
+## 1.0.0.53 — 26/10/2026
+- **Esteira sem botão por cima do texto**: no tamanho com que a janela abre, o "atualiza sozinha…" ficava embaixo de **Segredos e variáveis…** e o **Fechar** saía cortado. Agora **Segredos e variáveis…** e **Abrir no GitHub** ficam no alto, ao lado do nome do repositório; o **só a branch** fica junto dos contadores da lista; e **Reexecutar**, **Só as falhas** e **Parar** ficam em cima do passo a passo da execução escolhida.
+- **Barra de ferramentas compacta**: quando a janela não comporta a barra inteira, os botões ficam só com o ícone e a legenda passa para a dica do mouse. Ao alargar a janela, as legendas voltam. A branch continua com o nome à vista, e nome e pasta do repositório muito compridos encurtam com reticências.
+- **Larguras mínimas**: a janela principal não estreita abaixo de 1240 px, a de pull requests abaixo de 940 e a de branches abaixo de 660. Abaixo disso, botões saíam cortados ou um por cima do outro.
+
 ## 1.0.0.52 — 22/10/2026
 - **Listas de alterações redimensionáveis**: a linha entre "Preparado para commit" e "Alterações locais" agora se arrasta. Com muitos arquivos de um lado, puxe a linha para dar mais espaço a essa lista.
 - **Preparar tudo, Descartar tudo e Remover tudo em pílula**, no mesmo estilo das ações do Histórico: ficam mais fáceis de achar e de clicar.

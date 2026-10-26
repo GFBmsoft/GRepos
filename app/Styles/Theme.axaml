@@ -279,7 +279,7 @@
                            FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Border>
             </Panel>
-            <TextBlock Text="{TemplateBinding Label}" FontSize="10"
+            <TextBlock Name="Legenda" Text="{TemplateBinding Label}" FontSize="10"
                        Foreground="{TemplateBinding Foreground}"
                        HorizontalAlignment="Center" />
           </StackPanel>
@@ -312,6 +312,12 @@
   <Style Selector="controls|ToolButton:disabled">
     <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
     <Setter Property="Opacity" Value="0.55" />
+  </Style>
+
+  <!-- barra que não cabe na janela: só os ícones, e a legenda fica na dica (BarraCompacta).
+       A branch mantém o nome, que é informação e não só rótulo -->
+  <Style Selector="Border.barraCompacta controls|ToolButton:not(.semCompactar) /template/ TextBlock#Legenda">
+    <Setter Property="IsVisible" Value="False" />
   </Style>
 
   <!-- botão só de ícone: a legenda vive no ToolTip -->

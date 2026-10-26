@@ -5,10 +5,12 @@
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.PullRequestsWindow"
         x:DataType="vm:PullRequestsViewModel"
-        Title="Pull requests" Width="1120" Height="720" MinWidth="760" MinHeight="460"
+        Title="Pull requests" Width="1120" Height="720" MinWidth="940" MinHeight="460"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Bg}">
 
+  <!-- MinWidth: abaixo de uns 900 o rodapé do detalhe (método, Mesclar, Trazer, Fechar PR)
+       não cabe ao lado da lista e sai cortado. Quem confere é o EncavaladosTests -->
   <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14">
 
     <StackPanel Grid.Row="0" Margin="0,0,0,10">

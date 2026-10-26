@@ -63,6 +63,11 @@ public partial class MainWindow : Window, IDialogService
         var divisor = this.FindControl<GridSplitter>("Divisor");
         if (divisor is not null) divisor.DragCompleted += (_, _) => GuardarLarguraSidebar();
 
+        // janela estreitada com a sidebar larga: a sidebar cede. O conteúdo tem largura
+        // mínima, a da barra de ferramentas, e sem isso era ela que saía cortada
+        if (this.FindControl<Grid>("Layout") is { } layout) layout.SizeChanged += (_, _) => CaberSidebar();
+        if (this.FindControl<Border>("Barra") is { } barra) BarraCompacta.Acompanhar(barra);
+
         // Tunnel: o atalho precisa chegar antes do controle com o foco. Pelo caminho
         // normal (bubble) um TextBox no meio da tela poderia engolir a tecla.
         AddHandler(KeyDownEvent, AtalhoDeFiltro, RoutingStrategies.Tunnel);
@@ -196,6 +201,17 @@ public partial class MainWindow : Window, IDialogService
         var largura = _vm.Settings.SidebarWidth;
         if (largura >= coluna.MinWidth && largura > 0)
             coluna.Width = new GridLength(largura);
+        CaberSidebar();
+    }
+
+    private void CaberSidebar()
+    {
+        if (this.FindControl<Grid>("Layout") is not { ColumnDefinitions.Count: 3 } g || g.Bounds.Width <= 0) return;
+
+        var sidebar = g.ColumnDefinitions[0];
+        var cabe = g.Bounds.Width - g.ColumnDefinitions[1].Width.Value - g.ColumnDefinitions[2].MinWidth;
+        if (sidebar.Width.IsAbsolute && sidebar.Width.Value > cabe)
+            sidebar.Width = new GridLength(System.Math.Max(sidebar.MinWidth, cabe));
     }
 
     private void GuardarLarguraSidebar()
