@@ -7,11 +7,13 @@
              x:Class="GRepos.Views.HistoryView"
              x:DataType="vm:HistoryViewModel">
 
-  <Grid>
+  <!-- as colunas fixas cedem ao espaço (ColunaQueCede). O mínimo da direita é o que cabe a
+       lista de arquivos no mínimo dela, o divisor e o diff -->
+  <Grid x:Name="ListaEDetalhe">
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="420" MinWidth="240" />
       <ColumnDefinition Width="4" />
-      <ColumnDefinition Width="*" MinWidth="320" />
+      <ColumnDefinition Width="*" MinWidth="494" />
     </Grid.ColumnDefinitions>
 
     <!-- lista de commits com o grafo -->
@@ -112,12 +114,12 @@
           <StackPanel Spacing="3">
             <TextBlock Text="{Binding DetailSubject}" FontWeight="SemiBold" FontSize="13"
                        TextWrapping="Wrap" TextTrimming="None" />
-            <StackPanel Orientation="Horizontal" Spacing="12">
-              <TextBlock Text="{Binding DetailAuthor}" Classes="faint" FontSize="11.5" MaxWidth="320" />
-              <TextBlock Text="{Binding DetailDate}" Classes="faint" FontSize="11.5" />
-              <TextBlock Text="{Binding DetailHash}" Classes="mono faint" FontSize="11.5" />
+            <WrapPanel>
+              <TextBlock Text="{Binding DetailAuthor}" Classes="faint" FontSize="11.5" MaxWidth="320" Margin="0,0,12,0" />
+              <TextBlock Text="{Binding DetailDate}" Classes="faint" FontSize="11.5" Margin="0,0,12,0" />
+              <TextBlock Text="{Binding DetailHash}" Classes="mono faint" FontSize="11.5" Margin="0,0,12,0" />
               <TextBlock Text="{Binding DetailParentsText}" Classes="mono faint" FontSize="11.5" />
-            </StackPanel>
+            </WrapPanel>
 
             <!-- refs completas ficam aqui; a lista mostra só a principal -->
             <ItemsControl ItemsSource="{Binding DetailRefs}" IsVisible="{Binding HasRefs}" Margin="0,3,0,0">
@@ -187,11 +189,11 @@
         </Border>
 
         <!-- arquivos do commit + diff, no mesmo desenho da aba Alterações -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" x:Name="ArquivosEDiff">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="260" MinWidth="170" />
             <ColumnDefinition Width="4" />
-            <ColumnDefinition Width="*" MinWidth="200" />
+            <ColumnDefinition Width="*" MinWidth="320" />
           </Grid.ColumnDefinitions>
 
           <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">

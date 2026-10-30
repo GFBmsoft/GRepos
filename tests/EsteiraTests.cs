@@ -416,7 +416,7 @@ public class EsteiraTests
             .ToArray();
 
     /// <summary>Preenche a lista interna sem rede, pelo mesmo caminho do carregamento.</summary>
-    private static void Alimentar(EsteiraViewModel vm, IReadOnlyList<CiExecucao> execucoes)
+    internal static void Alimentar(EsteiraViewModel vm, IReadOnlyList<CiExecucao> execucoes)
     {
         var campo = typeof(EsteiraViewModel).GetField("_todas",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;

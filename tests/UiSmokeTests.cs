@@ -813,10 +813,7 @@ public class UiSmokeTests
             Url = "https://github.com/x/y/actions/runs/1",
             Criada = System.DateTime.UtcNow.AddMinutes(-12 - 60 * i),
         }).ToList();
-        typeof(EsteiraViewModel).GetField("_todas", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
-            .SetValue(vm, execucoes);
-        typeof(EsteiraViewModel).GetMethod("AplicarFiltro", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
-            .Invoke(vm, null);
+        EsteiraTests.Alimentar(vm, execucoes);
         Assert.Same(vm.Execucoes[0], vm.Selecionada);
 
         vm.Jobs.Add(new CiJobViewModel
@@ -859,12 +856,18 @@ public class UiSmokeTests
     public void EsteiraWindow_monta_com_execucoes_e_passos()
     {
         var vm = EsteiraPopulada();
-        var window = new EsteiraWindow { DataContext = vm, Width = 900, Height = 640 };
-        window.Show();
-        window.Measure(new Size(900, 640));
-        window.Arrange(new Rect(0, 0, 900, 640));
-        window.Close();
-        vm.Parar();
+        try
+        {
+            var window = new EsteiraWindow { DataContext = vm, Width = 900, Height = 640 };
+            window.Show();
+            window.Measure(new Size(900, 640));
+            window.Arrange(new Rect(0, 0, 900, 640));
+            window.Close();
+        }
+        finally
+        {
+            vm.Parar();
+        }
     }
 
     /// <summary>

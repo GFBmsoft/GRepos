@@ -14,6 +14,9 @@ public partial class HistoryView : UserControl
     {
         InitializeComponent();
 
+        foreach (var grade in new[] { "ListaEDetalhe", "ArquivosEDiff" })
+            ColunaQueCede.Acompanhar(this.FindControl<Grid>(grade)!);
+
         // arrastar o commit de uma branch sobre o de outra. O DataContext troca a cada
         // repositório, então é lido na hora, não guardado aqui
         if (this.FindControl<ListBox>("ListaDeCommits") is { } lista)

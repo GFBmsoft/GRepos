@@ -314,10 +314,25 @@
     <Setter Property="Opacity" Value="0.55" />
   </Style>
 
+  <!-- nome e pasta do repositório na barra: com teto, senão um nome comprido empurra os
+       botões da direita para fora -->
+  <Style Selector="TextBlock.nomeNaBarra">
+    <Setter Property="MaxWidth" Value="200" />
+  </Style>
+
   <!-- barra que não cabe na janela: só os ícones, e a legenda fica na dica (BarraCompacta).
-       A branch mantém o nome, que é informação e não só rótulo -->
+       A branch mantém o nome, que é informação e não só rótulo. O resto aperta para a barra
+       caber na janela mínima, que é a do Snap em meio monitor -->
   <Style Selector="Border.barraCompacta controls|ToolButton:not(.semCompactar) /template/ TextBlock#Legenda">
     <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="Border.barraCompacta controls|ToolButton">
+    <Setter Property="Padding" Value="5,3,5,2" />
+  </Style>
+
+  <Style Selector="Border.barraCompacta TextBlock.nomeNaBarra">
+    <Setter Property="MaxWidth" Value="100" />
   </Style>
 
   <!-- botão só de ícone: a legenda vive no ToolTip -->

@@ -63,8 +63,8 @@ public partial class MainWindow : Window, IDialogService
         var divisor = this.FindControl<GridSplitter>("Divisor");
         if (divisor is not null) divisor.DragCompleted += (_, _) => GuardarLarguraSidebar();
 
-        // janela estreitada com a sidebar larga: a sidebar cede. O conteúdo tem largura
-        // mínima, a da barra de ferramentas, e sem isso era ela que saía cortada
+        // janela estreitada com a sidebar larga: a sidebar cede, e volta ao alargar. O conteúdo
+        // tem largura mínima, a da barra de ferramentas, e sem isso era ela que saía cortada
         if (this.FindControl<Grid>("Layout") is { } layout) layout.SizeChanged += (_, _) => CaberSidebar();
         if (this.FindControl<Border>("Barra") is { } barra) BarraCompacta.Acompanhar(barra);
 
@@ -210,8 +210,8 @@ public partial class MainWindow : Window, IDialogService
 
         var sidebar = g.ColumnDefinitions[0];
         var cabe = g.Bounds.Width - g.ColumnDefinitions[1].Width.Value - g.ColumnDefinitions[2].MinWidth;
-        if (sidebar.Width.IsAbsolute && sidebar.Width.Value > cabe)
-            sidebar.Width = new GridLength(System.Math.Max(sidebar.MinWidth, cabe));
+        if (sidebar.Width.IsAbsolute)
+            sidebar.Width = new GridLength(JanelaGuardada.ColunaQueCede(_vm.Settings.SidebarWidth, sidebar.MinWidth, cabe));
     }
 
     private void GuardarLarguraSidebar()

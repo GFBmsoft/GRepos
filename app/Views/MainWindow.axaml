@@ -6,7 +6,7 @@
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="GRepos" Width="1440" Height="900" MinWidth="1240" MinHeight="600"
+        Title="GRepos" Width="1440" Height="900" MinWidth="960" MinHeight="600"
         Icon="avares://GRepos/Assets/app.ico"
         Background="{DynamicResource Bg}">
 
@@ -15,14 +15,16 @@
       <!-- a sidebar não encolhe além do logo + os três ícones da barra;
            a largura escolhida no divisor é guardada e volta na próxima abertura.
            O conteúdo não fica mais estreito que a barra de ferramentas compacta (só
-           ícones, nome e branch compridos): com a sidebar padrão, cabe na mínima, 1240 -->
+           ícones, nome e branch compridos): é a sidebar que cede na janela estreita, e
+           com ela na mínima as três colunas somam a janela mínima, 960 -->
       <ColumnDefinition Width="280" MinWidth="196" />
       <ColumnDefinition Width="4" />
-      <ColumnDefinition Width="*" MinWidth="950" />
+      <ColumnDefinition Width="*" MinWidth="760" />
     </Grid.ColumnDefinitions>
 
     <!-- ===================================================== sidebar -->
-    <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+    <Border Grid.Column="0" Classes="panel" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
+            Container.Name="sidebar" Container.Sizing="Width">
       <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- cada ação com uma cor da paleta: verde acrescenta, roxo agrupa, azul atualiza -->
@@ -85,6 +87,12 @@
             <Style Selector="Border.pilula:pointerover > Panel > Border#Realce">
               <Setter Property="Opacity" Value="0.10" />
             </Style>
+            <!-- sidebar perto do mínimo: a pílula encolhe antes de encostar nos contadores -->
+            <ContainerQuery Name="sidebar" Query="max-width:230">
+              <Style Selector="Button.pilulaBranch">
+                <Setter Property="MaxWidth" Value="60" />
+              </Style>
+            </ContainerQuery>
           </ListBox.Styles>
 
           <ListBox.DataTemplates>
@@ -259,10 +267,9 @@
               IsVisible="{Binding HasSelection}">
         <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
           <StackPanel Grid.Column="0" Margin="2,0,12,0" VerticalAlignment="Center">
-            <!-- os dois com teto: nome comprido empurrava os botões da direita para fora -->
-            <TextBlock Text="{Binding RepoTitle}" FontWeight="SemiBold" MaxWidth="200"
+            <TextBlock Text="{Binding RepoTitle}" Classes="nomeNaBarra" FontWeight="SemiBold"
                        ToolTip.Tip="{Binding RepoTitle}" />
-            <TextBlock Text="{Binding RepoPath}" Classes="faint" FontSize="10.5" MaxWidth="200"
+            <TextBlock Text="{Binding RepoPath}" Classes="faint nomeNaBarra" FontSize="10.5"
                        ToolTip.Tip="{Binding RepoPath}" />
           </StackPanel>
 

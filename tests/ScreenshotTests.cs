@@ -237,15 +237,16 @@ public class ScreenshotTests
             // janela na mínima com a barra cheia (repositório do GitHub): o vão fica estreito
             // e o aviso volta para o cartão de baixo. O estado do GitHub entra direto, depois
             // de a consulta do remoto (sem origin) terminar, que ela zera tudo ao começar
-            for (var i = 0; i < 100 && !vm.SemRemoto; i++) await Task.Delay(50);
+            await Espera.Ate(() => vm.SemRemoto);
             vm.RemoteWebUrl = "https://github.com/bmsoft/financeiro";
             vm.TemGitHub = true;
             vm.CiSituacao = "sucesso";
             vm.Avisar("sucesso", "Puxar concluído", "3 commits novos em develop.");
-            ShotJanela(janela, "aviso-barra-estreita", 1240, 300);
+            var minima = (int)janela.MinWidth;
+            ShotJanela(janela, "aviso-barra-estreita", minima, 300);
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             Assert.True(vm.AvisoNoRodape, $"vão de {vm.VaoDaBarra}");
-            ShotJanela(janela, "aviso-barra-estreita", 1240, 300);
+            ShotJanela(janela, "aviso-barra-estreita", minima, 300);
 
             janela.Close();
         }
@@ -385,10 +386,16 @@ public class ScreenshotTests
         foreach (var (w, h, nome) in new[] { (900, 640, "esteira"), (680, 420, "esteira-minima") })
         {
             var vm = UiSmokeTests.EsteiraPopulada();
-            var janela = new EsteiraWindow { DataContext = vm };
-            ShotJanela(janela, nome, w, h);
-            janela.Close();
-            vm.Parar();
+            try
+            {
+                var janela = new EsteiraWindow { DataContext = vm };
+                ShotJanela(janela, nome, w, h);
+                janela.Close();
+            }
+            finally
+            {
+                vm.Parar();
+            }
         }
     }
 

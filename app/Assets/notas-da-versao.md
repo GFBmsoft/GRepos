@@ -1,3 +1,10 @@
+## 1.0.0.54 — 30/10/2026
+- **Barra de ferramentas não derruba mais o aplicativo**: em algumas larguras da janela, inclusive a padrão, dependendo do nome da branch e do estado da Esteira, a barra ficava alternando entre cheia e compacta até o aplicativo fechar. Agora ela decide pela largura medida de verdade e não oscila.
+- **Janela estreita de novo**: a largura mínima voltou para 960 px, o que permite encaixar a janela em meio monitor e usar telas menores. Na barra compacta os botões ficam mais próximos e o nome do repositório encurta antes.
+- **Sidebar volta à largura escolhida**: ao estreitar a janela ela cede, e ao alargar volta ao tamanho que você deixou. Perto da largura mínima, a pílula da branch encurta para não encostar nos contadores.
+- **Histórico em janela estreita**: as listas de commits e de arquivos encolhem para o diff continuar inteiro, e autor, data e hash descem para a linha de baixo quando não cabem.
+- **Dica da Esteira sempre com o estado**: passando o mouse no botão aparece "Esteira cancelada", "Esteira pulada" e assim por diante, mesmo com a barra compacta.
+
 ## 1.0.0.53 — 26/10/2026
 - **Esteira sem botão por cima do texto**: no tamanho com que a janela abre, o "atualiza sozinha…" ficava embaixo de **Segredos e variáveis…** e o **Fechar** saía cortado. Agora **Segredos e variáveis…** e **Abrir no GitHub** ficam no alto, ao lado do nome do repositório; o **só a branch** fica junto dos contadores da lista; e **Reexecutar**, **Só as falhas** e **Parar** ficam em cima do passo a passo da execução escolhida.
 - **Barra de ferramentas compacta**: quando a janela não comporta a barra inteira, os botões ficam só com o ícone e a legenda passa para a dica do mouse. Ao alargar a janela, as legendas voltam. A branch continua com o nome à vista, e nome e pasta do repositório muito compridos encurtam com reticências.

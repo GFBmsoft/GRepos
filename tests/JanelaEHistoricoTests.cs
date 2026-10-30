@@ -79,6 +79,16 @@ public class JanelaEHistoricoTests
     }
 
     [Fact]
+    public void Coluna_cede_ao_espaco_e_volta_a_largura_escolhida()
+    {
+        Assert.Equal(500, JanelaGuardada.ColunaQueCede(500, 196, 900));
+
+        // janela estreita: fica com o que couber, mas não abaixo do mínimo da coluna
+        Assert.Equal(346, JanelaGuardada.ColunaQueCede(500, 196, 346));
+        Assert.Equal(196, JanelaGuardada.ColunaQueCede(500, 196, 100));
+    }
+
+    [Fact]
     public Task Guardar_a_janela_antes_de_ler_o_workspace_nao_grava_nada() => Com(home =>
     {
         // um workspace com repositório no disco; a janela fecha antes do InitAsync
@@ -157,11 +167,6 @@ public class JanelaEHistoricoTests
         return dir;
     }
 
-    private static async Task Esperar(Func<bool> condicao)
-    {
-        for (var i = 0; i < 100 && !condicao(); i++) await Task.Delay(50);
-    }
-
     [Fact]
     public Task Historico_abre_no_commit_mais_recente_com_o_detalhe_carregado() => Com(async home =>
     {
@@ -171,7 +176,7 @@ public class JanelaEHistoricoTests
         await vm.LoadAsync();
 
         Assert.Equal("terceiro", vm.SelectedCommit?.Subject);
-        await Esperar(() => vm.HasDetail);
+        await Espera.Ate(() => vm.HasDetail);
         Assert.True(vm.HasDetail);
         Assert.Equal("terceiro", vm.DetailSubject);
     });

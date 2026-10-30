@@ -37,7 +37,7 @@
 
                   <Border Grid.Row="0" Padding="10,8" Background="{DynamicResource BgPanel}"
                           BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
-                    <Grid ColumnDefinitions="Auto,Auto,*">
+                    <Grid ColumnDefinitions="Auto,*">
                       <Border Grid.Column="0" Classes="chip" IsVisible="{Binding HasRole}"
                               BorderBrush="{DynamicResource Purple}">
                         <TextBlock Text="{Binding RoleText}" FontSize="10"

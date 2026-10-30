@@ -154,24 +154,29 @@ public class EncavaladosTests
 
     private static List<string> Conferir(Window janela, string nome, bool minimo = false, Action<Window>? depois = null)
     {
-        var largura = minimo && janela.MinWidth > 0 ? janela.MinWidth : janela.Width;
-        var altura = minimo && janela.MinHeight > 0 ? janela.MinHeight : janela.Height;
-        janela.Width = largura;
-        if (!double.IsNaN(altura)) janela.Height = altura;
-        janela.Show();
-        Montar(janela, largura, altura);
-        if (depois is not null)
+        try
         {
-            depois(janela);
+            var largura = minimo && janela.MinWidth > 0 ? janela.MinWidth : janela.Width;
+            var altura = minimo && janela.MinHeight > 0 ? janela.MinHeight : janela.Height;
+            janela.Width = largura;
+            if (!double.IsNaN(altura)) janela.Height = altura;
+            janela.Show();
             Montar(janela, largura, altura);
-        }
+            if (depois is not null)
+            {
+                depois(janela);
+                Montar(janela, largura, altura);
+            }
 
-        var problemas = Encavalados.Procurar(janela)
-            .Select(p => $"{nome} {largura:0}×{janela.Bounds.Height:0}: {p}").ToList();
-        janela.Close();
-        // a Esteira de teste liga a consulta periódica, para o ritmo aparecer no rodapé
-        (janela.DataContext as EsteiraViewModel)?.Parar();
-        return problemas;
+            return Encavalados.Procurar(janela)
+                .Select(p => $"{nome} {largura:0}×{janela.Bounds.Height:0}: {p}").ToList();
+        }
+        finally
+        {
+            janela.Close();
+            // a Esteira de teste liga a consulta periódica, para o ritmo aparecer no rodapé
+            (janela.DataContext as EsteiraViewModel)?.Parar();
+        }
     }
 
     private static List<string> ConferirSecoes(Func<Window> criar, string nome, bool minimo)
@@ -393,11 +398,6 @@ public class EncavaladosTests
 
     private static Task<string> Git(string dir, params string[] args) => GitService.RunAsync(dir, args);
 
-    private static async Task Esperar(Func<bool> condicao)
-    {
-        for (var i = 0; i < 100 && !condicao(); i++) await Task.Delay(50);
-    }
-
     /// <summary>
     /// A janela principal com um par de repositórios de verdade: cada aba, o painel e os
     /// diálogos que leem o repositório (stash e ignorados). A barra é a mais larga que
@@ -462,14 +462,17 @@ public class EncavaladosTests
                 janela.Show();
                 if (minimo)
                 {
-                    // sidebar alargada com a janela grande, e a janela estreitada depois: a
-                    // sidebar tem que ceder, senão a barra de ferramentas sai cortada
-                    var layout = janela.FindControl<Grid>("Layout")!;
-                    Montar(janela, 1440, altura);
-                    layout.ColumnDefinitions[0].Width = new GridLength(500);
+                    // sidebar escolhida larga, e a janela estreitada depois: a sidebar tem que
+                    // ceder, senão a barra de ferramentas sai cortada; e voltar ao alargar,
+                    // senão o próximo arraste guarda a largura errada como preferência
+                    var sidebar = janela.FindControl<Grid>("Layout")!.ColumnDefinitions[0];
+                    vm.SetSidebarWidth(500);
                     Montar(janela, 1440, altura);
                     Montar(janela, largura, altura);
-                    Assert.True(layout.ColumnDefinitions[0].ActualWidth < 500, $"sidebar com {layout.ColumnDefinitions[0].ActualWidth:0}");
+                    Assert.True(sidebar.ActualWidth < 500, $"sidebar com {sidebar.ActualWidth:0}");
+                    Montar(janela, 1440, altura);
+                    Assert.Equal(500, sidebar.ActualWidth);
+                    Montar(janela, largura, altura);
                 }
                 void Olhar(string onde)
                 {
@@ -480,12 +483,12 @@ public class EncavaladosTests
 
                 vm.SelecionarRepositorio("fin");
                 await vm.RefreshRepoAsync("fin");
-                await Esperar(() => vm.Changes is { } c && c.Unstaged.Count > 0);
+                await Espera.Ate(() => vm.Changes is { } c && c.Unstaged.Count > 0);
 
                 // a barra inteira, como num repositório do GitHub: PRs, Issues, Releases,
                 // Esteira e Remoto. O estado entra direto, sem ir à API; antes, espera a
                 // consulta do remoto (sem origin) terminar, que ela zera tudo isso ao começar
-                await Esperar(() => vm.SemRemoto);
+                await Espera.Ate(() => vm.SemRemoto);
                 vm.RemoteWebUrl = "https://github.com/bmsoft/financeiro";
                 vm.TemGitHub = true;
                 vm.CiSituacao = "cancelado";
@@ -496,6 +499,10 @@ public class EncavaladosTests
                 var barra = janela.FindControl<Border>("Barra")!;
                 if (tamanho == "larga") Assert.DoesNotContain(BarraCompacta.Classe, barra.Classes);
                 if (minimo) Assert.Contains(BarraCompacta.Classe, barra.Classes);
+
+                // a tela real sai um pouco mais larga que o headless: sem folga aqui, a barra
+                // "cabe" no teste e corta o último botão no monitor de verdade
+                if (minimo) Assert.True(vm.VaoDaBarra >= 24, $"folga de {vm.VaoDaBarra:0} px na barra compacta");
                 if (Environment.GetEnvironmentVariable("GREPOS_SHOTS") is { } pasta)
                 {
                     System.IO.Directory.CreateDirectory(pasta);
@@ -504,7 +511,7 @@ public class EncavaladosTests
                 }
 
                 vm.SelectedTab = 1;
-                await Esperar(() => vm.History is { HasDetail: true });
+                await Espera.Ate(() => vm.History is { HasDetail: true });
                 Olhar("Histórico");
 
                 vm.SelectedTab = 2;
@@ -521,18 +528,118 @@ public class EncavaladosTests
             }
 
             var repo = ws.Repos[0];
-            var stash = new StashWindow(principal!, repo);
-            stash.Show();
-            await Esperar(() => stash.GetVisualDescendants().OfType<ListBox>().Any(l => l.ItemCount > 0));
-            problemas.AddRange(Conferir(stash, "Stash"));
-
             await Ignorados.IgnorarAsync(origem, new[] { "Boleto.pas" }, Array.Empty<string>());
-            var ignorados = new IgnoradosWindow(principal!, repo);
-            ignorados.Show();
-            await ignorados.Carga;
-            problemas.AddRange(Conferir(ignorados, "Ignorados"));
+            foreach (var minimo in new[] { false, true })
+            {
+                var stash = new StashWindow(principal!, repo);
+                stash.Show();
+                await Espera.Ate(() => stash.GetVisualDescendants().OfType<ListBox>().Any(l => l.ItemCount > 0));
+                problemas.AddRange(Conferir(stash, minimo ? "Stash (mínima)" : "Stash", minimo));
+
+                var ignorados = new IgnoradosWindow(principal!, repo);
+                ignorados.Show();
+                await ignorados.Carga;
+                problemas.AddRange(Conferir(ignorados, minimo ? "Ignorados (mínima)" : "Ignorados", minimo));
+            }
 
             Assert.True(problemas.Count == 0, string.Join("\n", problemas));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try { System.IO.Directory.Delete(home, true); } catch (Exception) { /* pasta temporária */ }
+        }
+    }
+
+    /// <summary>
+    /// Compacta, a barra perde a legenda da Esteira, e a cor não separa cancelada de pulada:
+    /// o estado por extenso tem que estar na dica, com ou sem detalhe da execução.
+    /// </summary>
+    [Theory]
+    [InlineData("falha", "Esteira quebrou")]
+    [InlineData("cancelado", "Esteira cancelada")]
+    [InlineData("pulado", "Esteira pulada")]
+    public void A_dica_da_Esteira_diz_o_estado_mesmo_sem_detalhe(string situacao, string estado)
+    {
+        var vm = new MainViewModel(new FakeDialogs()) { CiSituacao = situacao };
+        Assert.Equal("", vm.CiDetalhe);
+        Assert.StartsWith(estado, vm.CiTooltip);
+    }
+
+    /// <summary>
+    /// A barra escolhe o modo depois do layout, e a escolha muda o layout. Se o modo
+    /// compacto acha que a barra cheia cabe e o cheio acha que não, ela alterna até o
+    /// Avalonia desistir com "Infinite layout loop detected", o que derruba o app. Era uma
+    /// faixa de 6 px que mudava com a branch e com a Esteira, e a 1440 (a largura padrão)
+    /// pegava feat/cartaopix.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task Barra_nao_alterna_entre_os_modos_em_nenhuma_largura()
+    {
+        var home = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "grepos-barra-" + System.IO.Path.GetRandomFileName());
+        var dir = System.IO.Path.Combine(home, "Financeiro");
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+        try
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            await Git(dir, "init", "-q", "-b", "main");
+            var ws = new Workspace { Groups = { new Group { Id = "mod", Name = "Módulos", Color = "#2F7BE8" } } };
+            ws.Repos.Add(new Repo { Id = "fin", Name = "Financeiro", Path = dir, GroupId = "mod" });
+            WorkspaceStore.Save(ws);
+
+            var janela = new MainWindow();
+            var vm = (MainViewModel)janela.DataContext!;
+            await vm.InitAsync();
+            janela.Width = 1440;
+            janela.Height = 900;
+            janela.Show();
+            vm.SelecionarRepositorio("fin");
+            var barra = janela.FindControl<Border>("Barra")!;
+
+            bool Passo(double largura)
+            {
+                janela.Width = largura;
+                janela.Measure(new Size(largura, 900));
+                janela.Arrange(new Rect(0, 0, largura, 900));
+                janela.UpdateLayout();
+                Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                return barra.Classes.Contains(BarraCompacta.Classe);
+            }
+
+            var subindo = Enumerable.Range(1300, 200).ToList();
+            foreach (var branch in new[] { "main", "feat/cartaopix" })
+            {
+                await Git(dir, "checkout", "-q", "-B", branch);
+                await vm.RefreshRepoAsync("fin");
+                await Espera.Ate(() => vm.BranchCaption == Rotulos.Branch(branch) && vm.SemRemoto);
+                vm.RemoteWebUrl = "https://github.com/bmsoft/financeiro";
+                vm.TemGitHub = true;
+
+                foreach (var ci in new[] { "sucesso", "falha" })
+                {
+                    vm.CiSituacao = ci;
+                    var modos = new HashSet<bool>();
+                    foreach (var largura in subindo.Concat(Enumerable.Reverse(subindo)))
+                    {
+                        var modo = Passo(largura);
+                        Assert.True(modo == Passo(largura), $"{branch}, Esteira {ci}: mudou de modo sozinha a {largura}");
+                        modos.Add(modo);
+                    }
+                    Assert.True(modos.Count == 2, $"{branch}, Esteira {ci}: a varredura não cruzou o limite");
+                }
+            }
+
+            // a legenda que muda com a barra compacta: a largura cheia guardada envelhece
+            foreach (var ci in new[] { "sucesso", "falha", "rodando", "cancelado", "pulado" })
+            {
+                vm.CiSituacao = ci;
+                var modo = Passo(1300);
+                Assert.True(modo == Passo(1300), $"Esteira {ci}: mudou de modo sozinha");
+            }
+
+            vm.CiSituacao = "";
+            janela.Close();
         }
         finally
         {

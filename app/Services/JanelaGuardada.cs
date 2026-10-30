@@ -28,4 +28,13 @@ public static class JanelaGuardada
 
         return (Math.Max(l, minimaLargura), Math.Max(a, minimaAltura));
     }
+
+    /// <summary>
+    /// Largura de uma coluna fixa (a sidebar, a lista de commits) no espaço de agora: a escolhida
+    /// pelo usuário, enquanto couber. Parte da escolha, não da largura atual: a coluna que
+    /// encolheu só porque a janela estreitou volta ao que era quando a janela alarga.
+    /// </summary>
+    /// <param name="cabe">O que sobra depois do divisor e do mínimo da coluna vizinha.</param>
+    public static double ColunaQueCede(double escolhida, double minima, double cabe) =>
+        Math.Max(minima, Math.Min(escolhida, cabe));
 }

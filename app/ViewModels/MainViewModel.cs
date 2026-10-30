@@ -450,9 +450,10 @@ public sealed partial class MainViewModel : ObservableObject
         _ => "Esteira",
     };
 
+    /// <summary>Na barra compacta é aqui que o estado aparece por extenso: a legenda some e a cor não distingue tudo.</summary>
     public string CiTooltip => CiDetalhe.Length > 0
         ? $"{CiRotulo} — {CiDetalhe}\nClique para ver as execuções e o passo a passo"
-        : "Status do GitHub Actions";
+        : $"{CiRotulo}\nClique para ver as execuções e o passo a passo";
 
     /// <summary>
     /// Destaque quando a branch atual não é a principal: é o lembrete de que o
