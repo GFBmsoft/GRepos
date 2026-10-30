@@ -460,6 +460,7 @@ public class EncavaladosTests
                 janela.Width = largura;
                 janela.Height = altura;
                 janela.Show();
+                await janela.Carga;
                 if (minimo)
                 {
                     // sidebar escolhida larga, e a janela estreitada depois: a sidebar tem que
@@ -600,6 +601,7 @@ public class EncavaladosTests
             janela.Width = 1440;
             janela.Height = 900;
             janela.Show();
+            await janela.Carga;
             vm.SelecionarRepositorio("fin");
             var barra = janela.FindControl<Border>("Barra")!;
 

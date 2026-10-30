@@ -209,6 +209,7 @@ public class ScreenshotTests
 
             // a primeira passada de layout é a que mede o vão
             ShotJanela(janela, "aviso-barra-vazia", 1440, 300);
+            await janela.Carga;
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
             vm.SelecionarRepositorio(vm.Tree.OfType<RepoNode>().Single().Id);
             Assert.True(vm.HasSelection);

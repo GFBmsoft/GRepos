@@ -42,20 +42,30 @@ public partial class MainWindow : Window, IDialogService
         };
         Closed += (_, _) => _vm.EncerrarTerminais();
 
-        Opened += async (_, _) =>
+        Opened += (_, _) => Carga = CarregarAsync();
+    }
+
+    /// <summary>
+    /// A carga que a janela faz ao abrir. Ela termina reconstruindo a árvore, o que reabre o
+    /// repositório selecionado e zera o estado do remoto: quem mexe nesse estado logo depois
+    /// de abrir a janela precisa esperar por ela, senão a mudança some (foi o que derrubou o
+    /// build da 1.0.0.56, num teste que só falhava no CI, mais lento).
+    /// </summary>
+    public Task Carga { get; private set; } = Task.CompletedTask;
+
+    private async Task CarregarAsync()
+    {
+        try
         {
-            try
-            {
-                await _vm.InitAsync();
-                ApplyTheme(_vm.Settings);
-                AplicarLarguraSidebar();
-            }
-            catch (System.Exception ex)
-            {
-                // falha na carga não pode deixar a janela em branco sem explicação
-                _vm.Notify($"Falha ao carregar o workspace: {ex.Message}", true);
-            }
-        };
+            await _vm.InitAsync();
+            ApplyTheme(_vm.Settings);
+            AplicarLarguraSidebar();
+        }
+        catch (System.Exception ex)
+        {
+            // falha na carga não pode deixar a janela em branco sem explicação
+            _vm.Notify($"Falha ao carregar o workspace: {ex.Message}", true);
+        }
     }
 
     private void InitializeComponent()
