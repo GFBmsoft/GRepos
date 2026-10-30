@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:views="using:GRepos.Views"
         xmlns:local="using:GRepos"
@@ -43,9 +44,13 @@
           <Border Grid.Row="0" Padding="8,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
             <StackPanel Spacing="7">
               <Grid ColumnDefinitions="Auto,Auto,*,Auto">
-                <Button Grid.Column="3" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                        Content="Nova" Margin="6,0,0,0" Command="{Binding NovaCommand}"
-                        ToolTip.Tip="Criar uma issue neste repositório" />
+                <Button Grid.Column="3" Classes="tiny verde" BorderThickness="1" BorderBrush="{DynamicResource Border}" Margin="6,0,0,0" Command="{Binding NovaCommand}"
+                        ToolTip.Tip="Criar uma issue neste repositório">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+                    <TextBlock Text="Nova" />
+                  </StackPanel>
+                </Button>
                 <Button Grid.Column="0" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
                         Content="{Binding AbertasRotulo}" Classes.destacado="{Binding Abertas}"
                         Command="{Binding VerAbertasCommand}" />
@@ -130,10 +135,15 @@
                     BorderThickness="0,0,0,1">
               <StackPanel Spacing="4">
                 <Grid ColumnDefinitions="*,Auto">
-                  <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="Editar"
+                  <Button Grid.Column="1" Classes="tiny azul" BorderThickness="1"
                           BorderBrush="{DynamicResource Border}" VerticalAlignment="Top" Margin="8,0,0,0"
                           Command="{Binding EditarIssueCommand}"
-                          ToolTip.Tip="Editar o título, a descrição e as etiquetas" />
+                          ToolTip.Tip="Editar o título, a descrição e as etiquetas">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Editar}" />
+                      <TextBlock Text="Editar" />
+                    </StackPanel>
+                  </Button>
                 <TextBlock FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap">
                   <Run Text="{Binding Selecionada.Titulo, Mode=OneWay}" />
                   <Run Text=" " />
@@ -168,9 +178,13 @@
                 <views:ConversaView DataContext="{Binding Editor}" />
 
                 <!-- como no GitHub: com texto na caixa, fechar também publica o comentário -->
-                <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                        Content="{Binding EstadoRotulo}" HorizontalAlignment="Right" Margin="0,6,0,0"
-                        IsEnabled="{Binding PodeMudarEstado}" Command="{Binding MudarEstadoCommand}" />
+                <Button Classes="tiny laranja" BorderThickness="1" BorderBrush="{DynamicResource Border}" HorizontalAlignment="Right" Margin="0,6,0,0"
+                        IsEnabled="{Binding PodeMudarEstado}" Command="{Binding MudarEstadoCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Issue}" />
+                    <TextBlock Text="{Binding EstadoRotulo}" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
             </ScrollViewer>
           </Grid>
@@ -223,9 +237,19 @@
             <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
                     BorderThickness="0,1,0,0">
               <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarFormCommand}" />
-                <Button Content="{Binding SalvarRotulo}" MinWidth="120" Classes="primary"
-                        IsEnabled="{Binding PodeSalvar}" Command="{Binding SalvarFormCommand}" />
+                <Button Classes="cinza" MinWidth="80" Command="{Binding CancelarFormCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+                    <TextBlock Text="Cancelar" />
+                  </StackPanel>
+                </Button>
+                <Button MinWidth="120" Classes="primary azul"
+                        IsEnabled="{Binding PodeSalvar}" Command="{Binding SalvarFormCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Salvar}" />
+                    <TextBlock Text="{Binding SalvarRotulo}" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
             </Border>
           </Grid>
@@ -245,11 +269,26 @@
         </StackPanel>
       </StackPanel>
 
-      <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
-              IsEnabled="{Binding !Carregando}" Command="{Binding AtualizarCommand}" />
-      <Button Grid.Column="3" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
-              Command="{Binding AbrirNoGitHubCommand}" />
-      <Button Grid.Column="4" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Classes="azul" Grid.Column="2" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding AtualizarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+          <TextBlock Text="Atualizar" />
+        </StackPanel>
+      </Button>
+      <Button Classes="azul" Grid.Column="3" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Remoto}" />
+          <TextBlock Text="Abrir no GitHub" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="4" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>

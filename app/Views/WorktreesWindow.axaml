@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.WorktreesWindow"
@@ -42,21 +43,33 @@
                            TextTrimming="CharacterEllipsis" />
               </StackPanel>
               <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                        Content="Adicionar ao GRepos" IsVisible="{Binding PodeAdicionar}"
+                <Button Classes="tiny verde" BorderThickness="1" BorderBrush="{DynamicResource Border}" IsVisible="{Binding PodeAdicionar}"
                         ToolTip.Tip="Põe esta pasta na árvore, como um repositório do mesmo grupo"
                         Command="{Binding $parent[ListBox].DataContext.AdicionarCommand}"
-                        CommandParameter="{Binding}" />
-                <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                        Content="Pasta" IsVisible="{Binding PodeAbrir}"
+                        CommandParameter="{Binding}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+                    <TextBlock Text="Adicionar ao GRepos" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="tiny amarelo" BorderThickness="1" BorderBrush="{DynamicResource Border}" IsVisible="{Binding PodeAbrir}"
                         ToolTip.Tip="Abre a pasta no Explorer"
                         Command="{Binding $parent[ListBox].DataContext.AbrirPastaCommand}"
-                        CommandParameter="{Binding}" />
-                <Button Classes="tiny danger" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                        Content="Remover" IsVisible="{Binding PodeRemover}"
+                        CommandParameter="{Binding}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Pasta}" />
+                    <TextBlock Text="Pasta" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="tiny vermelho" BorderThickness="1" BorderBrush="{DynamicResource Border}" IsVisible="{Binding PodeRemover}"
                         ToolTip.Tip="Apaga a pasta de trabalho; a branch continua no repositório"
                         Command="{Binding $parent[ListBox].DataContext.RemoverCommand}"
-                        CommandParameter="{Binding}" />
+                        CommandParameter="{Binding}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+                    <TextBlock Text="Remover" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
             </Grid>
           </DataTemplate>
@@ -75,18 +88,35 @@
         <TextBlock Grid.Column="2" Text="em" Classes="faint" FontSize="11" VerticalAlignment="Center"
                    Margin="8,0" />
         <TextBox Grid.Column="3" Text="{Binding NovaPasta}" Watermark="pasta" VerticalAlignment="Center" />
-        <Button Grid.Column="4" Content="…" MinWidth="34" Margin="6,0,0,0" VerticalAlignment="Center"
-                ToolTip.Tip="Escolher a pasta" Command="{Binding ProcurarPastaCommand}" />
-        <Button Grid.Column="5" Content="Criar" MinWidth="80" Margin="6,0,0,0" Classes="primary"
-                VerticalAlignment="Center" IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}" />
+        <Button Classes="redonda amarelo" Grid.Column="4" MinWidth="34" Margin="6,0,0,0" VerticalAlignment="Center"
+                ToolTip.Tip="Escolher a pasta" Command="{Binding ProcurarPastaCommand}">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Pasta}" />
+        </Button>
+        <Button Grid.Column="5" MinWidth="80" Margin="6,0,0,0" Classes="primary verde"
+                VerticalAlignment="Center" IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+            <TextBlock Text="Criar" />
+          </StackPanel>
+        </Button>
       </Grid>
     </Border>
 
     <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto" Margin="0,10,0,0">
-      <Button Grid.Column="0" Content="Limpar registros de pastas apagadas" IsVisible="{Binding TemOrfas}"
+      <Button Classes="cinza" Grid.Column="0" IsVisible="{Binding TemOrfas}"
               Command="{Binding LimparOrfasCommand}"
-              ToolTip.Tip="git worktree prune: tira da lista as pastas que não existem mais" />
-      <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
+              ToolTip.Tip="git worktree prune: tira da lista as pastas que não existem mais">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+          <TextBlock Text="Limpar registros de pastas apagadas" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="2" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>

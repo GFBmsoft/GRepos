@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.EsteiraWindow"
@@ -21,9 +22,19 @@
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="12,0,0,0"
                   VerticalAlignment="Center">
-        <Button Content="Segredos e variáveis…" Click="AbrirSegredos"
-                ToolTip.Tip="Segredos e variáveis que os workflows deste repositório usam" />
-        <Button Content="Abrir no GitHub" MinWidth="128" Command="{Binding AbrirNoGitHubCommand}" />
+        <Button Classes="amarelo" Click="AbrirSegredos"
+                ToolTip.Tip="Segredos e variáveis que os workflows deste repositório usam">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Segredo}" />
+            <TextBlock Text="Segredos e variáveis…" />
+          </StackPanel>
+        </Button>
+        <Button Classes="azul" MinWidth="128" Command="{Binding AbrirNoGitHubCommand}">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Remoto}" />
+            <TextBlock Text="Abrir no GitHub" />
+          </StackPanel>
+        </Button>
       </StackPanel>
     </Grid>
 
@@ -125,15 +136,30 @@
               <TextBlock Grid.Column="0" Classes="sectionTitle" Text="PASSO A PASSO"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
               <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0,0,0">
-                <Button Classes="acao" Content="Reexecutar" IsEnabled="{Binding PodeReexecutar}"
+                <Button Classes="pilula verde" IsEnabled="{Binding PodeReexecutar}"
                         Command="{Binding ReexecutarCommand}"
-                        ToolTip.Tip="Roda de novo a execução selecionada" />
-                <Button Classes="acao" Content="Só as falhas" IsEnabled="{Binding PodeReexecutarFalhas}"
+                        ToolTip.Tip="Roda de novo a execução selecionada">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+                    <TextBlock Text="Reexecutar" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="pilula laranja" IsEnabled="{Binding PodeReexecutarFalhas}"
                         Command="{Binding ReexecutarFalhasCommand}"
-                        ToolTip.Tip="Roda de novo apenas os jobs que falharam" />
-                <Button Classes="acao danger" Content="Parar" IsEnabled="{Binding PodeCancelar}"
+                        ToolTip.Tip="Roda de novo apenas os jobs que falharam">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+                    <TextBlock Text="Só as falhas" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="pilula vermelho" IsEnabled="{Binding PodeCancelar}"
                         Command="{Binding CancelarCommand}"
-                        ToolTip.Tip="Cancela a execução selecionada, que ainda está rodando" />
+                        ToolTip.Tip="Cancela a execução selecionada, que ainda está rodando">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Parar}" />
+                    <TextBlock Text="Parar" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
             </Grid>
           </Border>
@@ -160,10 +186,15 @@
                                  TextTrimming="CharacterEllipsis" />
                       <TextBlock Grid.Column="2" Text="{Binding DuracaoTexto}" Classes="faint"
                                  FontSize="10.5" VerticalAlignment="Center" />
-                      <Button Grid.Column="3" Classes="tiny" Content="log" Margin="8,0,0,0"
+                      <Button Grid.Column="3" Classes="tiny cinza" Margin="8,0,0,0"
                               ToolTip.Tip="Abrir o log inteiro deste job no editor de texto"
                               Command="{Binding $parent[Window].DataContext.AbrirLogDoJobCommand}"
-                              CommandParameter="{Binding}" />
+                              CommandParameter="{Binding}">
+                        <StackPanel Classes="comIcone">
+                          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Documento}" />
+                          <TextBlock Text="log" />
+                        </StackPanel>
+                      </Button>
                     </Grid>
 
                     <!-- clicar no passo abre o log dele logo abaixo, como no GitHub -->
@@ -228,11 +259,16 @@
                                  VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                       <TextBlock Grid.Column="1" Text="{Binding Detalhe}" Classes="faint" FontSize="10.5"
                                  VerticalAlignment="Center" Margin="8,0" />
-                      <Button Grid.Column="2" Classes="tiny" Content="Baixar"
+                      <Button Grid.Column="2" Classes="tiny azul"
                               IsEnabled="{Binding PodeBaixar}"
                               ToolTip.Tip="Baixar e extrair numa pasta à sua escolha"
                               Command="{Binding $parent[Window].DataContext.BaixarArtefatoCommand}"
-                              CommandParameter="{Binding}" />
+                              CommandParameter="{Binding}">
+                        <StackPanel Classes="comIcone">
+                          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Puxar}" />
+                          <TextBlock Text="Baixar" />
+                        </StackPanel>
+                      </Button>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -262,9 +298,14 @@
         <TextBox Grid.Column="3" Width="150" Text="{Binding Referencia}"
                  Watermark="branch ou tag" VerticalAlignment="Center" />
 
-        <Button Grid.Column="5" Content="Executar" MinWidth="88" IsEnabled="{Binding PodeDisparar}"
+        <Button Classes="verde" Grid.Column="5" MinWidth="88" IsEnabled="{Binding PodeDisparar}"
                 Command="{Binding DispararCommand}" VerticalAlignment="Center"
-                ToolTip.Tip="Dispara o workflow no GitHub Actions" />
+                ToolTip.Tip="Dispara o workflow no GitHub Actions">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Esteira}" />
+            <TextBlock Text="Executar" />
+          </StackPanel>
+        </Button>
       </Grid>
     </Border>
 
@@ -289,9 +330,19 @@
                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="14,0"
                  TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding RitmoTexto}" />
 
-      <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
-              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
-      <Button Grid.Column="3" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Classes="azul" Grid.Column="2" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+          <TextBlock Text="Atualizar" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="3" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>

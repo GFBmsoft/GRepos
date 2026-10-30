@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:GRepos.Controls"
              xmlns:vm="using:GRepos.ViewModels"
              xmlns:views="using:GRepos.Views"
              xmlns:local="using:GRepos"
@@ -24,10 +25,20 @@
                 <!-- só no próprio comentário, que é o que o GitHub deixa mexer -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2"
                             IsVisible="{Binding PodeEditar}">
-                  <Button Classes="tiny" Content="editar"
-                          Command="{Binding $parent[ItemsControl].DataContext.EditarCommand}" CommandParameter="{Binding}" />
-                  <Button Classes="tiny danger" Content="excluir"
-                          Command="{Binding $parent[ItemsControl].DataContext.ExcluirCommand}" CommandParameter="{Binding}" />
+                  <Button Classes="tiny azul"
+                          Command="{Binding $parent[ItemsControl].DataContext.EditarCommand}" CommandParameter="{Binding}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Editar}" />
+                      <TextBlock Text="editar" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tiny vermelho"
+                          Command="{Binding $parent[ItemsControl].DataContext.ExcluirCommand}" CommandParameter="{Binding}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+                      <TextBlock Text="excluir" />
+                    </StackPanel>
+                  </Button>
                 </StackPanel>
               </Grid>
 
@@ -40,14 +51,22 @@
                 <TextBox Text="{Binding Rascunho}" AcceptsReturn="True" TextWrapping="Wrap"
                          MinHeight="70" MaxHeight="260" VerticalContentAlignment="Top" />
                 <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                          Content="Cancelar"
+                  <Button Classes="tiny cinza" BorderThickness="1" BorderBrush="{DynamicResource Border}"
                           Command="{Binding $parent[ItemsControl].DataContext.CancelarEdicaoCommand}"
-                          CommandParameter="{Binding}" />
-                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Accent}"
-                          Content="Salvar"
+                          CommandParameter="{Binding}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+                      <TextBlock Text="Cancelar" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tiny azul" BorderThickness="1" BorderBrush="{DynamicResource Accent}"
                           Command="{Binding $parent[ItemsControl].DataContext.SalvarEdicaoCommand}"
-                          CommandParameter="{Binding}" />
+                          CommandParameter="{Binding}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Salvar}" />
+                      <TextBlock Text="Salvar" />
+                    </StackPanel>
+                  </Button>
                 </StackPanel>
               </StackPanel>
             </StackPanel>
@@ -59,7 +78,12 @@
     <TextBox Text="{Binding Novo}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="220"
              VerticalContentAlignment="Top" Margin="0,4,0,6"
              Watermark="Escreva um comentário (aceita Markdown)" />
-    <Button Content="Comentar" Classes="primary" MinWidth="110" HorizontalAlignment="Right"
-            IsEnabled="{Binding PodeComentar}" Command="{Binding ComentarCommand}" />
+    <Button Classes="primary azul" MinWidth="110" HorizontalAlignment="Right"
+            IsEnabled="{Binding PodeComentar}" Command="{Binding ComentarCommand}">
+      <StackPanel Classes="comIcone">
+        <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Comentar}" />
+        <TextBlock Text="Comentar" />
+      </StackPanel>
+    </Button>
   </StackPanel>
 </UserControl>

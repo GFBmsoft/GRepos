@@ -1,3 +1,6 @@
+## 1.0.0.56 — 30/10/2026
+- **Ícones e cores em todas as janelas**: Esteira, Pull requests, Issues, Releases, Segredos, Preferências, Painel, Conflitos, Pastas de trabalho, Terminal e os diálogos agora seguem o mesmo padrão de pílulas da janela principal. A mesma ação tem o mesmo ícone e a mesma cor em qualquer lugar: criar em verde, editar e salvar em azul, mesclar em roxo, excluir e parar em vermelho, cancelar e fechar em cinza.
+
 ## 1.0.0.55 — 30/10/2026
 - **Trocar de branch com um clique**: na janela de Branches, clicar na linha já troca de branch e volta para o repositório. Arrastar uma branch sobre outra continua abrindo as opções de mesclar, rebase e pull request.
 - **Excluir branch local**: pela lixeira que aparece ao passar o mouse na linha ou pelo menu do botão direito. A confirmação avisa quando a branch tem commits que não estão em nenhum outro lugar, e a branch remota nunca é apagada.

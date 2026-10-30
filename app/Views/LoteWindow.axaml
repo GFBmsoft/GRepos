@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.LoteWindow"
@@ -33,8 +34,13 @@
         <Border Grid.Row="0" Padding="10,6" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
           <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0" Classes="sectionTitle" Text="REPOSITÓRIOS" VerticalAlignment="Center" />
-            <Button Grid.Column="1" Classes="tiny" Content="marcar / desmarcar todos"
-                    IsEnabled="{Binding !Busy}" Command="{Binding MarcarTodosCommand}" />
+            <Button Grid.Column="1" Classes="tiny cinza"
+                    IsEnabled="{Binding !Busy}" Command="{Binding MarcarTodosCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.SelecionarTudo}" />
+                <TextBlock Text="marcar / desmarcar todos" />
+              </StackPanel>
+            </Button>
           </Grid>
         </Border>
 
@@ -67,9 +73,19 @@
     <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,10,0,0">
       <TextBlock Grid.Column="0" Text="{Binding Resumo}" Classes="faint" FontSize="11.5"
                  VerticalAlignment="Center" />
-      <Button Grid.Column="1" Content="{Binding ExecutarRotulo}" MinWidth="200" Margin="0,0,8,0"
-              Classes="primary" IsEnabled="{Binding PodeExecutar}" Command="{Binding ExecutarCommand}" />
-      <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Grid.Column="1" MinWidth="200" Margin="0,0,8,0"
+              Classes="primary verde" IsEnabled="{Binding PodeExecutar}" Command="{Binding ExecutarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Lote}" />
+          <TextBlock Text="{Binding ExecutarRotulo}" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="2" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>

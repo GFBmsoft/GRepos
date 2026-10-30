@@ -252,7 +252,7 @@ public class IgnoradosTests
 
             // o template de cada linha só é construído com a lista populada
             Assert.Equal(2, janela.GetVisualDescendants().OfType<Button>()
-                .Count(b => b.Content as string == "Voltar a acompanhar"));
+                .Count(b => UiSmokeTests.TextoDo(b) == "Voltar a acompanhar"));
             var textos = janela.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
             Assert.Contains("a.txt", textos);
             Assert.Contains("/novo.txt", textos);

@@ -64,4 +64,11 @@ public static class Glifos
     public const string Ajustes = "";
     public const string Fechar = "";
     public const string Markdown = "";
+    public const string Salvar = "";
+    public const string Comentar = "";
+    public const string Parar = "";
+    public const string Segredo = "";
+    public const string Anexar = "";
+    public const string Subir = "";
+    public const string Descer = "";
 }

@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         x:Class="GRepos.Views.PublicarRepoWindow"
         x:DataType="vm:PublicarRepoViewModel"
@@ -39,9 +40,19 @@
       <TextBlock Text="{Binding Progresso}" Classes="faint" FontSize="11" VerticalAlignment="Center"
                  TextTrimming="CharacterEllipsis" />
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-        <Button Content="Cancelar" MinWidth="80" Click="Cancelar" IsEnabled="{Binding !Executando}" />
-        <Button Content="Publicar" MinWidth="100" Classes="primary" IsEnabled="{Binding PodePublicar}"
-                Command="{Binding PublicarCommand}" />
+        <Button Classes="cinza" MinWidth="80" Click="Cancelar" IsEnabled="{Binding !Executando}">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+            <TextBlock Text="Cancelar" />
+          </StackPanel>
+        </Button>
+        <Button MinWidth="100" Classes="primary laranja" IsEnabled="{Binding PodePublicar}"
+                Command="{Binding PublicarCommand}">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Enviar}" />
+            <TextBlock Text="Publicar" />
+          </StackPanel>
+        </Button>
       </StackPanel>
     </Grid>
   </StackPanel>

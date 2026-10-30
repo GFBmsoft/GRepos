@@ -116,11 +116,11 @@ public class UiSmokeTests
         link.Text = "https://github.com/bmsoftsistemas-mysql/bmOS.git";
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         Assert.Contains(janela.GetVisualDescendants().OfType<TextBox>(), t => t.Text == "bmOS");
-        Assert.Contains(janela.GetVisualDescendants().OfType<Button>(), b => b.Content as string == "Clonar");
+        Assert.Contains(janela.GetVisualDescendants().OfType<Button>(), b => TextoDo(b) == "Clonar");
 
         janela.GetVisualDescendants().OfType<RadioButton>().First().IsChecked = true;
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-        Assert.Contains(janela.GetVisualDescendants().OfType<Button>(), b => b.Content as string == "Adicionar");
+        Assert.Contains(janela.GetVisualDescendants().OfType<Button>(), b => TextoDo(b) == "Adicionar");
         janela.Close();
     }
 
@@ -388,7 +388,7 @@ public class UiSmokeTests
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
         var botoes = view.GetVisualDescendants().OfType<Button>().Where(b => b.IsEffectivelyVisible)
-            .Select(b => b.Content as string).ToList();
+            .Select(TextoDo).ToList();
         Assert.Contains("Meu", botoes);
         Assert.Contains("Deles", botoes);
         Assert.Contains("Concluir merge", botoes);
@@ -421,7 +421,7 @@ public class UiSmokeTests
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
             Assert.Contains(view.GetVisualDescendants().OfType<Button>(),
-                b => b.Content as string == "Preparar 1 linha(s)" && b.IsEffectivelyVisible);
+                b => TextoDo(b) == "Preparar 1 linha(s)" && b.IsEffectivelyVisible);
             Assert.Contains(view.GetVisualDescendants().OfType<Border>(), b => b.Classes.Contains("sel"));
             window.Close();
         }
@@ -799,7 +799,7 @@ public class UiSmokeTests
     }
 
     /// <summary>O texto de um botão, com ou sem glifo ao lado.</summary>
-    private static string? TextoDo(Button b) =>
+    internal static string? TextoDo(Button b) =>
         b.Content as string ?? (b.Content as StackPanel)?.Children.OfType<TextBlock>().LastOrDefault()?.Text;
 
     internal static EsteiraViewModel EsteiraPopulada()

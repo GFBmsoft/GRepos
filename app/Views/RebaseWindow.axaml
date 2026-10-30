@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         x:Class="GRepos.Views.RebaseWindow"
         x:DataType="vm:RebaseViewModel"
@@ -39,10 +40,14 @@
                      AcceptsReturn="True" TextWrapping="Wrap" MinHeight="30" />
             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" Margin="8,0,0,0"
                         VerticalAlignment="Center">
-              <Button Classes="tiny" Content="&#x25B2;" ToolTip.Tip="Mais para cima (mais novo)"
-                      Command="{Binding $parent[ListBox].DataContext.SubirCommand}" CommandParameter="{Binding}" />
-              <Button Classes="tiny" Content="&#x25BC;" ToolTip.Tip="Mais para baixo (mais antigo)"
-                      Command="{Binding $parent[ListBox].DataContext.DescerCommand}" CommandParameter="{Binding}" />
+              <Button Classes="tiny redonda cinza" ToolTip.Tip="Mais para cima (mais novo)"
+                      Command="{Binding $parent[ListBox].DataContext.SubirCommand}" CommandParameter="{Binding}">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Subir}" />
+              </Button>
+              <Button Classes="tiny redonda cinza" ToolTip.Tip="Mais para baixo (mais antigo)"
+                      Command="{Binding $parent[ListBox].DataContext.DescerCommand}" CommandParameter="{Binding}">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Descer}" />
+              </Button>
             </StackPanel>
           </Grid>
         </DataTemplate>
@@ -50,9 +55,19 @@
     </ListBox>
 
     <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,12,0,0">
-      <Button Content="Cancelar" Click="Cancelar" />
-      <Button Classes="primary" Content="Reorganizar" IsEnabled="{Binding PodeAplicar}"
-              Command="{Binding AplicarCommand}" />
+      <Button Classes="cinza" Click="Cancelar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Cancelar" />
+        </StackPanel>
+      </Button>
+      <Button Classes="primary roxo" IsEnabled="{Binding PodeAplicar}"
+              Command="{Binding AplicarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Reorganizar}" />
+          <TextBlock Text="Reorganizar" />
+        </StackPanel>
+      </Button>
     </StackPanel>
   </Grid>
 </Window>

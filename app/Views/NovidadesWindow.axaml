@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:views="using:GRepos.Views"
         x:Class="GRepos.Views.NovidadesWindow"
@@ -74,9 +75,19 @@
     </Grid>
 
     <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
-      <Button Grid.Column="1" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
-              Command="{Binding AbrirNoGitHubCommand}" />
-      <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Classes="azul" Grid.Column="1" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Remoto}" />
+          <TextBlock Text="Abrir no GitHub" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="2" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>

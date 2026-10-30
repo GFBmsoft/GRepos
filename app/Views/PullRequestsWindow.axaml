@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:views="using:GRepos.Views"
         xmlns:local="using:GRepos"
@@ -39,10 +40,15 @@
             <Grid ColumnDefinitions="*,Auto">
               <CheckBox Grid.Column="0" Content="mostrar fechados e mesclados" FontSize="11"
                         VerticalAlignment="Center" IsChecked="{Binding MostrarFechados}" />
-              <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="Novo"
+              <Button Grid.Column="1" Classes="tiny verde" BorderThickness="1"
                       BorderBrush="{DynamicResource Border}" VerticalAlignment="Center"
                       Command="{Binding NovoCommand}"
-                      ToolTip.Tip="Abrir um pull request da branch atual" />
+                      ToolTip.Tip="Abrir um pull request da branch atual">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+                  <TextBlock Text="Novo" />
+                </StackPanel>
+              </Button>
             </Grid>
           </Border>
 
@@ -97,10 +103,15 @@
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Grid.Column="0" Text="{Binding DetalheTitulo}" FontSize="13" FontWeight="SemiBold"
                              TextWrapping="Wrap" />
-                  <Button Grid.Column="1" Classes="tiny" BorderThickness="1" Content="Editar"
+                  <Button Grid.Column="1" Classes="tiny azul" BorderThickness="1"
                           BorderBrush="{DynamicResource Border}" VerticalAlignment="Top" Margin="8,0,0,0"
                           IsEnabled="{Binding PodeEditarPr}" Command="{Binding EditarPrCommand}"
-                          ToolTip.Tip="Editar o título e a descrição do pull request" />
+                          ToolTip.Tip="Editar o título e a descrição do pull request">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Editar}" />
+                      <TextBlock Text="Editar" />
+                    </StackPanel>
+                  </Button>
                 </Grid>
                 <TextBlock Text="{Binding DetalheCaminho}" Classes="mono" FontSize="11"
                            Foreground="{DynamicResource Accent}" TextTrimming="CharacterEllipsis" />
@@ -156,11 +167,19 @@
                 <!-- revisar usa o texto da caixa acima, como o "Review changes" do GitHub -->
                 <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,6,0,0"
                             ToolTip.Tip="{Binding RevisarDica}">
-                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Green}"
-                          Content="Aprovar" IsEnabled="{Binding PodeRevisar}" Command="{Binding AprovarCommand}" />
-                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Red}"
-                          Content="Pedir mudanças" IsEnabled="{Binding PodePedirMudancas}"
-                          Command="{Binding PedirMudancasCommand}" />
+                  <Button Classes="tiny verde" BorderThickness="1" BorderBrush="{DynamicResource Green}" IsEnabled="{Binding PodeRevisar}" Command="{Binding AprovarCommand}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Finalizar}" />
+                      <TextBlock Text="Aprovar" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tiny laranja" BorderThickness="1" BorderBrush="{DynamicResource Red}" IsEnabled="{Binding PodePedirMudancas}"
+                          Command="{Binding PedirMudancasCommand}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Comentar}" />
+                      <TextBlock Text="Pedir mudanças" />
+                    </StackPanel>
+                  </Button>
                 </StackPanel>
               </StackPanel>
             </ScrollViewer>
@@ -231,19 +250,34 @@
             <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
                     BorderThickness="0,1,0,0">
               <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
-                <ComboBox Grid.Column="0" MinWidth="170" ItemsSource="{Binding Metodos}"
+                <ComboBox Grid.Column="0" MinWidth="150" ItemsSource="{Binding Metodos}"
                           SelectedItem="{Binding Metodo}" VerticalAlignment="Center"
                           ToolTip.Tip="Como os commits entram na branch de destino" />
-                <Button Grid.Column="1" Content="Mesclar" MinWidth="88" Margin="8,0,0,0"
-                        Classes="primary" IsEnabled="{Binding PodeMesclar}"
+                <Button Grid.Column="1" MinWidth="88" Margin="8,0,0,0"
+                        Classes="primary roxo" IsEnabled="{Binding PodeMesclar}"
                         Command="{Binding MesclarCommand}"
-                        ToolTip.Tip="Mescla o pull request no GitHub" />
-                <Button Grid.Column="3" Content="Trazer para a máquina" MinWidth="88" Margin="0,0,8,0"
+                        ToolTip.Tip="Mescla o pull request no GitHub">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Mesclar}" />
+                    <TextBlock Text="Mesclar" />
+                  </StackPanel>
+                </Button>
+                <Button Classes="verde" Grid.Column="3" MinWidth="88" Margin="0,0,8,0"
                         IsEnabled="{Binding PodeTrazer}" Command="{Binding TrazerCommand}"
-                        ToolTip.Tip="Busca o PR e muda o repositório para a branch dele, para testar aqui" />
-                <Button Grid.Column="4" Content="Fechar PR" MinWidth="88" Classes="danger"
+                        ToolTip.Tip="Busca o PR e muda o repositório para a branch dele, para testar aqui">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Puxar}" />
+                    <TextBlock Text="Trazer para a máquina" />
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="4" MinWidth="88" Classes="vermelho"
                         IsEnabled="{Binding PodeFechar}" Command="{Binding FecharPrCommand}"
-                        ToolTip.Tip="Fecha o pull request sem mesclar" />
+                        ToolTip.Tip="Fecha o pull request sem mesclar">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+                    <TextBlock Text="Fechar PR" />
+                  </StackPanel>
+                </Button>
               </Grid>
             </Border>
           </Grid>
@@ -267,9 +301,19 @@
             <Border Grid.Row="2" Padding="10,7" BorderBrush="{DynamicResource BorderSoft}"
                     BorderThickness="0,1,0,0">
               <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarEdicaoPrCommand}" />
-                <Button Content="Salvar" MinWidth="110" Classes="primary"
-                        IsEnabled="{Binding PodeSalvarPr}" Command="{Binding SalvarPrCommand}" />
+                <Button Classes="cinza" MinWidth="80" Command="{Binding CancelarEdicaoPrCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+                    <TextBlock Text="Cancelar" />
+                  </StackPanel>
+                </Button>
+                <Button MinWidth="110" Classes="primary azul"
+                        IsEnabled="{Binding PodeSalvarPr}" Command="{Binding SalvarPrCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Salvar}" />
+                    <TextBlock Text="Salvar" />
+                  </StackPanel>
+                </Button>
               </StackPanel>
             </Border>
           </Grid>
@@ -310,10 +354,20 @@
                 <CheckBox Grid.Column="1" Content="rascunho" FontSize="11" VerticalAlignment="Center"
                           Margin="0,0,12,0" IsChecked="{Binding NovoRascunho}"
                           ToolTip.Tip="Abre como rascunho, que não pode ser mesclado até ser marcado como pronto" />
-                <Button Grid.Column="2" Content="Cancelar" MinWidth="80" Margin="0,0,8,0"
-                        Command="{Binding CancelarNovoCommand}" />
-                <Button Grid.Column="3" Content="Criar pull request" MinWidth="140" Classes="primary"
-                        IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}" />
+                <Button Classes="cinza" Grid.Column="2" MinWidth="80" Margin="0,0,8,0"
+                        Command="{Binding CancelarNovoCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+                    <TextBlock Text="Cancelar" />
+                  </StackPanel>
+                </Button>
+                <Button Grid.Column="3" MinWidth="140" Classes="primary roxo"
+                        IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.PullRequest}" />
+                    <TextBlock Text="Criar pull request" />
+                  </StackPanel>
+                </Button>
               </Grid>
             </Border>
           </Grid>
@@ -339,11 +393,26 @@
 
       <TextBlock Grid.Column="1" Text="{Binding RitmoTexto}" Classes="faint" FontSize="11"
                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" />
-      <Button Grid.Column="2" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
-              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
-      <Button Grid.Column="3" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
-              Command="{Binding AbrirNoGitHubCommand}" />
-      <Button Grid.Column="4" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Classes="azul" Grid.Column="2" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+          <TextBlock Text="Atualizar" />
+        </StackPanel>
+      </Button>
+      <Button Classes="azul" Grid.Column="3" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Remoto}" />
+          <TextBlock Text="Abrir no GitHub" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="4" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>

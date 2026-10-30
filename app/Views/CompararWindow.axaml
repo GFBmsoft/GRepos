@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:views="using:GRepos.Views"
         xmlns:local="using:GRepos"
@@ -20,13 +21,20 @@
                      Margin="0,0,8,0" />
           <AutoCompleteBox Grid.Column="1" ItemsSource="{Binding Refs}" Text="{Binding A}"
                            FilterMode="Contains" Watermark="branch, tag ou hash" VerticalAlignment="Center" />
-          <Button Grid.Column="2" Content="⇄" MinWidth="34" Margin="6,0" VerticalAlignment="Center"
-                  ToolTip.Tip="Inverter os lados" Command="{Binding InverterCommand}" />
+          <Button Classes="redonda cinza" Grid.Column="2" MinWidth="34" Margin="6,0" VerticalAlignment="Center"
+                  ToolTip.Tip="Inverter os lados" Command="{Binding InverterCommand}">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Trocar}" />
+          </Button>
           <AutoCompleteBox Grid.Column="3" ItemsSource="{Binding Refs}" Text="{Binding B}"
                            FilterMode="Contains" Watermark="branch, tag ou hash" VerticalAlignment="Center" />
-          <Button Grid.Column="4" Content="Comparar" MinWidth="96" Margin="8,0,0,0" Classes="primary"
+          <Button Grid.Column="4" MinWidth="96" Margin="8,0,0,0" Classes="primary azul"
                   VerticalAlignment="Center" IsEnabled="{Binding PodeComparar}"
-                  Command="{Binding CompararCommand}" />
+                  Command="{Binding CompararCommand}">
+            <StackPanel Classes="comIcone">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Comparar}" />
+              <TextBlock Text="Comparar" />
+            </StackPanel>
+          </Button>
         </Grid>
         <TextBlock Text="{Binding Resumo}" Classes="faint" FontSize="11.5" TextWrapping="Wrap" />
       </StackPanel>

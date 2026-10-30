@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:GRepos.Controls"
              xmlns:vm="using:GRepos.ViewModels"
              xmlns:svc="using:GRepos.Services"
              x:Class="GRepos.Views.PessoasView"
@@ -10,9 +11,14 @@
     <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !Editando}">
       <TextBlock Text="{Binding Resumo}" Classes="faint" FontSize="11" VerticalAlignment="Center"
                  TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Resumo}" />
-      <Button Grid.Column="1" Classes="tiny" Content="Ajustar" Margin="6,0,0,0"
+      <Button Grid.Column="1" Classes="tiny cinza" Margin="6,0,0,0"
               Command="{Binding EditarCommand}"
-              ToolTip.Tip="Escolher responsáveis, revisores e marco" />
+              ToolTip.Tip="Escolher responsáveis, revisores e marco">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Ajustes}" />
+          <TextBlock Text="Ajustar" />
+        </StackPanel>
+      </Button>
     </Grid>
 
     <Border IsVisible="{Binding Editando}" Padding="8,6" Margin="0,4,0,0" CornerRadius="5"
@@ -57,9 +63,19 @@
         </Grid>
 
         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
-          <Button Classes="tiny" Content="Cancelar" Command="{Binding CancelarCommand}" />
-          <Button Classes="tiny destacado" Content="Salvar" IsEnabled="{Binding PodeSalvar}"
-                  Command="{Binding SalvarCommand}" />
+          <Button Classes="tiny cinza" Command="{Binding CancelarCommand}">
+            <StackPanel Classes="comIcone">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+              <TextBlock Text="Cancelar" />
+            </StackPanel>
+          </Button>
+          <Button Classes="tiny azul" IsEnabled="{Binding PodeSalvar}"
+                  Command="{Binding SalvarCommand}">
+            <StackPanel Classes="comIcone">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Salvar}" />
+              <TextBlock Text="Salvar" />
+            </StackPanel>
+          </Button>
         </StackPanel>
       </StackPanel>
     </Border>

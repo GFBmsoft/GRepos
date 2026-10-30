@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:GRepos.Controls"
              xmlns:vm="using:GRepos.ViewModels"
              xmlns:term="using:AvaloniaTerminal"
              x:Class="GRepos.Views.TerminalPanel"
@@ -13,18 +14,35 @@
                    VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="{Binding TerminalAtual.Nome}" FontSize="11" Classes="faint"
                    VerticalAlignment="Center" Margin="10,0,0,0" />
-        <Button Grid.Column="2" Classes="tiny" Content="Reiniciar" Margin="0,0,4,0"
+        <Button Grid.Column="2" Classes="tiny laranja" Margin="0,0,4,0"
                 Command="{Binding ReiniciarTerminalCommand}"
-                ToolTip.Tip="Encerra este Git Bash e abre outro na pasta do repositório" />
-        <Button Grid.Column="3" Classes="tiny" Content="Em janela" Margin="0,0,4,0"
+                ToolTip.Tip="Encerra este Git Bash e abre outro na pasta do repositório">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+            <TextBlock Text="Reiniciar" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="3" Classes="tiny azul" Margin="0,0,4,0"
                 Command="{Binding AbrirTerminalCommand}"
-                ToolTip.Tip="Abre o Git Bash numa janela separada" />
-        <Button Grid.Column="4" Classes="tiny danger" Content="Encerrar" Margin="0,0,4,0"
+                ToolTip.Tip="Abre o Git Bash numa janela separada">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Abrir}" />
+            <TextBlock Text="Em janela" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="4" Classes="tiny vermelho" Margin="0,0,4,0"
                 Command="{Binding EncerrarTerminalCommand}"
-                ToolTip.Tip="Encerra o Git Bash deste repositório e fecha o painel" />
-        <Button Grid.Column="5" Classes="tiny" Content="&#x2715;"
+                ToolTip.Tip="Encerra o Git Bash deste repositório e fecha o painel">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Parar}" />
+            <TextBlock Text="Encerrar" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="5" Classes="tiny redonda cinza"
                 Command="{Binding AlternarTerminalCommand}"
-                ToolTip.Tip="Esconde o painel; o terminal continua rodando" />
+                ToolTip.Tip="Esconde o painel; o terminal continua rodando">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+        </Button>
       </Grid>
 
       <!-- uma sessão por repositório, todas vivas; só a do repositório atual aparece -->

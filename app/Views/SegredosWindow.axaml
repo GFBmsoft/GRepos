@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         x:Class="GRepos.Views.SegredosWindow"
         x:DataType="vm:SegredosViewModel"
@@ -46,11 +47,26 @@
             </ListBox.ItemTemplate>
           </ListBox>
           <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="10,7" HorizontalAlignment="Right">
-            <Button Classes="tiny" Content="Novo" Command="{Binding NovoSegredoCommand}" />
-            <Button Classes="tiny" Content="Trocar valor" IsEnabled="{Binding TemSegredoEscolhido}"
-                    Command="{Binding TrocarSegredoCommand}" />
-            <Button Classes="tiny danger" Content="Excluir" IsEnabled="{Binding TemSegredoEscolhido}"
-                    Command="{Binding ExcluirSegredoCommand}" />
+            <Button Classes="tiny verde" Command="{Binding NovoSegredoCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+                <TextBlock Text="Novo" />
+              </StackPanel>
+            </Button>
+            <Button Classes="tiny azul" IsEnabled="{Binding TemSegredoEscolhido}"
+                    Command="{Binding TrocarSegredoCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Editar}" />
+                <TextBlock Text="Trocar valor" />
+              </StackPanel>
+            </Button>
+            <Button Classes="tiny vermelho" IsEnabled="{Binding TemSegredoEscolhido}"
+                    Command="{Binding ExcluirSegredoCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+                <TextBlock Text="Excluir" />
+              </StackPanel>
+            </Button>
           </StackPanel>
         </Grid>
       </Border>
@@ -82,11 +98,26 @@
             </ListBox.ItemTemplate>
           </ListBox>
           <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="10,7" HorizontalAlignment="Right">
-            <Button Classes="tiny" Content="Nova" Command="{Binding NovaVariavelCommand}" />
-            <Button Classes="tiny" Content="Editar" IsEnabled="{Binding TemVariavelEscolhida}"
-                    Command="{Binding EditarVariavelCommand}" />
-            <Button Classes="tiny danger" Content="Excluir" IsEnabled="{Binding TemVariavelEscolhida}"
-                    Command="{Binding ExcluirVariavelCommand}" />
+            <Button Classes="tiny verde" Command="{Binding NovaVariavelCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+                <TextBlock Text="Nova" />
+              </StackPanel>
+            </Button>
+            <Button Classes="tiny azul" IsEnabled="{Binding TemVariavelEscolhida}"
+                    Command="{Binding EditarVariavelCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Editar}" />
+                <TextBlock Text="Editar" />
+              </StackPanel>
+            </Button>
+            <Button Classes="tiny vermelho" IsEnabled="{Binding TemVariavelEscolhida}"
+                    Command="{Binding ExcluirVariavelCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+                <TextBlock Text="Excluir" />
+              </StackPanel>
+            </Button>
           </StackPanel>
         </Grid>
       </Border>
@@ -112,19 +143,44 @@
         <TextBlock Classes="faint" FontSize="10.5" TextWrapping="Wrap" IsVisible="{Binding FormEhSegredo}"
                    Text="O valor sai daqui cifrado com a chave do repositório; depois de salvo, nem o GitHub mostra de novo." />
         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,4,0,0">
-          <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarFormCommand}" />
-          <Button Content="Salvar" MinWidth="100" Classes="primary" IsEnabled="{Binding PodeSalvar}"
-                  Command="{Binding SalvarCommand}" />
+          <Button Classes="cinza" MinWidth="80" Command="{Binding CancelarFormCommand}">
+            <StackPanel Classes="comIcone">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+              <TextBlock Text="Cancelar" />
+            </StackPanel>
+          </Button>
+          <Button MinWidth="100" Classes="primary azul" IsEnabled="{Binding PodeSalvar}"
+                  Command="{Binding SalvarCommand}">
+            <StackPanel Classes="comIcone">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Salvar}" />
+              <TextBlock Text="Salvar" />
+            </StackPanel>
+          </Button>
         </StackPanel>
       </StackPanel>
     </Border>
 
     <Grid Grid.Row="4" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,10,0,0">
-      <Button Grid.Column="1" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
-              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
-      <Button Grid.Column="2" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
-              Command="{Binding AbrirNoGitHubCommand}" />
-      <Button Grid.Column="3" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Classes="azul" Grid.Column="1" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+          <TextBlock Text="Atualizar" />
+        </StackPanel>
+      </Button>
+      <Button Classes="azul" Grid.Column="2" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Remoto}" />
+          <TextBlock Text="Abrir no GitHub" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="3" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>

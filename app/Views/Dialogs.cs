@@ -65,7 +65,6 @@ public abstract class DialogWindow : Window
     {
         var b = new Button
         {
-            Content = texto,
             MinWidth = 0,
             Padding = new Thickness(9, 0),
             HorizontalAlignment = HorizontalAlignment.Left,
@@ -73,14 +72,65 @@ public abstract class DialogWindow : Window
         };
         b.Classes.Add("tiny");
         if (perigo) b.Classes.Add("danger");
+        Rotular(b, texto);
         return b;
     }
 
     protected static Button Btn(string text, bool primary = false)
     {
-        var b = new Button { Content = text, MinWidth = 88, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var b = new Button { MinWidth = 88, HorizontalContentAlignment = HorizontalAlignment.Center };
         if (primary) b.Classes.Add("primary");
+        Rotular(b, text);
         return b;
+    }
+
+    /// <summary>O glifo e a cor de cada ação dos diálogos: a mesma ação sai igual em todos.</summary>
+    private static readonly Dictionary<string, (string Glifo, string Cor)> Acoes = new()
+    {
+        ["Cancelar"] = (Glifos.Fechar, "cinza"),
+        ["Fechar"] = (Glifos.Fechar, "cinza"),
+        ["Salvar"] = (Glifos.Salvar, "azul"),
+        ["Salvar conta e token"] = (Glifos.Salvar, "azul"),
+        ["Confirmar"] = (Glifos.Finalizar, "azul"),
+        ["Procurar"] = (Glifos.Pasta, "amarelo"),
+        ["Procurar…"] = (Glifos.Pasta, "amarelo"),
+        ["Procurar agora"] = (Glifos.Atualizar, "azul"),
+        ["Adicionar"] = (Glifos.Adicionar, "verde"),
+        ["Clonar"] = (Glifos.Puxar, "verde"),
+        ["Aplicar"] = (Glifos.Puxar, "verde"),
+        ["Testar"] = (Glifos.Finalizar, "verde"),
+        ["Tornar principal"] = (Glifos.Finalizar, "verde"),
+        ["Voltar todos"] = (Glifos.Desfazer, "verde"),
+        ["Voltar a acompanhar"] = (Glifos.Desfazer, "verde"),
+        ["Editar"] = (Glifos.Editar, "azul"),
+        ["Excluir"] = (Glifos.Excluir, "vermelho"),
+        ["Remover"] = (Glifos.Excluir, "vermelho"),
+        ["Remover da lista"] = (Glifos.Excluir, "vermelho"),
+        ["Subgrupo"] = (Glifos.NovaPasta, "amarelo"),
+        ["Guardar"] = (Glifos.Esconder, "amarelo"),
+        ["Usar padrão"] = (Glifos.Desfazer, "cinza"),
+        ["Usar o Gerenciador de Credenciais do Windows"] = (Glifos.Ajustes, "cinza"),
+    };
+
+    /// <summary>Põe o texto no botão, com o glifo e a cor da ação; texto fora da tabela vai sozinho.</summary>
+    protected static void Rotular(Button b, string texto)
+    {
+        if (!Acoes.TryGetValue(texto, out var acao))
+        {
+            b.Content = texto;
+            return;
+        }
+
+        b.Classes.Add(acao.Cor);
+        b.Content = new StackPanel
+        {
+            Classes = { "comIcone" },
+            Children =
+            {
+                new TextBlock { Classes = { "glifo" }, Text = acao.Glifo },
+                new TextBlock { Text = texto },
+            },
+        };
     }
 
     /// <summary>Respiro entre o conteúdo e a barra de rolagem, para não ficarem colados.</summary>
@@ -533,7 +583,7 @@ public sealed class AddRepoWindow : DialogWindow
             var c = clone.IsChecked == true;
             camposExistente.IsVisible = !c;
             camposClone.IsVisible = c;
-            add.Content = c ? "Clonar" : "Adicionar";
+            Rotular(add, c ? "Clonar" : "Adicionar");
             situacao.IsVisible = false;
         }
         existente.IsCheckedChanged += (_, _) => TrocarModo();
@@ -1586,8 +1636,14 @@ public sealed class StashWindow : DialogWindow
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center,
             };
-            var apply = new Button { Content = "Aplicar", Classes = { "tiny" } };
-            var drop = new Button { Content = "✕", Classes = { "tiny", "danger" } };
+            var apply = new Button { Classes = { "tiny" } };
+            Rotular(apply, "Aplicar");
+            var drop = new Button
+            {
+                Classes = { "tiny", "redonda", "vermelho" },
+                Margin = new Thickness(3, 0, 0, 0),
+                Content = new TextBlock { Classes = { "glifo" }, Text = Glifos.Excluir },
+            };
             Grid.SetColumn(apply, 1);
             Grid.SetColumn(drop, 2);
 
@@ -1680,7 +1736,8 @@ public sealed class IgnoradosWindow : DialogWindow
                 VerticalAlignment = VerticalAlignment.Center,
                 Classes = { "faint" },
             };
-            var voltar = new Button { Content = "Voltar a acompanhar", Classes = { "tiny" } };
+            var voltar = new Button { Classes = { "tiny" } };
+            Rotular(voltar, "Voltar a acompanhar");
             Grid.SetColumn(tipo, 1);
             Grid.SetColumn(voltar, 2);
             voltar.Click += async (_, _) => await VoltarAsync(new[] { i });

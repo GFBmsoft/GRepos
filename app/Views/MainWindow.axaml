@@ -410,8 +410,13 @@
                      FontWeight="SemiBold" HorizontalAlignment="Center" />
           <TextBlock Classes="faint" TextWrapping="Wrap" TextAlignment="Center" TextTrimming="None"
                      Text="Adicione seus repositórios, organize-os em grupos e marque os pares Origem × Destino para acompanhar os dois bancos na mesma tela." />
-          <Button Classes="primary" Content="+ Adicionar repositório" HorizontalAlignment="Center"
-                  Command="{Binding AddRepoCommand}" />
+          <Button Classes="primary verde" HorizontalAlignment="Center"
+                  Command="{Binding AddRepoCommand}">
+            <StackPanel Classes="comIcone">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+              <TextBlock Text="+ Adicionar repositório" />
+            </StackPanel>
+          </Button>
         </StackPanel>
 
         <StackPanel IsVisible="{Binding ShowError}" HorizontalAlignment="Center"
@@ -466,7 +471,7 @@
           <!-- discreto, mas com a cor de destaque: é novidade, não é erro -->
           <!-- as dicas dos botões da barra abrem para cima: na borda de baixo da tela a
                dica padrão não cabe sob o ponteiro, cai em cima do botão e engole o clique -->
-          <Button Grid.Column="1" Classes="tiny" Margin="0,0,14,0" VerticalAlignment="Center" Height="22"
+          <Button Grid.Column="1" Classes="tiny azul" Margin="0,0,14,0" VerticalAlignment="Center" Height="22"
                   ToolTip.Placement="Top" ToolTip.VerticalOffset="-6"
                   IsVisible="{Binding TemAtualizacao}"
                   IsEnabled="{Binding !Atualizando}" Command="{Binding AtualizarAgoraCommand}"
@@ -525,8 +530,10 @@
               <TextBlock Text="{Binding StatusMessage}" FontSize="12" TextWrapping="Wrap"
                          TextTrimming="None" IsVisible="{Binding TemStatusDetalhe}" />
             </StackPanel>
-            <Button Grid.Column="2" Classes="tiny" Content="&#x2715;" VerticalAlignment="Top"
-                    Command="{Binding DismissStatusCommand}" ToolTip.Tip="Fechar o aviso" />
+            <Button Grid.Column="2" Classes="tiny redonda cinza" VerticalAlignment="Top"
+                    Command="{Binding DismissStatusCommand}" ToolTip.Tip="Fechar o aviso">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+            </Button>
           </Grid>
         </Panel>
       </Border>

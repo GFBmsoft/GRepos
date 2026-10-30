@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:vm="using:GRepos.ViewModels"
         xmlns:views="using:GRepos.Views"
         xmlns:local="using:GRepos"
@@ -29,9 +30,13 @@
           <Border Grid.Row="0" Padding="8,7" BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Classes="sectionTitle" Text="RELEASES" VerticalAlignment="Center" />
-              <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                      Content="Nova" Command="{Binding NovaReleaseCommand}"
-                      ToolTip.Tip="Criar uma release: tag, notas e arquivos" />
+              <Button Grid.Column="1" Classes="tiny verde" BorderThickness="1" BorderBrush="{DynamicResource Border}" Command="{Binding NovaReleaseCommand}"
+                      ToolTip.Tip="Criar uma release: tag, notas e arquivos">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+                  <TextBlock Text="Nova" />
+                </StackPanel>
+              </Button>
             </Grid>
           </Border>
 
@@ -79,16 +84,28 @@
                              TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Top">
-                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                          Content="Publicar" IsVisible="{Binding Selecionada.Release.Rascunho}"
+                  <Button Classes="tiny laranja" BorderThickness="1" BorderBrush="{DynamicResource Border}" IsVisible="{Binding Selecionada.Release.Rascunho}"
                           IsEnabled="{Binding PodePublicar}" Command="{Binding PublicarCommand}"
-                          ToolTip.Tip="Publicar este rascunho" />
-                  <Button Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                          Content="Editar" IsEnabled="{Binding PodeAgir}" Command="{Binding EditarReleaseCommand}"
-                          ToolTip.Tip="Editar título, notas, rascunho e pré-release" />
-                  <Button Classes="tiny danger" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                          Content="Excluir" IsEnabled="{Binding PodeAgir}" Command="{Binding ExcluirReleaseCommand}"
-                          ToolTip.Tip="Excluir a release (a tag continua)" />
+                          ToolTip.Tip="Publicar este rascunho">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Enviar}" />
+                      <TextBlock Text="Publicar" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tiny azul" BorderThickness="1" BorderBrush="{DynamicResource Border}" IsEnabled="{Binding PodeAgir}" Command="{Binding EditarReleaseCommand}"
+                          ToolTip.Tip="Editar título, notas, rascunho e pré-release">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Editar}" />
+                      <TextBlock Text="Editar" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="tiny vermelho" BorderThickness="1" BorderBrush="{DynamicResource Border}" IsEnabled="{Binding PodeAgir}" Command="{Binding ExcluirReleaseCommand}"
+                          ToolTip.Tip="Excluir a release (a tag continua)">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+                      <TextBlock Text="Excluir" />
+                    </StackPanel>
+                  </Button>
                 </StackPanel>
               </Grid>
             </Border>
@@ -97,9 +114,13 @@
               <StackPanel Margin="12,10">
                 <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                   <TextBlock Classes="sectionTitle" Text="ARQUIVOS" VerticalAlignment="Center" />
-                  <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                          Content="Anexar…" IsEnabled="{Binding PodeAgir}" Command="{Binding AnexarCommand}"
-                          ToolTip.Tip="Enviar arquivos para esta release" />
+                  <Button Grid.Column="1" Classes="tiny azul" BorderThickness="1" BorderBrush="{DynamicResource Border}" IsEnabled="{Binding PodeAgir}" Command="{Binding AnexarCommand}"
+                          ToolTip.Tip="Enviar arquivos para esta release">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Anexar}" />
+                      <TextBlock Text="Anexar…" />
+                    </StackPanel>
+                  </Button>
                 </Grid>
                 <TextBlock Text="Nenhum arquivo anexado." Classes="faint" FontSize="11.5"
                            IsVisible="{Binding !Selecionada.TemArquivos}" Margin="0,0,0,6" />
@@ -111,9 +132,14 @@
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="1" Text="{Binding Tamanho}" Classes="faint" FontSize="10.5"
                                    VerticalAlignment="Center" Margin="8,0" />
-                        <Button Grid.Column="2" Classes="tiny" Content="Excluir"
+                        <Button Grid.Column="2" Classes="tiny vermelho"
                                 Command="{Binding $parent[Window].DataContext.ExcluirAnexoCommand}"
-                                CommandParameter="{Binding}" ToolTip.Tip="Tirar este arquivo da release" />
+                                CommandParameter="{Binding}" ToolTip.Tip="Tirar este arquivo da release">
+                          <StackPanel Classes="comIcone">
+                            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+                            <TextBlock Text="Excluir" />
+                          </StackPanel>
+                        </Button>
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
@@ -158,8 +184,12 @@
 
               <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="0,10,0,4">
                 <TextBlock Text="Arquivos a enviar" Classes="faint" FontSize="11" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                        Content="Adicionar…" Command="{Binding AdicionarArquivosCommand}" />
+                <Button Grid.Column="1" Classes="tiny azul" BorderThickness="1" BorderBrush="{DynamicResource Border}" Command="{Binding AdicionarArquivosCommand}">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Anexar}" />
+                    <TextBlock Text="Adicionar…" />
+                  </StackPanel>
+                </Button>
               </Grid>
               <ItemsControl Grid.Row="5" ItemsSource="{Binding FormArquivos}" IsVisible="{Binding TemFormArquivos}">
                 <ItemsControl.ItemTemplate>
@@ -169,9 +199,14 @@
                                  TextTrimming="CharacterEllipsis" />
                       <TextBlock Grid.Column="1" Text="{Binding Tamanho}" Classes="faint" FontSize="10.5"
                                  VerticalAlignment="Center" Margin="8,0" />
-                      <Button Grid.Column="2" Classes="tiny" Content="Tirar"
+                      <Button Grid.Column="2" Classes="tiny cinza"
                               Command="{Binding $parent[Window].DataContext.TirarArquivoCommand}"
-                              CommandParameter="{Binding}" />
+                              CommandParameter="{Binding}">
+                        <StackPanel Classes="comIcone">
+                          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Tirar}" />
+                          <TextBlock Text="Tirar" />
+                        </StackPanel>
+                      </Button>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -179,9 +214,13 @@
 
               <Grid Grid.Row="6" ColumnDefinitions="*,Auto" Margin="0,10,0,3">
                 <TextBlock Text="Notas (aceitam Markdown)" Classes="faint" FontSize="11" VerticalAlignment="Center" />
-                <Button Grid.Column="1" Classes="tiny" BorderThickness="1" BorderBrush="{DynamicResource Border}"
-                        Content="Gerar notas" Command="{Binding GerarNotasCommand}"
-                        ToolTip.Tip="O GitHub lista os PRs e quem contribuiu desde a tag anterior" />
+                <Button Grid.Column="1" Classes="tiny azul" BorderThickness="1" BorderBrush="{DynamicResource Border}" Command="{Binding GerarNotasCommand}"
+                        ToolTip.Tip="O GitHub lista os PRs e quem contribuiu desde a tag anterior">
+                  <StackPanel Classes="comIcone">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Documento}" />
+                    <TextBlock Text="Gerar notas" />
+                  </StackPanel>
+                </Button>
               </Grid>
               <TextBox Grid.Row="7" Text="{Binding FormNotas}" AcceptsReturn="True" TextWrapping="Wrap"
                        VerticalContentAlignment="Top" />
@@ -193,10 +232,20 @@
                 <TextBlock Text="{Binding Progresso}" Classes="faint" FontSize="11" VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                  <Button Content="Cancelar" MinWidth="80" Command="{Binding CancelarFormCommand}"
-                          IsEnabled="{Binding !Executando}" />
-                  <Button Content="{Binding SalvarRotulo}" MinWidth="130" Classes="primary"
-                          IsEnabled="{Binding PodeSalvar}" Command="{Binding SalvarFormCommand}" />
+                  <Button Classes="cinza" MinWidth="80" Command="{Binding CancelarFormCommand}"
+                          IsEnabled="{Binding !Executando}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+                      <TextBlock Text="Cancelar" />
+                    </StackPanel>
+                  </Button>
+                  <Button MinWidth="130" Classes="primary azul"
+                          IsEnabled="{Binding PodeSalvar}" Command="{Binding SalvarFormCommand}">
+                    <StackPanel Classes="comIcone">
+                      <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Salvar}" />
+                      <TextBlock Text="{Binding SalvarRotulo}" />
+                    </StackPanel>
+                  </Button>
                 </StackPanel>
               </Grid>
             </Border>
@@ -208,11 +257,26 @@
     <Grid Grid.Row="3" ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,10,0,0">
       <TextBlock Grid.Column="0" Text="{Binding Progresso}" Classes="faint" FontSize="11"
                  VerticalAlignment="Center" IsVisible="{Binding !Editando}" />
-      <Button Grid.Column="1" Content="Atualizar" MinWidth="96" Margin="0,0,8,0"
-              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}" />
-      <Button Grid.Column="2" Content="Abrir no GitHub" MinWidth="128" Margin="0,0,8,0"
-              Command="{Binding AbrirNoGitHubCommand}" />
-      <Button Grid.Column="3" Content="Fechar" MinWidth="88" Click="Fechar" />
+      <Button Classes="azul" Grid.Column="1" MinWidth="96" Margin="0,0,8,0"
+              IsEnabled="{Binding !Carregando}" Command="{Binding CarregarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+          <TextBlock Text="Atualizar" />
+        </StackPanel>
+      </Button>
+      <Button Classes="azul" Grid.Column="2" MinWidth="128" Margin="0,0,8,0"
+              Command="{Binding AbrirNoGitHubCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Remoto}" />
+          <TextBlock Text="Abrir no GitHub" />
+        </StackPanel>
+      </Button>
+      <Button Classes="cinza" Grid.Column="3" MinWidth="88" Click="Fechar">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+          <TextBlock Text="Fechar" />
+        </StackPanel>
+      </Button>
     </Grid>
   </Grid>
 </Window>
