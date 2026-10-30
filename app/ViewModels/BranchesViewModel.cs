@@ -24,6 +24,9 @@ public sealed class BranchItemViewModel
 
     public bool CanCheckout => !IsHead;
 
+    /// <summary>Só a local: o git não apaga a branch em que se está, e a remota é de todo mundo.</summary>
+    public bool PodeExcluir => !IsRemote && !IsHead;
+
     /// <summary>Branch local que ainda não existe no remoto — trabalho só desta máquina.</summary>
     public bool SoLocal => !IsRemote && !HasUpstream;
 
@@ -35,9 +38,9 @@ public sealed class BranchItemViewModel
 
     public string NameWeight => IsHead ? "SemiBold" : "Normal";
 
-    public string Tooltip => Branch.Upstream is { Length: > 0 } u
+    public string Tooltip => (Branch.Upstream is { Length: > 0 } u
         ? $"{Name}\nrastreando {u}\n{Subject}"
-        : $"{Name}\n{Subject}";
+        : $"{Name}\n{Subject}") + (CanCheckout ? "\nClique para trocar para esta branch" : "");
 
     /// <summary>Nome sem o remoto: é por ele que se agrupa e classifica.</summary>
     public string NomeLocal => GitFlow.SemRemoto(Name, IsRemote);
@@ -110,6 +113,9 @@ public sealed partial class BranchesViewModel : ObservableObject
     public Func<string, string, Task<string?>>? PedirTexto { get; set; }
     public Func<string, string, Task<bool>>? Confirmar { get; set; }
     public Func<GitFlowConfig, Task<GitFlowConfig?>>? EditarFluxo { get; set; }
+
+    /// <summary>A confirmação da exclusão, com o botão em vermelho. Sem ela, nada é excluído.</summary>
+    public Func<string, string, Task<bool>>? ConfirmarExclusao { get; set; }
 
     /// <summary>
     /// Trocar de branch encerra a visita à janela: o usuário volta direto para o
@@ -366,6 +372,49 @@ public sealed partial class BranchesViewModel : ObservableObject
             ? GitService.CheckoutRemotaAsync(_repo.Path, item.Name)
             : GitService.CheckoutAsync(_repo.Path, item.Name),
             fecharAoTerminar: true);
+
+    /// <summary>
+    /// O que dizer antes de excluir. O que importa é se algum commit só existe nessa branch:
+    /// esses somem da vista com ela, e o resto continua nas outras branches ou no remoto.
+    /// </summary>
+    public static string AvisoDeExclusao(BranchItemViewModel item, int commitsSoNela)
+    {
+        var aviso = commitsSoNela switch
+        {
+            0 => $"Excluir a branch local \"{item.Name}\"? Todos os commits dela continuam em outras branches ou no remoto.",
+            1 => $"A branch \"{item.Name}\" tem 1 commit que não está em nenhuma outra branch nem no remoto. " +
+                 "Ao excluir, ele só poderá ser recuperado pelo reflog, por tempo limitado.",
+            _ => $"A branch \"{item.Name}\" tem {commitsSoNela} commits que não estão em nenhuma outra branch nem no remoto. " +
+                 "Ao excluir, eles só poderão ser recuperados pelo reflog, por tempo limitado.",
+        };
+        if (item.Tipo is TipoBranch.Principal or TipoBranch.Develop)
+            aviso += "\n\nEsta é uma branch principal do repositório.";
+        if (item.HasUpstream)
+            aviso += $"\n\nA branch remota {item.UpstreamText} não é apagada.";
+        return aviso;
+    }
+
+    // como no Trocar: cada linha aponta para este comando, e a lista não pode acinzentar
+    [RelayCommand(AllowConcurrentExecutions = true)]
+    private async Task Excluir(BranchItemViewModel item)
+    {
+        if (!item.PodeExcluir || ConfirmarExclusao is null) return;
+
+        int commitsSoNela;
+        try
+        {
+            commitsSoNela = await GitService.CommitsSoNaBranchAsync(_repo.Path, item.Name);
+        }
+        catch (Exception e)
+        {
+            MostrarErro(e.Message);
+            return;
+        }
+
+        if (!await ConfirmarExclusao($"Excluir {item.Name}", AvisoDeExclusao(item, commitsSoNela))) return;
+
+        await ExecutarAsync(() => GitService.ExcluirBranchAsync(_repo.Path, item.Name));
+    }
 
     [RelayCommand]
     private Task Criar() => ExecutarAsync(async () =>

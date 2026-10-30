@@ -289,7 +289,7 @@ public class UiSmokeTests
         Assert.Contains("Cherry-pick na branch atual", itens);
         lista.ContextMenu.Close();
 
-        var resetar = view.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == "Resetar para cá ▾");
+        var resetar = view.GetVisualDescendants().OfType<Button>().First(b => TextoDo(b) == "Resetar para cá ▾");
         resetar.Flyout!.ShowAt(resetar);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         resetar.Flyout.Hide();
@@ -318,9 +318,9 @@ public class UiSmokeTests
 
         Assert.Equal("Preparar selecionados (2)", vm.PrepararRotulo);
         Assert.Equal("Descartar selecionados (2)", vm.DescartarRotulo);
-        Assert.Contains(view.GetVisualDescendants().OfType<Button>(), b => b.Content as string == "Preparar selecionados (2)");
+        Assert.Contains(view.GetVisualDescendants().OfType<Button>(), b => TextoDo(b) == "Preparar selecionados (2)");
 
-        var reverter = view.GetVisualDescendants().OfType<Button>().First(b => b.Content as string == "Reverter ▾");
+        var reverter = view.FindControl<Button>("Reverter")!;
         reverter.Flyout!.ShowAt(reverter);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         reverter.Flyout.Hide();
@@ -797,6 +797,10 @@ public class UiSmokeTests
 
         Render(view, new object());
     }
+
+    /// <summary>O texto de um botão, com ou sem glifo ao lado.</summary>
+    private static string? TextoDo(Button b) =>
+        b.Content as string ?? (b.Content as StackPanel)?.Children.OfType<TextBlock>().LastOrDefault()?.Text;
 
     internal static EsteiraViewModel EsteiraPopulada()
     {

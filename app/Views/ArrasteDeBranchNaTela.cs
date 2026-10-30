@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using GRepos.Controls;
 using GRepos.Services;
 
 namespace GRepos.Views;
@@ -95,7 +96,14 @@ public static class ArrasteDeBranchNaTela
         var menu = new MenuFlyout();
         foreach (var opcao in opcoes)
         {
-            var item = new MenuItem { Header = opcao.Rotulo, IsEnabled = opcao.Disponivel };
+            var glifo = opcao.Acao switch
+            {
+                AcaoDeArraste.Mesclar => Glifos.Mesclar,
+                AcaoDeArraste.Rebase => Glifos.Rebase,
+                _ => Glifos.PullRequest,
+            };
+            var item = ItemDeMenu.Novo(opcao.Rotulo, glifo, "roxo");
+            item.IsEnabled = opcao.Disponivel;
             if (!opcao.Disponivel)
             {
                 item.Header = $"{opcao.Rotulo} — {opcao.Motivo}";

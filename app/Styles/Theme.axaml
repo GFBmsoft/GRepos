@@ -5,23 +5,6 @@
   <Styles.Resources>
     <ResourceDictionary>
 
-      <!-- ícones da barra de ferramentas, traçados em uma caixa de 24x24 -->
-      <StreamGeometry x:Key="IconFetch">M3,12 A9,9 0 1,1 21,12 A9,9 0 1,1 3,12 M12,6 L12,13 M9,10 L12,13 L15,10 M8,16.5 L16,16.5</StreamGeometry>
-      <StreamGeometry x:Key="IconPull">M3,12 A9,9 0 1,1 21,12 A9,9 0 1,1 3,12 M12,7 L12,16 M8.5,12.5 L12,16 L15.5,12.5</StreamGeometry>
-      <StreamGeometry x:Key="IconPush">M3,12 A9,9 0 1,1 21,12 A9,9 0 1,1 3,12 M12,17 L12,8 M8.5,11.5 L12,8 L15.5,11.5</StreamGeometry>
-      <StreamGeometry x:Key="IconBranch">M7,4 A2,2 0 1,1 7,8 A2,2 0 1,1 7,4 M7,8 L7,16 M7,16 A2,2 0 1,1 7,20 A2,2 0 1,1 7,16 M17,4 A2,2 0 1,1 17,8 A2,2 0 1,1 17,4 M17,8 C17,13 7,11 7,16</StreamGeometry>
-      <StreamGeometry x:Key="IconDesfazer">M8,5 L4,9 L8,13 M4,9 L15,9 A5,5 0 0,1 15,19 L9,19</StreamGeometry>
-      <StreamGeometry x:Key="IconStash">M4,10 L20,10 L20,19 L4,19 Z M4,10 L6.5,5.5 L17.5,5.5 L20,10 M9.5,14 L14.5,14</StreamGeometry>
-      <StreamGeometry x:Key="IconRemoto">M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3 M3.5,9.5 L20.5,9.5 M3.5,14.5 L20.5,14.5 M12,3 C9,6.5 9,17.5 12,21 M12,3 C15,6.5 15,17.5 12,21</StreamGeometry>
-      <StreamGeometry x:Key="IconLocal">M3,6.5 L10,6.5 L12,9 L21,9 L21,19 L3,19 Z</StreamGeometry>
-      <StreamGeometry x:Key="IconTerminal">M3,5 L21,5 L21,19 L3,19 Z M7,9.5 L10,12 L7,14.5 M12,15 L17,15</StreamGeometry>
-      <StreamGeometry x:Key="IconPr">M6,4 A2,2 0 1,1 6,8 A2,2 0 1,1 6,4 M6,8 L6,16 M6,16 A2,2 0 1,1 6,20 A2,2 0 1,1 6,16 M18,16 A2,2 0 1,1 18,20 A2,2 0 1,1 18,16 M18,16 L18,9 A3,3 0 0,0 15,6 L11,6 M13.5,3.5 L11,6 L13.5,8.5</StreamGeometry>
-      <StreamGeometry x:Key="IconIssue">M12,3 A9,9 0 1,1 12,21 A9,9 0 1,1 12,3 M12,10.5 A1.5,1.5 0 1,1 12,13.5 A1.5,1.5 0 1,1 12,10.5</StreamGeometry>
-      <StreamGeometry x:Key="IconRelease">M3,12 L11,4 L20,4 L20,13 L12,21 Z M15.5,7 A1.5,1.5 0 1,1 15.5,10 A1.5,1.5 0 1,1 15.5,7</StreamGeometry>
-      <StreamGeometry x:Key="IconEsteira">M4,17 L9,17 M15,17 L20,17 M12,7 A5,5 0 1,1 12,17 A5,5 0 1,1 12,7 M12,10.5 L12,13.5 M10.5,12 L13.5,12</StreamGeometry>
-      <StreamGeometry x:Key="IconSplit">M3,5 L21,5 L21,19 L3,19 Z M12,5 L12,19</StreamGeometry>
-      <StreamGeometry x:Key="IconWrap">M4,6 L20,6 M4,12 L17,12 A3,3 0 0,1 17,18 L9,18 M12,15 L9,18 L12,21 M4,18 L6,18</StreamGeometry>
-      <StreamGeometry x:Key="IconConfig">M12,9 A3,3 0 1,1 12,15 A3,3 0 1,1 12,9 M12,3 L12,5.5 M12,18.5 L12,21 M3,12 L5.5,12 M18.5,12 L21,12 M5.6,5.6 L7.4,7.4 M16.6,16.6 L18.4,18.4 M18.4,5.6 L16.6,7.4 M7.4,16.6 L5.6,18.4</StreamGeometry>
       <ResourceDictionary.ThemeDictionaries>
 
         <ResourceDictionary x:Key="Dark">
@@ -114,6 +97,10 @@
       </ResourceDictionary.ThemeDictionaries>
 
       <FontFamily x:Key="MonoFont">Cascadia Mono,Consolas,Courier New,monospace</FontFamily>
+      <FontFamily x:Key="GlyphFont">Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol</FontFamily>
+      <!-- fundo e contorno das pílulas azuis; o ApplyTheme troca pela cor de destaque escolhida -->
+      <SolidColorBrush x:Key="AccentFundo" Color="#242F7BE8" />
+      <SolidColorBrush x:Key="AccentContorno" Color="#662F7BE8" />
       <x:Double x:Key="RowHeight">26</x:Double>
     </ResourceDictionary>
   </Styles.Resources>
@@ -149,37 +136,64 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
-  <!-- botões -->
-
+  <!-- botões: tudo em pílula, no padrão do GRemote, do GConv e do GTest. O glifo e o texto na
+       cor cheia, o fundo com a cor diluída (#24) e o contorno meio diluído (#66); com o mouse
+       em cima, o fundo fica no tom do contorno. A cor é uma classe, uma por tipo de ação
+       (a tabela está mais abaixo, depois da barra de ferramentas):
+         azul      ver, abrir, comparar, salvar
+         verde     criar, trocar, preparar, trazer
+         roxo      mexer no histórico: mesclar, rebase, cherry-pick, PR
+         laranja   enviar e o que pede atenção
+         amarelo   marcar e guardar: tag, stash, ignorar
+         vermelho  excluir, descartar, resetar
+         cinza     copiar, configurar, cancelar (é o botão sem classe)
+       Tamanhos: o comum (28), "pilula" (26), "pequena" (22); "redonda" é só o ícone, numa
+       bolinha. As classes antigas continuam valendo: acao = pilula, tiny = pequena,
+       primary = azul, danger = vermelho -->
   <Style Selector="Button">
-    <Setter Property="Background" Value="{DynamicResource BgRaised}" />
+    <Setter Property="Background" Value="#246B7280" />
     <Setter Property="Foreground" Value="{DynamicResource Text}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+    <Setter Property="BorderBrush" Value="#666B7280" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="6" />
-    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="CornerRadius" Value="14" />
+    <Setter Property="Padding" Value="12,0" />
     <Setter Property="Height" Value="28" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="Cursor" Value="Hand" />
   </Style>
 
-  <Style Selector="Button:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource BgHover}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
-    <Setter Property="TextBlock.Foreground" Value="{DynamicResource Text}" />
+  <Style Selector="Button:pointerover /template/ ContentPresenter, Button:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{Binding $parent[Button].BorderBrush}" />
+    <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+    <Setter Property="TextBlock.Foreground" Value="{Binding $parent[Button].Foreground}" />
   </Style>
 
-  <Style Selector="Button.primary">
-    <Setter Property="Background" Value="{DynamicResource Accent}" />
-    <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="FontWeight" Value="SemiBold" />
+  <!-- desligado: a mesma pílula, apagada; sem isto valia o cinza do tema Fluent -->
+  <Style Selector="Button:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
+    <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+    <Setter Property="TextBlock.Foreground" Value="{Binding $parent[Button].Foreground}" />
   </Style>
 
-  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource Accent}" />
-    <Setter Property="TextBlock.Foreground" Value="{DynamicResource OnAccent}" />
+  <Style Selector="Button:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <!-- Só o conteúdo DIRETO do botão (o ">"): o menu que ele abre é descendente lógico dele,
+       e com o seletor de descendente os itens do menu saíam lado a lado, vazando da janela
+       (foi o EV03 do GRemote). Quem confere é Menus_dos_botoes_ficam_em_coluna -->
+  <Style Selector="Button > TextBlock:not(.faint):not(.dim), Button > StackPanel.comIcone > TextBlock:not(.faint):not(.dim)">
+    <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+  </Style>
+
+  <Style Selector="Button > StackPanel.comIcone">
+    <Setter Property="Orientation" Value="Horizontal" />
+    <Setter Property="Spacing" Value="6" />
+  </Style>
+
+  <Style Selector="Button > StackPanel.comIcone > TextBlock">
+    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
   <Style Selector="Button.ghost">
@@ -187,50 +201,48 @@
     <Setter Property="BorderThickness" Value="0" />
   </Style>
 
-  <Style Selector="Button.tiny">
-    <Setter Property="Height" Value="20" />
-    <Setter Property="Padding" Value="6,0" />
+  <Style Selector="Button.pilula, Button.acao">
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="11,0" />
+    <Setter Property="CornerRadius" Value="13" />
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+
+  <Style Selector="Button.pequena, Button.tiny">
+    <Setter Property="Height" Value="22" />
+    <Setter Property="Padding" Value="9,0" />
+    <Setter Property="CornerRadius" Value="11" />
     <Setter Property="FontSize" Value="11" />
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
   </Style>
 
-  <!-- ação em pílula: botão pequeno, mas com corpo — contorno, fundo e cantos redondos —
-       para uma fileira de ações que precisa se destacar do texto em volta -->
-  <Style Selector="Button.acao">
-    <Setter Property="Height" Value="24" />
-    <Setter Property="Padding" Value="12,0" />
-    <Setter Property="FontSize" Value="11.5" />
-    <Setter Property="CornerRadius" Value="12" />
-    <Setter Property="Background" Value="{DynamicResource BgHover}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
-    <Setter Property="BorderThickness" Value="1" />
+  <Style Selector="Button.pequena > StackPanel.comIcone, Button.tiny > StackPanel.comIcone">
+    <Setter Property="Spacing" Value="5" />
   </Style>
 
-  <Style Selector="Button.acao:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="{DynamicResource BgActive}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+  <Style Selector="Button.pequena > StackPanel.comIcone > TextBlock.glifo, Button.tiny > StackPanel.comIcone > TextBlock.glifo">
+    <Setter Property="FontSize" Value="10.5" />
   </Style>
 
-  <!-- a pílula ligada (o Markdown ativo): contorno e texto na cor de destaque -->
-  <Style Selector="Button.acao.destacado">
-    <Setter Property="Background" Value="{DynamicResource BgActive}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
-    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+  <!-- só o ícone, numa bolinha do tamanho da altura -->
+  <Style Selector="Button.redonda">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="CornerRadius" Value="13" />
   </Style>
 
-  <Style Selector="Button.acao.destacado:pointerover /template/ ContentPresenter">
-    <Setter Property="TextBlock.Foreground" Value="{DynamicResource Accent}" />
+  <Style Selector="Button.redonda.pequena, Button.redonda.tiny">
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="22" />
+    <Setter Property="CornerRadius" Value="11" />
   </Style>
 
-  <Style Selector="Button.acao.danger:pointerover /template/ ContentPresenter">
-    <Setter Property="BorderBrush" Value="{DynamicResource Red}" />
+  <Style Selector="Button.redonda > TextBlock.glifo">
+    <Setter Property="HorizontalAlignment" Value="Center" />
   </Style>
 
-  <!-- a opção em vigor entre botões pequenos lado a lado (o lado escolhido num conflito) -->
-  <Style Selector="Button.tiny.destacado">
-    <Setter Property="Background" Value="{DynamicResource BgActive}" />
-    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+  <Style Selector="Button.redonda.pequena > TextBlock.glifo, Button.redonda.tiny > TextBlock.glifo">
+    <Setter Property="FontSize" Value="10.5" />
   </Style>
 
   <!-- pílula da branch na árvore: o contorno é a cor do tipo de branch e precisa
@@ -253,37 +265,39 @@
     <Setter Property="TextBlock.Foreground" Value="{DynamicResource Red}" />
   </Style>
 
-  <!-- barra de ferramentas: ícone grande com legenda embaixo -->
+  <!-- barra de ferramentas: pílula com o glifo e a legenda ao lado. Sem espaço (BarraCompacta)
+       vira bolinha só com o glifo, como a barra da sessão no GRemote -->
   <Style Selector="controls|ToolButton">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="#246B7280" />
+    <Setter Property="BorderBrush" Value="#666B7280" />
+    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Foreground" Value="{DynamicResource TextDim}" />
-    <Setter Property="Height" Value="NaN" />
-    <Setter Property="Padding" Value="8,3,8,2" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Margin" Value="2,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Template">
       <ControlTemplate>
-        <Border Name="Fundo" Background="{TemplateBinding Background}" CornerRadius="6"
-                Padding="{TemplateBinding Padding}">
-          <StackPanel Spacing="2">
-            <Panel Width="21" Height="21" HorizontalAlignment="Center">
-              <Path Data="{TemplateBinding Icon}"
-                    Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"
-                    StrokeJoin="Round" StrokeLineCap="Round"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Stretch="Uniform" Width="18" Height="18" />
-              <Border Name="Selo" IsVisible="False" Background="{DynamicResource Accent}"
-                      CornerRadius="6" MinWidth="13" Height="13" Padding="3,0"
-                      HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-2,-4,0">
-                <TextBlock Text="{TemplateBinding Badge}" FontSize="9" Foreground="{DynamicResource OnAccent}"
-                           FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Border>
-            </Panel>
-            <TextBlock Name="Legenda" Text="{TemplateBinding Label}" FontSize="10"
-                       Foreground="{TemplateBinding Foreground}"
-                       HorizontalAlignment="Center" />
-          </StackPanel>
-        </Border>
+        <Panel>
+          <Border Name="Fundo" Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="13"
+                  Padding="{TemplateBinding Padding}">
+            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+              <TextBlock Classes="glifo" Text="{TemplateBinding Glifo}" FontSize="13"
+                         Foreground="{TemplateBinding Foreground}" />
+              <TextBlock Name="Legenda" Text="{TemplateBinding Label}" FontSize="12"
+                         Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <Border Name="Selo" IsVisible="False" Background="{DynamicResource Accent}"
+                  CornerRadius="7" MinWidth="14" Height="14" Padding="3,0"
+                  HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-3,0">
+            <TextBlock Text="{TemplateBinding Badge}" FontSize="9" Foreground="{DynamicResource OnAccent}"
+                       FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+        </Panel>
       </ControlTemplate>
     </Setter>
   </Style>
@@ -292,26 +306,115 @@
     <Setter Property="IsVisible" Value="True" />
   </Style>
 
-  <Style Selector="controls|ToolButton:pointerover /template/ Border#Fundo">
-    <Setter Property="Background" Value="{DynamicResource BgHover}" />
-  </Style>
-
-  <Style Selector="controls|ToolButton:pointerover">
-    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
-  </Style>
-
-  <!-- botão em evidência (ex.: branch fora da principal) -->
-  <Style Selector="controls|ToolButton.destacado">
-    <Setter Property="Foreground" Value="{DynamicResource Orange}" />
-  </Style>
-
-  <Style Selector="controls|ToolButton.destacado /template/ Border#Fundo">
-    <Setter Property="Background" Value="{DynamicResource BgHover}" />
+  <Style Selector="controls|ToolButton:pointerover /template/ Border#Fundo, controls|ToolButton:pressed /template/ Border#Fundo">
+    <Setter Property="Background" Value="{Binding $parent[Button].BorderBrush}" />
   </Style>
 
   <Style Selector="controls|ToolButton:disabled">
-    <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
-    <Setter Property="Opacity" Value="0.55" />
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <!-- as cores das pílulas: Foreground no tema, fundo #24 e contorno #66 da paleta do GTerm,
+       a mesma do GRemote. O azul sai da cor de destaque, que o usuário escolhe -->
+  <Style Selector=":is(Button).azul, Button.primary">
+    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+    <Setter Property="Background" Value="{DynamicResource AccentFundo}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentContorno}" />
+  </Style>
+  <Style Selector=":is(Button).verde">
+    <Setter Property="Foreground" Value="{DynamicResource Green}" />
+    <Setter Property="Background" Value="#241F9D55" />
+    <Setter Property="BorderBrush" Value="#661F9D55" />
+  </Style>
+  <Style Selector=":is(Button).roxo">
+    <Setter Property="Foreground" Value="{DynamicResource Purple}" />
+    <Setter Property="Background" Value="#248B5CF6" />
+    <Setter Property="BorderBrush" Value="#668B5CF6" />
+  </Style>
+  <Style Selector=":is(Button).laranja">
+    <Setter Property="Foreground" Value="{DynamicResource Orange}" />
+    <Setter Property="Background" Value="#24E07B00" />
+    <Setter Property="BorderBrush" Value="#66E07B00" />
+  </Style>
+  <Style Selector=":is(Button).amarelo">
+    <Setter Property="Foreground" Value="{DynamicResource Yellow}" />
+    <Setter Property="Background" Value="#24B08500" />
+    <Setter Property="BorderBrush" Value="#66B08500" />
+  </Style>
+  <Style Selector=":is(Button).vermelho, Button.danger">
+    <Setter Property="Foreground" Value="{DynamicResource Red}" />
+    <Setter Property="Background" Value="#24D93F3F" />
+    <Setter Property="BorderBrush" Value="#66D93F3F" />
+  </Style>
+  <Style Selector=":is(Button).cinza">
+    <Setter Property="Foreground" Value="{DynamicResource TextDim}" />
+    <Setter Property="Background" Value="#246B7280" />
+    <Setter Property="BorderBrush" Value="#666B7280" />
+  </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- a pílula ligada (o Markdown ativo, o lado escolhido num conflito) -->
+  <Style Selector="Button.destacado">
+    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+    <Setter Property="Background" Value="{DynamicResource AccentContorno}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <!-- botão da barra em evidência (branch fora da principal, terminal aberto) -->
+  <Style Selector="controls|ToolButton.destacado">
+    <Setter Property="Foreground" Value="{DynamicResource Orange}" />
+    <Setter Property="Background" Value="#24E07B00" />
+    <Setter Property="BorderBrush" Value="#66E07B00" />
+  </Style>
+
+  <!-- glifo solto, nos botões e nos menus; as classes de cor servem para ele também -->
+  <Style Selector="TextBlock.glifo">
+    <Setter Property="FontFamily" Value="{DynamicResource GlyphFont}" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextTrimming" Value="None" />
+  </Style>
+  <Style Selector="TextBlock.azul"><Setter Property="Foreground" Value="{DynamicResource Accent}" /></Style>
+  <Style Selector="TextBlock.verde"><Setter Property="Foreground" Value="{DynamicResource Green}" /></Style>
+  <Style Selector="TextBlock.roxo"><Setter Property="Foreground" Value="{DynamicResource Purple}" /></Style>
+  <Style Selector="TextBlock.laranja"><Setter Property="Foreground" Value="{DynamicResource Orange}" /></Style>
+  <Style Selector="TextBlock.amarelo"><Setter Property="Foreground" Value="{DynamicResource Yellow}" /></Style>
+  <Style Selector="TextBlock.vermelho"><Setter Property="Foreground" Value="{DynamicResource Red}" /></Style>
+  <Style Selector="TextBlock.cinza"><Setter Property="Foreground" Value="{DynamicResource TextDim}" /></Style>
+
+  <!-- menus: cartão arredondado, item em pílula e o glifo na cor da ação (ItemDeMenu) -->
+  <Style Selector="MenuFlyoutPresenter, ContextMenu">
+    <Setter Property="Background" Value="{DynamicResource BgRaised}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="5" />
+  </Style>
+
+  <Style Selector="MenuItem">
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Padding" Value="9,6" />
+    <Setter Property="FontSize" Value="12.5" />
+  </Style>
+
+  <Style Selector="MenuItem:pointerover /template/ Border#PART_LayoutRoot, MenuItem:selected /template/ Border#PART_LayoutRoot">
+    <Setter Property="Background" Value="{DynamicResource BgHover}" />
+  </Style>
+
+  <Style Selector="MenuItem:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
+  <Style Selector="MenuItem TextBlock.glifo">
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+
+  <Style Selector="MenuFlyoutPresenter Separator, ContextMenu Separator">
+    <Setter Property="Background" Value="{DynamicResource BorderSoft}" />
+    <Setter Property="Margin" Value="4,4" />
   </Style>
 
   <!-- nome e pasta do repositório na barra: com teto, senão um nome comprido empurra os
@@ -320,63 +423,25 @@
     <Setter Property="MaxWidth" Value="200" />
   </Style>
 
-  <!-- barra que não cabe na janela: só os ícones, e a legenda fica na dica (BarraCompacta).
-       A branch mantém o nome, que é informação e não só rótulo. O resto aperta para a barra
-       caber na janela mínima, que é a do Snap em meio monitor -->
-  <Style Selector="Border.barraCompacta controls|ToolButton:not(.semCompactar) /template/ TextBlock#Legenda">
+  <!-- barra que não cabe na janela: só as bolinhas, e a legenda fica na dica (BarraCompacta).
+       A branch mantém o nome, que é informação e não só rótulo. "soIcone" é o botão que nunca
+       tem legenda: abrir fora daqui e exibir o diff, a parte menos usada da barra. Com a
+       legenda neles, a barra cheia não sobrava vão para o aviso na largura padrão -->
+  <Style Selector="controls|ToolButton.soIcone /template/ TextBlock#Legenda, Border.barraCompacta controls|ToolButton:not(.semCompactar) /template/ TextBlock#Legenda">
     <Setter Property="IsVisible" Value="False" />
   </Style>
 
+  <Style Selector="controls|ToolButton.soIcone, Border.barraCompacta controls|ToolButton:not(.semCompactar)">
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Width" Value="26" />
+  </Style>
+
   <Style Selector="Border.barraCompacta controls|ToolButton">
-    <Setter Property="Padding" Value="5,3,5,2" />
+    <Setter Property="Margin" Value="1,0" />
   </Style>
 
   <Style Selector="Border.barraCompacta TextBlock.nomeNaBarra">
     <Setter Property="MaxWidth" Value="100" />
-  </Style>
-
-  <!-- botão só de ícone: a legenda vive no ToolTip -->
-  <!-- botão de ícone com a cor da paleta como fundo suave, no tom das pílulas de grupo.
-       A cor vem de um Border.tinta dentro do botão: o fundo fica translúcido e o
-       glifo, na cor cheia -->
-  <Style Selector="Button.colorido">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="Padding" Value="0" />
-    <Setter Property="Width" Value="28" />
-    <Setter Property="Height" Value="28" />
-    <Setter Property="Margin" Value="4,0,0,0" />
-    <Setter Property="Cursor" Value="Hand" />
-  </Style>
-  <!-- o fundo ocupa o botão inteiro; sem tamanho próprio ficava do tamanho do glifo -->
-  <Style Selector="Button.colorido Panel.fundo">
-    <Setter Property="Width" Value="28" />
-    <Setter Property="Height" Value="28" />
-  </Style>
-  <Style Selector="Button.colorido:pointerover /template/ ContentPresenter">
-    <Setter Property="Background" Value="Transparent" />
-  </Style>
-  <Style Selector="Button.colorido:pressed /template/ ContentPresenter">
-    <Setter Property="Background" Value="Transparent" />
-  </Style>
-  <Style Selector="Button.colorido Border.tinta">
-    <Setter Property="CornerRadius" Value="7" />
-    <Setter Property="Opacity" Value="0.16" />
-  </Style>
-  <Style Selector="Button.colorido:pointerover Border.tinta">
-    <Setter Property="Opacity" Value="0.28" />
-  </Style>
-  <Style Selector="Button.colorido:pressed Border.tinta">
-    <Setter Property="Opacity" Value="0.4" />
-  </Style>
-  <Style Selector="Button.colorido:disabled">
-    <Setter Property="Opacity" Value="0.45" />
-  </Style>
-  <Style Selector="Button.colorido TextBlock.glifo">
-    <Setter Property="FontFamily" Value="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol" />
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="HorizontalAlignment" Value="Center" />
-    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
   <Style Selector="Button.icon">

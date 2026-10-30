@@ -478,6 +478,12 @@ public class EncavaladosTests
                 {
                     Montar(janela, largura, altura);
                     problemas.AddRange(Encavalados.Procurar(janela).Select(p => $"Principal {largura:0}×{altura:0} → {onde}: {p}"));
+                    if (Environment.GetEnvironmentVariable("GREPOS_SHOTS") is { } fotos)
+                    {
+                        System.IO.Directory.CreateDirectory(fotos);
+                        using var foto = janela.CaptureRenderedFrame();
+                        foto?.Save(System.IO.Path.Combine(fotos, $"principal-{tamanho}-{onde}.png"));
+                    }
                 }
                 Olhar("sem seleção");
 
@@ -607,7 +613,7 @@ public class EncavaladosTests
                 return barra.Classes.Contains(BarraCompacta.Classe);
             }
 
-            var subindo = Enumerable.Range(1300, 200).ToList();
+            var subindo = Enumerable.Range(1200, 500).ToList();
             foreach (var branch in new[] { "main", "feat/cartaopix" })
             {
                 await Git(dir, "checkout", "-q", "-B", branch);
@@ -626,7 +632,7 @@ public class EncavaladosTests
                         Assert.True(modo == Passo(largura), $"{branch}, Esteira {ci}: mudou de modo sozinha a {largura}");
                         modos.Add(modo);
                     }
-                    Assert.True(modos.Count == 2, $"{branch}, Esteira {ci}: a varredura não cruzou o limite");
+                    Assert.True(modos.Count == 2, $"{branch}, Esteira {ci}: a varredura não cruzou o limite (modos: {string.Join(",", modos)})");
                 }
             }
 

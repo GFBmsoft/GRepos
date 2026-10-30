@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GRepos.ViewModels"
+             xmlns:controls="using:GRepos.Controls"
              xmlns:local="using:GRepos"
              x:Class="GRepos.Views.PairView"
              x:DataType="vm:PairViewModel">
@@ -11,16 +12,31 @@
             BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto">
         <!-- trocar os dois lados para a mesma branch, ou enviar os dois, numa operação só -->
-        <Button Grid.Column="5" Content="Em lote…" Margin="6,0,0,0"
+        <Button Grid.Column="5" Classes="pilula roxo" Margin="6,0,0,0"
                 IsEnabled="{Binding !Busy}" Command="{Binding EmLoteCommand}"
-                ToolTip.Tip="Obter, puxar, enviar ou trocar de branch nos dois repositórios do par" />
+                ToolTip.Tip="Obter, puxar, enviar ou trocar de branch nos dois repositórios do par">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Lote}" />
+            <TextBlock Text="Em lote…" />
+          </StackPanel>
+        </Button>
         <TextBlock Grid.Column="0" Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" />
         <TextBlock Grid.Column="1" Text="par Origem × Destino" Classes="faint" Margin="10,0"
                    VerticalAlignment="Center" />
-        <Button Grid.Column="3" Content="Fetch nos dois" Margin="0,0,6,0"
-                IsEnabled="{Binding !Busy}" Command="{Binding FetchBothCommand}" />
-        <Button Grid.Column="4" Content="Pull nos dois"
-                IsEnabled="{Binding !Busy}" Command="{Binding PullBothCommand}" />
+        <Button Grid.Column="3" Classes="pilula azul" Margin="0,0,6,0"
+                IsEnabled="{Binding !Busy}" Command="{Binding FetchBothCommand}">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Obter}" />
+            <TextBlock Text="Fetch nos dois" />
+          </StackPanel>
+        </Button>
+        <Button Grid.Column="4" Classes="pilula verde"
+                IsEnabled="{Binding !Busy}" Command="{Binding PullBothCommand}">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Puxar}" />
+            <TextBlock Text="Pull nos dois" />
+          </StackPanel>
+        </Button>
       </Grid>
     </Border>
 

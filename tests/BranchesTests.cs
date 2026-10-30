@@ -55,6 +55,127 @@ public class BranchesViewModelTests
     private static BranchesViewModel Vm(string dir) =>
         new(new Repo { Id = "r1", Name = "BM2Maga", Path = dir }, new MainViewModel(new FakeDialogs()));
 
+    /// <summary>Um commit a mais em feat/SincEstoques, que só existe nela.</summary>
+    private static async Task CommitNaBranch(string dir)
+    {
+        await GitService.RunAsync(dir, new[] { "checkout", "-q", "feat/SincEstoques" });
+        File.WriteAllText(Path.Combine(dir, "a.txt"), "dois\n");
+        await GitService.RunAsync(dir, new[] { "commit", "-qam", "só nesta branch" });
+        await GitService.RunAsync(dir, new[] { "checkout", "-q", "main" });
+    }
+
+    private static BranchItemViewModel Local(string nome, string upstream = "", TipoBranch tipo = TipoBranch.Feature) =>
+        new() { Branch = new Branch { Name = nome, Upstream = upstream }, Tipo = tipo };
+
+    [Fact]
+    public async Task Excluir_so_acontece_depois_de_confirmar()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            var perguntas = new System.Collections.Generic.List<string>();
+            var resposta = false;
+            var vm = Vm(dir);
+            vm.ConfirmarExclusao = (titulo, mensagem) =>
+            {
+                perguntas.Add(titulo + ": " + mensagem);
+                return Task.FromResult(resposta);
+            };
+            await vm.CarregarAsync();
+            var item = vm.Locais.First(i => i.Name == "feat/SincEstoques");
+
+            await vm.ExcluirCommand.ExecuteAsync(item);
+            Assert.Single(perguntas);
+            Assert.Contains(vm.Locais, i => i.Name == "feat/SincEstoques");
+
+            resposta = true;
+            await vm.ExcluirCommand.ExecuteAsync(item);
+            Assert.False(vm.TemErro, vm.Erro);
+            Assert.DoesNotContain(vm.Locais, i => i.Name == "feat/SincEstoques");
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
+    public async Task Sem_confirmacao_disponivel_nada_e_excluido()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            var vm = Vm(dir);
+            await vm.CarregarAsync();
+
+            await vm.ExcluirCommand.ExecuteAsync(vm.Locais.First(i => i.Name == "feat/SincEstoques"));
+
+            await vm.CarregarAsync();
+            Assert.Contains(vm.Locais, i => i.Name == "feat/SincEstoques");
+        }
+        finally { Limpar(dir); }
+    }
+
+    /// <summary>O "-d" do git recusaria: o aviso é nosso, e confirmado ela sai com o commit.</summary>
+    [Fact]
+    public async Task Excluir_avisa_do_commit_que_so_existe_na_branch_e_apaga_mesmo_assim()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            await CommitNaBranch(dir);
+
+            var aviso = "";
+            var vm = Vm(dir);
+            vm.ConfirmarExclusao = (_, mensagem) =>
+            {
+                aviso = mensagem;
+                return Task.FromResult(true);
+            };
+            await vm.CarregarAsync();
+
+            await vm.ExcluirCommand.ExecuteAsync(vm.Locais.First(i => i.Name == "feat/SincEstoques"));
+
+            Assert.Contains("1 commit que não está em nenhuma outra branch", aviso);
+            Assert.False(vm.TemErro, vm.Erro);
+            Assert.DoesNotContain(vm.Locais, i => i.Name == "feat/SincEstoques");
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
+    public async Task Commit_que_esta_em_outra_branch_nao_conta_como_perdido()
+    {
+        var dir = await RepoComBranches();
+        try
+        {
+            Assert.Equal(0, await GitService.CommitsSoNaBranchAsync(dir, "feat/SincEstoques"));
+
+            await CommitNaBranch(dir);
+            Assert.Equal(1, await GitService.CommitsSoNaBranchAsync(dir, "feat/SincEstoques"));
+
+            // a salvo em outra branch, mesmo sem estar mesclado na atual
+            await GitService.RunAsync(dir, new[] { "branch", "copia", "feat/SincEstoques" });
+            Assert.Equal(0, await GitService.CommitsSoNaBranchAsync(dir, "feat/SincEstoques"));
+        }
+        finally { Limpar(dir); }
+    }
+
+    [Fact]
+    public void So_branch_local_que_nao_e_a_atual_pode_ser_excluida()
+    {
+        Assert.True(Local("feat/x").PodeExcluir);
+        Assert.False(new BranchItemViewModel { Branch = new Branch { Name = "main", IsHead = true } }.PodeExcluir);
+        Assert.False(new BranchItemViewModel { Branch = new Branch { Name = "origin/feat/x", IsRemote = true } }.PodeExcluir);
+    }
+
+    [Fact]
+    public void Aviso_de_exclusao_diz_o_que_acontece()
+    {
+        Assert.Contains("continuam em outras branches", BranchesViewModel.AvisoDeExclusao(Local("feat/x"), 0));
+        Assert.Contains("3 commits que não estão", BranchesViewModel.AvisoDeExclusao(Local("feat/x"), 3));
+        Assert.Contains("branch principal", BranchesViewModel.AvisoDeExclusao(Local("develop", tipo: TipoBranch.Develop), 0));
+        Assert.Contains("origin/feat/x não é apagada", BranchesViewModel.AvisoDeExclusao(Local("feat/x", "origin/feat/x"), 0));
+        Assert.DoesNotContain("não é apagada", BranchesViewModel.AvisoDeExclusao(Local("feat/x"), 0));
+    }
+
     [Fact]
     public async Task Separa_locais_de_remotas_com_a_atual_no_topo()
     {

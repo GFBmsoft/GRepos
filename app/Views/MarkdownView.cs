@@ -215,13 +215,14 @@ public class MarkdownView : UserControl
     {
         if (_textos.Count == 0 || e.Source is not Control onde) return;
 
-        var copiar = new MenuItem { Header = "Copiar", IsEnabled = TextoSelecionado().Length > 0 };
+        var copiar = ItemDeMenu.Novo("Copiar", GRepos.Controls.Glifos.Copiar, "cinza");
+        copiar.IsEnabled = TextoSelecionado().Length > 0;
         copiar.Click += async (_, _) => await CopiarSelecaoAsync();
 
-        var tudo = new MenuItem { Header = "Selecionar tudo" };
+        var tudo = ItemDeMenu.Novo("Selecionar tudo", GRepos.Controls.Glifos.SelecionarTudo, "cinza");
         tudo.Click += (_, _) => SelecionarTudo();
 
-        var copiarTudo = new MenuItem { Header = "Copiar tudo (formatado)" };
+        var copiarTudo = ItemDeMenu.Novo("Copiar tudo (formatado)", GRepos.Controls.Glifos.Copiar, "cinza");
         copiarTudo.Click += async (_, _) =>
         {
             SelecionarTudo();

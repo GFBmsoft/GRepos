@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:GRepos.ViewModels"
+        xmlns:controls="using:GRepos.Controls"
         xmlns:local="using:GRepos"
         x:Class="GRepos.Views.BranchesWindow"
         x:DataType="vm:BranchesViewModel"
@@ -8,12 +9,26 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Bg}">
 
+  <Window.Styles>
+    <!-- as ações da linha só aparecem nela: com dezenas de branches, sempre à vista era ruído -->
+    <Style Selector="StackPanel.acoesDaLinha">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="ListBoxItem:pointerover StackPanel.acoesDaLinha">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="Grid.clicavel">
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+  </Window.Styles>
+
   <Window.Resources>
     <!-- item de branch: o mesmo desenho nas locais e nas remotas, para alinhar as colunas.
-         O comando vem da janela: dentro do grupo, o DataContext do ListBox é o grupo. -->
+         O comando vem da janela: dentro do grupo, o DataContext do ListBox é o grupo. Clicar na
+         linha troca de branch (BranchesWindow.axaml.cs); os botões são para quem procura -->
     <DataTemplate x:Key="ItemBranch" DataType="vm:BranchItemViewModel">
-      <Grid ColumnDefinitions="30,3*,1.7*,3*,76" Height="28" Margin="8,0" Background="Transparent"
-            ToolTip.Tip="{Binding Tooltip}">
+      <Grid ColumnDefinitions="30,3*,1.7*,3*,100" Height="28" Margin="8,0" Background="Transparent"
+            Classes.clicavel="{Binding CanCheckout}" ToolTip.Tip="{Binding Tooltip}">
         <Ellipse Grid.Column="0" Width="7" Height="7" VerticalAlignment="Center" HorizontalAlignment="Right"
                  Margin="0,0,6,0" IsVisible="{Binding IsHead}"
                  Fill="{Binding NameColor, Converter={x:Static local:Converters.ResourceBrush}}" />
@@ -33,12 +48,23 @@
         <TextBlock Grid.Column="3" Text="{Binding Subject}" Classes="faint" FontSize="11.5"
                    VerticalAlignment="Center" Margin="10,0"
                    TextTrimming="CharacterEllipsis" />
-        <Button Grid.Column="4" Content="Trocar" Classes="tiny" VerticalAlignment="Center"
-                HorizontalAlignment="Right" BorderThickness="1"
-                BorderBrush="{DynamicResource Border}"
-                IsVisible="{Binding CanCheckout}"
-                Command="{Binding $parent[Window].DataContext.TrocarCommand}"
-                CommandParameter="{Binding}" />
+        <StackPanel Grid.Column="4" Classes="acoesDaLinha" Orientation="Horizontal" Spacing="4"
+                    VerticalAlignment="Center" HorizontalAlignment="Right">
+          <Button Classes="pequena verde" IsVisible="{Binding CanCheckout}"
+                  Command="{Binding $parent[Window].DataContext.TrocarCommand}"
+                  CommandParameter="{Binding}">
+            <StackPanel Classes="comIcone">
+              <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Trocar}" />
+              <TextBlock Text="Trocar" />
+            </StackPanel>
+          </Button>
+          <Button Classes="pequena redonda vermelho" IsVisible="{Binding PodeExcluir}"
+                  ToolTip.Tip="Excluir esta branch local"
+                  Command="{Binding $parent[Window].DataContext.ExcluirCommand}"
+                  CommandParameter="{Binding}">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+          </Button>
+        </StackPanel>
       </Grid>
     </DataTemplate>
 
@@ -73,25 +99,48 @@
                Margin="0,0,0,12" />
 
     <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" Margin="0,0,0,10">
-      <Button Grid.Column="4" Content="Pastas de trabalho…" Margin="6,0,0,0" Click="AbrirWorktrees"
-              ToolTip.Tip="Worktrees: abrir outra branch em outra pasta, sem sair desta" />
+      <!-- só o ícone: com a legenda, na largura mínima sobrava pouco para o campo de nova branch -->
+      <Button Grid.Column="4" Classes="redonda azul" Margin="6,0,0,0" Click="AbrirWorktrees"
+              VerticalAlignment="Center"
+              ToolTip.Tip="Pastas de trabalho (worktrees): abrir outra branch em outra pasta, sem sair desta">
+        <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.PastaAberta}" />
+      </Button>
       <TextBox Grid.Column="0" Watermark="Nova branch a partir do HEAD (ex.: feat/estoque)"
                Text="{Binding NovaBranch}" />
-      <Button Grid.Column="1" Classes="primary" Content="Criar e trocar" Margin="6,0,0,0"
-              IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}" />
+      <Button Grid.Column="1" Classes="primary verde" Margin="6,0,0,0"
+              IsEnabled="{Binding PodeCriar}" Command="{Binding CriarCommand}">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
+          <TextBlock Text="Criar e trocar" />
+        </StackPanel>
+      </Button>
       <!-- git-flow: começar e terminar feature/fix/release sem lembrar a ordem dos merges -->
-      <Button Grid.Column="2" Content="Git-flow ▾" Margin="6,0,0,0" IsEnabled="{Binding !Busy}"
+      <Button Grid.Column="2" Classes="roxo" Margin="6,0,0,0" IsEnabled="{Binding !Busy}"
               ToolTip.Tip="Nova feature, fix ou release; finalizar a branch atual">
+        <StackPanel Classes="comIcone">
+          <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.GitFlow}" />
+          <TextBlock Text="Git-flow ▾" />
+        </StackPanel>
         <Button.Flyout>
           <MenuFlyout Placement="BottomEdgeAlignedRight">
-            <MenuItem Header="{Binding NovaFeatureRotulo}" Command="{Binding NovaFeatureCommand}" />
-            <MenuItem Header="{Binding NovoFixRotulo}" Command="{Binding NovoFixCommand}" />
-            <MenuItem Header="{Binding NovaReleaseRotulo}" Command="{Binding NovaReleaseCommand}" />
+            <MenuItem Header="{Binding NovaFeatureRotulo}" Command="{Binding NovaFeatureCommand}">
+              <MenuItem.Icon><TextBlock Classes="glifo verde" Text="{x:Static controls:Glifos.Adicionar}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="{Binding NovoFixRotulo}" Command="{Binding NovoFixCommand}">
+              <MenuItem.Icon><TextBlock Classes="glifo laranja" Text="{x:Static controls:Glifos.Corrigir}" /></MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="{Binding NovaReleaseRotulo}" Command="{Binding NovaReleaseCommand}">
+              <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Release}" /></MenuItem.Icon>
+            </MenuItem>
             <Separator />
             <MenuItem Header="{Binding FinalizarRotulo}" Command="{Binding FinalizarCommand}"
-                      IsEnabled="{Binding PodeFinalizar}" />
+                      IsEnabled="{Binding PodeFinalizar}">
+              <MenuItem.Icon><TextBlock Classes="glifo verde" Text="{x:Static controls:Glifos.Finalizar}" /></MenuItem.Icon>
+            </MenuItem>
             <Separator />
-            <MenuItem Header="{Binding ConfigurarRotulo}" Command="{Binding ConfigurarFluxoCommand}" />
+            <MenuItem Header="{Binding ConfigurarRotulo}" Command="{Binding ConfigurarFluxoCommand}">
+              <MenuItem.Icon><TextBlock Classes="glifo cinza" Text="{x:Static controls:Glifos.Ajustes}" /></MenuItem.Icon>
+            </MenuItem>
           </MenuFlyout>
         </Button.Flyout>
       </Button>
@@ -164,7 +213,7 @@
       </StackPanel>
       <TextBlock Grid.Column="1" Classes="faint" FontSize="11" VerticalAlignment="Center"
                  HorizontalAlignment="Right" Margin="12,0"
-                 Text="arraste uma branch sobre outra (ou clique direito) para mesclar, rebase ou PR" />
+                 Text="clique para trocar; arraste sobre outra (ou clique direito) para mesclar, rebase ou PR" />
       <Button Grid.Column="2" Content="Fechar" MinWidth="88" Click="Fechar" />
     </Grid>
   </Grid>

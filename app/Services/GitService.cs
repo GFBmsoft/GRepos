@@ -1193,6 +1193,19 @@ public static class GitService
     public static Task<string> CreateBranchAsync(string repo, string name, bool checkout) =>
         checkout ? Run(repo, "checkout", "-b", name) : Run(repo, "branch", name);
 
+    /// <summary>
+    /// Quantos commits só essa branch alcança: nenhuma outra branch, tag ou remota os tem.
+    /// É o que se perde ao excluí-la. Mais fiel que o "-d" do git, que só olha a branch atual
+    /// e o upstream, e reclamaria de commit que está a salvo em outra branch.
+    /// </summary>
+    public static async Task<int> CommitsSoNaBranchAsync(string repo, string branch) =>
+        int.Parse((await Run(repo, "rev-list", "--count", $"refs/heads/{branch}",
+            "--not", $"--exclude=refs/heads/{branch}", "--all")).Trim());
+
+    /// <summary>Com "-D": quem chega aqui já viu o que se perde (<see cref="CommitsSoNaBranchAsync"/>).</summary>
+    public static Task<string> ExcluirBranchAsync(string repo, string branch) =>
+        Run(repo, "branch", "-D", "--", branch);
+
     // ----------------------------------------------------------------- stash
 
     public static async Task<List<StashEntry>> StashesAsync(string repo)

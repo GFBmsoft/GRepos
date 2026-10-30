@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:GRepos.ViewModels"
+             xmlns:controls="using:GRepos.Controls"
              xmlns:views="using:GRepos.Views"
              xmlns:local="using:GRepos"
              x:Class="GRepos.Views.ChangesView"
@@ -56,9 +57,14 @@
               <TextBlock Classes="faint" FontSize="10" Margin="6,0,6,0"
                          VerticalAlignment="Center" Text="{Binding Staged.Count}" />
             </StackPanel>
-            <Button Grid.Column="1" Classes="acao" Content="{Binding RemoverRotulo}" Margin="6,0,0,0"
+            <Button Grid.Column="1" Classes="pilula" Margin="6,0,0,0"
                     ToolTip.Tip="Tira do commit. Ctrl ou Shift + clique marcam vários arquivos."
-                    Command="{Binding UnstageAllCommand}" />
+                    Command="{Binding UnstageAllCommand}">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Tirar}" />
+                <TextBlock Text="{Binding RemoverRotulo}" />
+              </StackPanel>
+            </Button>
           </Grid>
         </Border>
 
@@ -67,9 +73,15 @@
                  ItemsSource="{Binding Staged}" SelectedItem="{Binding SelectedStaged}">
           <ListBox.ContextMenu>
             <ContextMenu>
-              <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
-              <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
-              <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}" />
+              <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Historico}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Autoria}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Abrir}" /></MenuItem.Icon>
+              </MenuItem>
             </ContextMenu>
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
@@ -80,9 +92,11 @@
                            Foreground="{Binding CodeColor, Converter={x:Static local:Converters.ResourceBrush}}" />
                 <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center"
                            FontSize="12" Margin="6,0" />
-                <Button Grid.Column="2" Classes="tiny" Content="&#x2212;" ToolTip.Tip="Remover do commit"
+                <Button Grid.Column="2" Classes="pequena redonda" ToolTip.Tip="Remover do commit"
                         Command="{Binding $parent[ListBox].DataContext.UnstageCommand}"
-                        CommandParameter="{Binding}" />
+                        CommandParameter="{Binding}">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Tirar}" />
+                </Button>
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>
@@ -102,16 +116,28 @@
             <TextBlock Grid.Column="1" Classes="faint" FontSize="10" Margin="6,0,0,0"
                        VerticalAlignment="Center" Text="{Binding Unstaged.Count}" />
             <!-- ignorar não descarta nada: só tira da lista, e só nesta máquina -->
-            <Button Grid.Column="2" Classes="tiny" Content="Ignorar ▾" HorizontalAlignment="Right"
+            <Button Grid.Column="2" Classes="pequena amarelo" HorizontalAlignment="Right"
                     ToolTip.Tip="Tira arquivos da lista de alterações só neste computador, sem mexer no repositório">
+              <StackPanel Classes="comIcone">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Ignorar}" />
+                <TextBlock Text="Ignorar ▾" />
+              </StackPanel>
               <Button.Flyout>
                 <MenuFlyout Placement="BottomEdgeAlignedRight">
-                  <MenuItem Header="{Binding IgnorarRotulo}" Command="{Binding IgnorarTodosCommand}" />
-                  <MenuItem Header="Ignorar o arquivo selecionado" Command="{Binding IgnorarArquivoCommand}" />
+                  <MenuItem Header="{Binding IgnorarRotulo}" Command="{Binding IgnorarTodosCommand}">
+                    <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Ignorar}" /></MenuItem.Icon>
+                  </MenuItem>
+                  <MenuItem Header="Ignorar o arquivo selecionado" Command="{Binding IgnorarArquivoCommand}">
+                    <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Ignorar}" /></MenuItem.Icon>
+                  </MenuItem>
                   <MenuItem Header="Adicionar o selecionado ao .gitignore"
-                            Command="{Binding AdicionarAoGitignoreCommand}" />
+                            Command="{Binding AdicionarAoGitignoreCommand}">
+                    <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Documento}" /></MenuItem.Icon>
+                  </MenuItem>
                   <Separator />
-                  <MenuItem Header="{Binding IgnoradosRotulo}" Command="{Binding VerIgnoradosCommand}" />
+                  <MenuItem Header="{Binding IgnoradosRotulo}" Command="{Binding VerIgnoradosCommand}">
+                    <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Ver}" /></MenuItem.Icon>
+                  </MenuItem>
                 </MenuFlyout>
               </Button.Flyout>
             </Button>
@@ -120,12 +146,22 @@
                  sair por cima do painel de diferenças -->
             <WrapPanel Grid.Row="1" Grid.ColumnSpan="3" HorizontalAlignment="Right" Margin="0,6,0,0"
                        LineSpacing="4">
-              <Button Classes="acao danger" Content="{Binding DescartarRotulo}" Margin="6,0,0,0"
+              <Button Classes="pilula vermelho" Margin="6,0,0,0"
                       ToolTip.Tip="Desfaz as alterações locais (o que está preparado fica). Pede confirmação."
-                      Command="{Binding DiscardAllCommand}" />
-              <Button Classes="acao" Content="{Binding PrepararRotulo}" Margin="6,0,0,0"
+                      Command="{Binding DiscardAllCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Excluir}" />
+                  <TextBlock Text="{Binding DescartarRotulo}" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula verde" Margin="6,0,0,0"
                       ToolTip.Tip="Prepara para commit. Ctrl ou Shift + clique marcam vários arquivos."
-                      Command="{Binding StageAllCommand}" />
+                      Command="{Binding StageAllCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Preparar}" />
+                  <TextBlock Text="{Binding PrepararRotulo}" />
+                </StackPanel>
+              </Button>
             </WrapPanel>
           </Grid>
         </Border>
@@ -134,12 +170,22 @@
                  ItemsSource="{Binding Unstaged}" SelectedItem="{Binding SelectedUnstaged}">
           <ListBox.ContextMenu>
             <ContextMenu>
-              <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
-              <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
-              <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}" />
+              <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Historico}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Autoria}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Abrir}" /></MenuItem.Icon>
+              </MenuItem>
               <Separator />
-              <MenuItem Header="Ignorar alterações (só nesta máquina)" Command="{Binding IgnorarArquivoCommand}" />
-              <MenuItem Header="Adicionar ao .gitignore" Command="{Binding AdicionarAoGitignoreCommand}" />
+              <MenuItem Header="Ignorar alterações (só nesta máquina)" Command="{Binding IgnorarArquivoCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Ignorar}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Adicionar ao .gitignore" Command="{Binding AdicionarAoGitignoreCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Documento}" /></MenuItem.Icon>
+              </MenuItem>
             </ContextMenu>
           </ListBox.ContextMenu>
           <ListBox.ItemTemplate>
@@ -150,33 +196,39 @@
                            Foreground="{Binding CodeColor, Converter={x:Static local:Converters.ResourceBrush}}" />
                 <TextBlock Grid.Column="1" Text="{Binding Path}" VerticalAlignment="Center"
                            FontSize="12" Margin="6,0" TextTrimming="CharacterEllipsis" />
-                <Button Grid.Column="2" Classes="tiny danger" Content="&#x21BA;" ToolTip.Tip="Descartar alterações"
+                <Button Grid.Column="2" Classes="pequena redonda vermelho" ToolTip.Tip="Descartar alterações"
                         IsVisible="{Binding CanDiscard}"
                         Command="{Binding $parent[ListBox].DataContext.DiscardCommand}"
-                        CommandParameter="{Binding}" />
-                <Button Grid.Column="3" Classes="tiny" Content="+" ToolTip.Tip="Preparar para commit"
-                        IsVisible="{Binding PodePreparar}"
+                        CommandParameter="{Binding}">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Desfazer}" />
+                </Button>
+                <Button Grid.Column="3" Classes="pequena redonda verde" ToolTip.Tip="Preparar para commit"
+                        Margin="3,0,0,0" IsVisible="{Binding PodePreparar}"
                         Command="{Binding $parent[ListBox].DataContext.StageCommand}"
-                        CommandParameter="{Binding}" />
+                        CommandParameter="{Binding}">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Preparar}" />
+                </Button>
                 <!-- conflito: fica inteiro com um dos lados, ou marca o que foi acertado no editor -->
-                <StackPanel Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal"
+                <StackPanel Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="3"
                             IsVisible="{Binding IsConflito}">
-                  <Button Classes="tiny" Content="Resolver" IsVisible="{Binding ConflitoDeConteudo}"
+                  <Button Classes="pequena roxo" Content="Resolver" IsVisible="{Binding ConflitoDeConteudo}"
                           ToolTip.Tip="Resolver bloco a bloco: o meu, o deles e o resultado"
                           Command="{Binding $parent[ListBox].DataContext.ResolverConflitoCommand}"
                           CommandParameter="{Binding}" />
-                  <Button Classes="tiny" Content="Meu"
+                  <Button Classes="pequena azul" Content="Meu"
                           ToolTip.Tip="Fica com a versão da sua branch (descarta a que está chegando)"
                           Command="{Binding $parent[ListBox].DataContext.ManterMeuCommand}"
                           CommandParameter="{Binding}" />
-                  <Button Classes="tiny" Content="Deles"
+                  <Button Classes="pequena azul" Content="Deles"
                           ToolTip.Tip="Fica com a versão que está chegando (descarta a sua)"
                           Command="{Binding $parent[ListBox].DataContext.ManterDelesCommand}"
                           CommandParameter="{Binding}" />
-                  <Button Classes="tiny" Content="&#x2713;"
+                  <Button Classes="pequena redonda verde"
                           ToolTip.Tip="Já resolvi no editor: marcar como resolvido"
                           Command="{Binding $parent[ListBox].DataContext.MarcarResolvidoCommand}"
-                          CommandParameter="{Binding}" />
+                          CommandParameter="{Binding}">
+                    <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Finalizar}" />
+                  </Button>
                 </StackPanel>
               </Grid>
             </DataTemplate>
@@ -196,19 +248,29 @@
                 <TextBlock Text="Emendar último" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
               </CheckBox>
               <!-- reverter o repositório inteiro fica junto do commit: também vale para tudo -->
-              <Button Grid.Column="2" Classes="danger" Content="Reverter ▾" Margin="0,0,6,0"
-                      ToolTip.Tip="Volta o repositório ao estado da branch, descartando tudo">
+              <Button Grid.Column="2" Name="Reverter" Classes="redonda vermelho" Margin="0,0,6,0"
+                      ToolTip.Tip="Reverter: volta o repositório ao estado da branch, descartando tudo">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Resetar}" />
                 <Button.Flyout>
                   <MenuFlyout Placement="TopEdgeAlignedRight">
                     <MenuItem Header="Voltar ao último commit (descarta preparados e locais)"
-                              Command="{Binding VoltarAoUltimoCommitCommand}" />
+                              Command="{Binding VoltarAoUltimoCommitCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo vermelho" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="{Binding VoltarAoRemotoRotulo}" IsEnabled="{Binding TemRemoto}"
-                              Command="{Binding VoltarAoRemotoCommand}" />
+                              Command="{Binding VoltarAoRemotoCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo vermelho" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                    </MenuItem>
                   </MenuFlyout>
                 </Button.Flyout>
               </Button>
-              <Button Grid.Column="3" Classes="primary" Content="{Binding CommitCaption}"
-                      IsEnabled="{Binding CanCommit}" Command="{Binding CommitCommand}" />
+              <Button Grid.Column="3" Classes="primary verde"
+                      IsEnabled="{Binding CanCommit}" Command="{Binding CommitCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Commit}" />
+                  <TextBlock Text="{Binding CommitCaption}" />
+                </StackPanel>
+              </Button>
             </Grid>
           </StackPanel>
         </Border>

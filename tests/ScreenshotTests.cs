@@ -1116,12 +1116,12 @@ public class ScreenshotTests
             .First(b => b.Classes.Contains("panel"));
 
         var botoes = sidebar.GetVisualDescendants().OfType<Button>()
-            .Where(b => b.Classes.Contains("colorido"))
+            .Where(b => b.Classes.Contains("redonda"))
             .ToList();
 
         Assert.Equal(3, botoes.Count);
         foreach (var b in botoes)
-            Assert.True(b.Bounds.Width >= 28, $"ícone espremido: {b.Bounds.Width:F0}px");
+            Assert.True(b.Bounds.Width >= 26, $"ícone espremido: {b.Bounds.Width:F0}px");
 
         var dir = OutDir;
         if (dir is not null)

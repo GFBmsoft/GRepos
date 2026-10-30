@@ -1,3 +1,10 @@
+## 1.0.0.55 — 30/10/2026
+- **Trocar de branch com um clique**: na janela de Branches, clicar na linha já troca de branch e volta para o repositório. Arrastar uma branch sobre outra continua abrindo as opções de mesclar, rebase e pull request.
+- **Excluir branch local**: pela lixeira que aparece ao passar o mouse na linha ou pelo menu do botão direito. A confirmação avisa quando a branch tem commits que não estão em nenhum outro lugar, e a branch remota nunca é apagada.
+- **Novo visual em pílulas**: os botões seguem o mesmo padrão das outras ferramentas, com ícone e uma cor por tipo de ação: verde para criar e trocar, roxo para mesclar e rebase, vermelho para excluir e descartar.
+- **Barra de ferramentas repaginada**: pílulas com ícone e texto; sem espaço, viram bolinhas só com o ícone. Remoto, Local, Terminal e os ajustes do diff ficam sempre como bolinhas, com o nome na dica do mouse.
+- **Menus de contexto renovados**: cantos arredondados e o ícone na cor da ação em cada item. O menu de uma branch agora traz também **Trocar** e **Excluir**.
+
 ## 1.0.0.54 — 30/10/2026
 - **Barra de ferramentas não derruba mais o aplicativo**: em algumas larguras da janela, inclusive a padrão, dependendo do nome da branch e do estado da Esteira, a barra ficava alternando entre cheia e compacta até o aplicativo fechar. Agora ela decide pela largura medida de verdade e não oscila.
 - **Janela estreita de novo**: a largura mínima voltou para 960 px, o que permite encaixar a janela em meio monitor e usar telas menores. Na barra compacta os botões ficam mais próximos e o nome do repositório encurta antes.

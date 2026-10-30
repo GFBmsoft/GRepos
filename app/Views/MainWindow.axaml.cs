@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using GRepos.Controls;
 using GRepos.Models;
 using GRepos.Services;
 using GRepos.ViewModels;
@@ -239,6 +240,10 @@ public partial class MainWindow : Window, IDialogService
                 // o texto sobre o destaque segue o brilho da cor escolhida, senão
                 // some no claro (ou no escuro, dependendo do que o usuário pegou)
                 app.Resources["OnAccent"] = new SolidColorBrush(Contraste(accent));
+
+                // as pílulas azuis seguem a cor escolhida: glifo, fundo e contorno no mesmo tom
+                app.Resources["AccentFundo"] = new SolidColorBrush(accent, 0x24 / 255.0);
+                app.Resources["AccentContorno"] = new SolidColorBrush(accent, 0x66 / 255.0);
             }
         }
 
@@ -267,11 +272,11 @@ public partial class MainWindow : Window, IDialogService
         var nome = grupo.Name;
         var menu = new MenuFlyout();
 
-        var sub = new MenuItem { Header = $"Novo subgrupo em {nome}…" };
+        var sub = ItemDeMenu.Novo($"Novo subgrupo em {nome}…", Glifos.NovaPasta, "amarelo");
         sub.Click += async (_, _) => await _vm.NovoGrupoAsync(id);
-        var editar = new MenuItem { Header = "Editar grupo… (nome, cor e onde fica)" };
+        var editar = ItemDeMenu.Novo("Editar grupo… (nome, cor e onde fica)", Glifos.Editar, "azul");
         editar.Click += async (_, _) => await _vm.EditGroupAsync(id);
-        var lote = new MenuItem { Header = "Em lote… (obter, puxar, enviar, trocar de branch)" };
+        var lote = ItemDeMenu.Novo("Em lote… (obter, puxar, enviar, trocar de branch)", Glifos.Lote, "roxo");
         lote.Click += async (_, _) => await _vm.AbrirLoteAsync(nome, _vm.ReposDoGrupo(id));
 
         menu.Items.Add(sub);

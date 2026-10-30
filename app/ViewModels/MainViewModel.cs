@@ -440,6 +440,15 @@ public sealed partial class MainViewModel : ObservableObject
         _ => "TextDim",
     };
 
+    /// <summary>A mesma cor na paleta das pílulas: dá o fundo e o contorno do botão da Esteira.</summary>
+    public string CiHex => CiSituacao switch
+    {
+        "sucesso" => "#1F9D55",
+        "falha" => "#D93F3F",
+        "rodando" => "#B08500",
+        _ => "#6B7280",
+    };
+
     public string CiRotulo => CiSituacao switch
     {
         "sucesso" => "Esteira ok",
@@ -468,7 +477,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnCiSituacaoChanged(string value)
     {
-        foreach (var p in new[] { nameof(TemCi), nameof(CiCor), nameof(CiRotulo), nameof(CiTooltip),
+        foreach (var p in new[] { nameof(TemCi), nameof(CiCor), nameof(CiHex), nameof(CiRotulo), nameof(CiTooltip),
                                   nameof(TemCiOuGitHub) })
             OnPropertyChanged(p);
         AjustarVigiaDaEsteira();

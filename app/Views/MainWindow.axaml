@@ -35,27 +35,18 @@
             <TextBlock Text="Repos" FontWeight="Bold" FontSize="15"
                        Foreground="{DynamicResource Accent}" />
           </StackPanel>
-          <Button Grid.Column="1" Classes="colorido"
+          <Button Grid.Column="1" Classes="redonda verde" Margin="4,0,0,0"
                   ToolTip.Tip="Adicionar repositório" Command="{Binding AddRepoCommand}">
-            <Panel Classes="fundo">
-              <Border Classes="tinta" Background="{DynamicResource Green}" />
-              <TextBlock Classes="glifo" Text="&#xE710;" Foreground="{DynamicResource Green}" />
-            </Panel>
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Adicionar}" />
           </Button>
-          <Button Grid.Column="2" Classes="colorido"
+          <Button Grid.Column="2" Classes="redonda roxo" Margin="4,0,0,0"
                   ToolTip.Tip="Novo grupo" Command="{Binding AddGroupCommand}">
-            <Panel Classes="fundo">
-              <Border Classes="tinta" Background="{DynamicResource Purple}" />
-              <TextBlock Classes="glifo" Text="&#xE8F4;" Foreground="{DynamicResource Purple}" />
-            </Panel>
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.NovaPasta}" />
           </Button>
-          <Button Grid.Column="3" Classes="colorido"
+          <Button Grid.Column="3" Classes="redonda azul" Margin="4,0,0,0"
                   ToolTip.Tip="Atualizar todos" IsEnabled="{Binding !Scanning}"
                   Command="{Binding RefreshAllCommand}">
-            <Panel Classes="fundo">
-              <Border Classes="tinta" Background="{DynamicResource Accent}" />
-              <TextBlock Classes="glifo" Text="&#xE72C;" Foreground="{DynamicResource Accent}" />
-            </Panel>
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
           </Button>
         </Grid>
 
@@ -243,7 +234,7 @@
                   Command="{Binding OpenSettingsCommand}">
             <StackPanel Orientation="Horizontal" Spacing="9">
               <Panel Width="26" Height="26">
-                <Border CornerRadius="7" Opacity="0.14" Background="{DynamicResource Orange}" />
+                <Border CornerRadius="13" Opacity="0.14" Background="{DynamicResource Orange}" />
                 <TextBlock Text="&#xE713;" FontSize="13" Foreground="{DynamicResource Orange}"
                            FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -274,7 +265,7 @@
           </StackPanel>
 
           <!-- clique direito em Obter/Puxar: o que mais vem junto (tags, branches) -->
-          <controls:ToolButton Grid.Column="1" Label="Obter" Icon="{StaticResource IconFetch}"
+          <controls:ToolButton Grid.Column="1" Label="Obter" Glifo="{x:Static controls:Glifos.Obter}" Classes="azul"
                                ToolTip.Tip="Buscar novidades do remoto (fetch). F5 verifica alterações no remoto e a esteira. Clique direito: opções"
                                IsEnabled="{Binding !Busy}" Command="{Binding FetchCommand}">
             <controls:ToolButton.ContextMenu>
@@ -288,7 +279,7 @@
               </ContextMenu>
             </controls:ToolButton.ContextMenu>
           </controls:ToolButton>
-          <controls:ToolButton Grid.Column="2" Label="Puxar" Icon="{StaticResource IconPull}"
+          <controls:ToolButton Grid.Column="2" Label="Puxar" Glifo="{x:Static controls:Glifos.Puxar}" Classes="verde"
                                Badge="{Binding BehindBadge}"
                                ToolTip.Tip="Trazer os commits do remoto (pull). Clique direito: opções"
                                IsEnabled="{Binding !Busy}" Command="{Binding PullCommand}">
@@ -303,22 +294,22 @@
               </ContextMenu>
             </controls:ToolButton.ContextMenu>
           </controls:ToolButton>
-          <controls:ToolButton Grid.Column="3" Label="Enviar" Icon="{StaticResource IconPush}"
+          <controls:ToolButton Grid.Column="3" Label="Enviar" Glifo="{x:Static controls:Glifos.Enviar}" Classes="laranja"
                                Badge="{Binding AheadBadge}"
                                ToolTip.Tip="Enviar os commits locais (push)"
                                IsEnabled="{Binding !Busy}" Command="{Binding PushCommand}" />
           <!-- fora da main o botão fica destacado: é fácil esquecer em que branch se está -->
-          <controls:ToolButton Grid.Column="4" Label="{Binding BranchCaption}" Classes="semCompactar"
-                               Icon="{StaticResource IconBranch}"
+          <controls:ToolButton Grid.Column="4" Label="{Binding BranchCaption}" Classes="semCompactar roxo"
+                               Glifo="{x:Static controls:Glifos.Branch}"
                                Classes.destacado="{Binding ForaDaPrincipal}"
                                ToolTip.Tip="{Binding BranchTooltip}"
                                IsEnabled="{Binding !Busy}" Command="{Binding OpenBranchesCommand}" />
           <StackPanel Grid.Column="5" Orientation="Horizontal">
-            <controls:ToolButton Label="Esconder" Icon="{StaticResource IconStash}"
+            <controls:ToolButton Label="Esconder" Glifo="{x:Static controls:Glifos.Esconder}" Classes="amarelo"
                                  Badge="{Binding StashBadge}"
                                  ToolTip.Tip="Guardar ou recuperar alterações (stash)"
                                  IsEnabled="{Binding !Busy}" Command="{Binding OpenStashCommand}" />
-            <controls:ToolButton Label="Desfazer" Icon="{StaticResource IconDesfazer}"
+            <controls:ToolButton Label="Desfazer" Glifo="{x:Static controls:Glifos.Desfazer}" Classes="cinza"
                                  ToolTip.Tip="Desfazer a última ação: commit, emenda, reset, merge, pull, cherry-pick, troca de branch"
                                  IsEnabled="{Binding !Busy}" Command="{Binding DesfazerCommand}" />
           </StackPanel>
@@ -355,21 +346,23 @@
           <!-- esteira: só aparece quando o repositório tem GitHub Actions -->
           <StackPanel Grid.Column="7" Orientation="Horizontal">
             <!-- pull requests: lista, cria o da branch atual e mescla, sem ir ao navegador -->
-            <controls:ToolButton Label="PRs" Icon="{StaticResource IconPr}"
+            <controls:ToolButton Label="PRs" Glifo="{x:Static controls:Glifos.PullRequest}" Classes="roxo"
                                  Badge="{Binding PrBadge}" IsVisible="{Binding TemGitHub}"
                                  ToolTip.Tip="Pull requests do repositório: ver, criar o da branch atual e mesclar"
                                  Command="{Binding AbrirPullRequestsCommand}" />
-            <controls:ToolButton Label="Issues" Icon="{StaticResource IconIssue}"
+            <controls:ToolButton Label="Issues" Glifo="{x:Static controls:Glifos.Issue}" Classes="verde"
                                  IsVisible="{Binding TemGitHub}"
                                  ToolTip.Tip="Issues do repositório: abertas, fechadas e etiquetas"
                                  Command="{Binding AbrirIssuesCommand}" />
-            <controls:ToolButton Label="Releases" Icon="{StaticResource IconRelease}"
+            <controls:ToolButton Label="Releases" Glifo="{x:Static controls:Glifos.Release}" Classes="amarelo"
                                  IsVisible="{Binding TemGitHub}"
                                  ToolTip.Tip="Releases do repositório: criar, editar, anexar arquivos e publicar"
                                  Command="{Binding AbrirReleasesCommand}" />
-            <controls:ToolButton Label="{Binding CiRotulo}" Icon="{StaticResource IconEsteira}"
+            <controls:ToolButton Label="{Binding CiRotulo}" Glifo="{x:Static controls:Glifos.Esteira}"
                                  ToolTip.Tip="{Binding CiTooltip}" IsVisible="{Binding TemCi}"
                                  Foreground="{Binding CiCor, Converter={x:Static local:Converters.ResourceBrush}}"
+                                 Background="{Binding CiHex, Converter={x:Static local:Converters.SoftBrush}}"
+                                 BorderBrush="{Binding CiHex, Converter={x:Static local:Converters.EdgeBrush}}"
                                  Command="{Binding AbrirEsteiraCommand}" />
           </StackPanel>
 
@@ -377,28 +370,28 @@
                   Background="{DynamicResource Border}" IsVisible="{Binding TemCiOuGitHub}" />
 
           <!-- abrir o repositório: no GitHub, na pasta do Windows e no Git Bash -->
-          <controls:ToolButton Grid.Column="9" Label="Remoto" Icon="{StaticResource IconRemoto}"
+          <controls:ToolButton Grid.Column="9" Label="Remoto" Glifo="{x:Static controls:Glifos.Remoto}" Classes="soIcone azul"
                                ToolTip.Tip="Abrir o repositório no GitHub"
                                IsVisible="{Binding TemRemoto}"
                                Command="{Binding AbrirRemotoCommand}" />
-          <controls:ToolButton Grid.Column="10" Label="Local" Icon="{StaticResource IconLocal}"
+          <controls:ToolButton Grid.Column="10" Label="Local" Glifo="{x:Static controls:Glifos.Pasta}" Classes="soIcone amarelo"
                                ToolTip.Tip="Abrir a pasta no Windows"
                                Command="{Binding AbrirPastaCommand}" />
-          <controls:ToolButton Grid.Column="11" Label="Terminal" Icon="{StaticResource IconTerminal}"
+          <controls:ToolButton Grid.Column="11" Label="Terminal" Glifo="{x:Static controls:Glifos.Terminal}" Classes="soIcone cinza"
                                ToolTip.Tip="Mostrar ou esconder o Git Bash embutido, na pasta do repositório"
                                Command="{Binding AlternarTerminalCommand}" Classes.destacado="{Binding TerminalAberto}" />
 
           <Border Grid.Column="12" Width="1" Margin="8,8" VerticalAlignment="Stretch"
                   Background="{DynamicResource Border}" />
 
-          <controls:ToolButton Grid.Column="13" Label="Lado a lado" Icon="{StaticResource IconSplit}"
+          <controls:ToolButton Grid.Column="13" Label="Lado a lado" Glifo="{x:Static controls:Glifos.LadoALado}" Classes="soIcone cinza"
                                ToolTip.Tip="Alternar entre diff lado a lado e unificado"
                                Command="{Binding ToggleSplitCommand}" />
-          <controls:ToolButton Grid.Column="14" Label="Quebrar linha" Icon="{StaticResource IconWrap}"
+          <controls:ToolButton Grid.Column="14" Label="Quebrar linha" Glifo="{x:Static controls:Glifos.QuebrarLinha}" Classes="soIcone cinza"
                                Classes.destacado="{Binding WrapDiff}"
                                ToolTip.Tip="Quebrar linhas longas do diff em vez de rolar na horizontal"
                                Command="{Binding ToggleWrapCommand}" />
-          <controls:ToolButton Grid.Column="15" Label="Ajustes" Icon="{StaticResource IconConfig}"
+          <controls:ToolButton Grid.Column="15" Label="Ajustes" Glifo="{x:Static controls:Glifos.Ajustes}" Classes="soIcone cinza"
                                ToolTip.Tip="Configurar repositório"
                                Command="{Binding OpenRepoConfigCommand}" />
         </Grid>

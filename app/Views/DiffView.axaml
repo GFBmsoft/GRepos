@@ -96,10 +96,10 @@
           </ItemsControl>
         </StackPanel>
 
-        <Button Grid.Column="2" Classes="tiny" Content="{Binding ContextoRotulo}" Margin="10,0,0,0"
+        <Button Grid.Column="2" Classes="pequena azul" Content="{Binding ContextoRotulo}" Margin="10,0,0,0"
                 IsVisible="{Binding TemRecarga}" Command="{Binding AlternarContextoCommand}"
                 ToolTip.Tip="Alterna entre só os blocos alterados e o arquivo inteiro com as alterações marcadas" />
-        <Button Grid.Column="3" Classes="tiny" Content="Diff externo ↗" Margin="6,0,0,0"
+        <Button Grid.Column="3" Classes="pequena azul" Content="Diff externo ↗" Margin="6,0,0,0"
                 IsVisible="{Binding TemExterno}" Command="{Binding AbrirExternoCommand}"
                 ToolTip.Tip="Abre o arquivo inteiro na ferramenta de comparação das Preferências" />
       </Grid>
@@ -126,14 +126,12 @@
               <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Classes="mono dim" FontSize="11.5" Text="{Binding Header}"
                            VerticalAlignment="Center" />
-                <Button Classes="tiny" Content="{Binding ApplyLabel}"
+                <Button Classes="pequena verde" Content="{Binding ApplyLabel}"
                         Command="{Binding ApplyCommand}"
-                        IsVisible="{Binding CanApply}"
-                        BorderThickness="1" BorderBrush="{DynamicResource Border}" />
-                <Button Classes="tiny" Content="{Binding LinhasRotulo}"
+                        IsVisible="{Binding CanApply}" />
+                <Button Classes="pequena azul" Content="{Binding LinhasRotulo}"
                         Command="{Binding ApplyLinhasCommand}"
-                        IsVisible="{Binding TemLinhas}"
-                        BorderThickness="1" BorderBrush="{DynamicResource Accent}" />
+                        IsVisible="{Binding TemLinhas}" />
                 <TextBlock Classes="faint" FontSize="11" VerticalAlignment="Center"
                            IsVisible="{Binding MostrarDica}"
                            Text="ou clique nas linhas + e − para escolher só algumas" />

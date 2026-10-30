@@ -100,5 +100,13 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
 - O usuário das preferências só serve ao git se chegar em `GitService.CredentialUser`
   (feito no `InitAsync` e no `SetGithubUser`). Sem isso o git procura credencial sem
   conta, não acha o token e abre a janela de login a cada envio.
-- Operação destrutiva (descartar, dropar stash, remover repositório) sempre confirma antes.
+- **Botão é pílula, como no GRemote, no GConv e no GTest**: glifo e texto na cor cheia, fundo
+  `#24` e contorno `#66` da cor. A cor é uma classe (`azul`, `verde`, `roxo`, `laranja`, `amarelo`,
+  `vermelho`, `cinza`), uma por tipo de ação (a tabela está no `Theme.axaml`); tamanho é `pilula`
+  ou `pequena`, e só ícone é `redonda`. Glifo sai de `Glifos`, nunca escrito direto. Menu: todo
+  item com o glifo na cor da ação (`ItemDeMenu.Novo`, ou `MenuItem.Icon` no XAML), e
+  `Todo_item_de_menu_tem_o_glifo_na_cor_da_acao` confere.
+- **Estilo do conteúdo de botão com `>`**, nunca com descendente: o menu do botão é descendente
+  lógico dele, e os itens saíam lado a lado (EV03 do GRemote). `Menus_dos_botoes_ficam_em_coluna`.
+- Operação destrutiva (descartar, dropar stash, remover repositório, excluir branch) sempre confirma antes.
 - Textos de interface em pt-br com acentuação correta.

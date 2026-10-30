@@ -41,20 +41,41 @@
                  SelectedItem="{Binding SelectedCommit}">
           <ListBox.ContextMenu>
             <ContextMenu>
-              <MenuItem Header="Copiar hash" Click="CopiarHash_Click" />
-              <MenuItem Header="Comparar com a branch atual..." Command="{Binding CompararComAtualCommand}" />
+              <MenuItem Header="Copiar hash" Click="CopiarHash_Click">
+                <MenuItem.Icon><TextBlock Classes="glifo cinza" Text="{x:Static controls:Glifos.Copiar}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Comparar com a branch atual..." Command="{Binding CompararComAtualCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Comparar}" /></MenuItem.Icon>
+              </MenuItem>
               <Separator />
-              <MenuItem Header="Criar branch aqui..." Command="{Binding CriarBranchAquiCommand}" />
-              <MenuItem Header="Criar tag aqui..." Command="{Binding CriarTagAquiCommand}" />
+              <MenuItem Header="Criar branch aqui..." Command="{Binding CriarBranchAquiCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo verde" Text="{x:Static controls:Glifos.Branch}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Criar tag aqui..." Command="{Binding CriarTagAquiCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Tag}" /></MenuItem.Icon>
+              </MenuItem>
               <Separator />
-              <MenuItem Header="Cherry-pick na branch atual" Command="{Binding CherryPickCommand}" />
-              <MenuItem Header="Reverter este commit" Command="{Binding ReverterCommitCommand}" />
-              <MenuItem Header="Reorganizar commits daqui até o HEAD..." Command="{Binding ReorganizarCommand}" />
+              <MenuItem Header="Cherry-pick na branch atual" Command="{Binding CherryPickCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo roxo" Text="{x:Static controls:Glifos.CherryPick}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Reverter este commit" Command="{Binding ReverterCommitCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo laranja" Text="{x:Static controls:Glifos.Reverter}" /></MenuItem.Icon>
+              </MenuItem>
+              <MenuItem Header="Reorganizar commits daqui até o HEAD..." Command="{Binding ReorganizarCommand}">
+                <MenuItem.Icon><TextBlock Classes="glifo roxo" Text="{x:Static controls:Glifos.Reorganizar}" /></MenuItem.Icon>
+              </MenuItem>
               <Separator />
               <MenuItem Header="Resetar branch atual para cá">
-                <MenuItem Header="Soft: mantém as alterações preparadas" Command="{Binding ResetSoftCommand}" />
-                <MenuItem Header="Mixed: mantém as alterações como locais" Command="{Binding ResetMixedCommand}" />
-                <MenuItem Header="Hard: descarta tudo" Command="{Binding ResetHardCommand}" />
+                <MenuItem.Icon><TextBlock Classes="glifo vermelho" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                <MenuItem Header="Soft: mantém as alterações preparadas" Command="{Binding ResetSoftCommand}">
+                  <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Mixed: mantém as alterações como locais" Command="{Binding ResetMixedCommand}">
+                  <MenuItem.Icon><TextBlock Classes="glifo laranja" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Hard: descarta tudo" Command="{Binding ResetHardCommand}">
+                  <MenuItem.Icon><TextBlock Classes="glifo vermelho" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                </MenuItem>
               </MenuItem>
             </ContextMenu>
           </ListBox.ContextMenu>
@@ -153,34 +174,87 @@
                  destacar do texto do commit logo acima -->
             <Border Height="1" Margin="0,10,0,8" Background="{DynamicResource BorderSoft}" />
             <WrapPanel IsEnabled="{Binding !Busy}">
-              <Button Classes="acao" Content="Copiar hash" Margin="0,0,6,6" Click="CopiarHash_Click" />
-              <Button Classes="acao" Content="Markdown" Margin="0,0,6,6"
+              <Button Classes="pilula" Margin="0,0,6,6" Click="CopiarHash_Click">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Copiar}" />
+                  <TextBlock Text="Copiar hash" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula" Margin="0,0,6,6"
                       Classes.destacado="{Binding CorpoEmMarkdown}" Command="{Binding AlternarMarkdownCommand}"
-                      ToolTip.Tip="Mostrar a mensagem renderizada como Markdown, ou como foi escrita" />
-              <Button Classes="acao" Content="Copiar texto" Margin="0,0,6,6" Click="CopiarTexto_Click"
-                      ToolTip.Tip="Copia a mensagem como foi escrita, com os sinais do Markdown" />
-              <Button Classes="acao" Content="Copiar formatado" Margin="0,0,6,6" Click="CopiarFormatado_Click"
-                      ToolTip.Tip="Copia a mensagem renderizada: cola com título, lista e link no e-mail, no Word ou no Teams" />
-              <Button Classes="acao" Content="Criar branch aqui" Margin="0,0,6,6"
-                      Command="{Binding CriarBranchAquiCommand}" />
-              <Button Classes="acao" Content="Criar tag" Margin="0,0,6,6"
-                      Command="{Binding CriarTagAquiCommand}" />
-              <Button Classes="acao" Content="Cherry-pick" Margin="0,0,6,6"
+                      ToolTip.Tip="Mostrar a mensagem renderizada como Markdown, ou como foi escrita">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Markdown}" />
+                  <TextBlock Text="Markdown" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula" Margin="0,0,6,6" Click="CopiarTexto_Click"
+                      ToolTip.Tip="Copia a mensagem como foi escrita, com os sinais do Markdown">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Copiar}" />
+                  <TextBlock Text="Copiar texto" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula" Margin="0,0,6,6" Click="CopiarFormatado_Click"
+                      ToolTip.Tip="Copia a mensagem renderizada: cola com título, lista e link no e-mail, no Word ou no Teams">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Copiar}" />
+                  <TextBlock Text="Copiar formatado" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula verde" Margin="0,0,6,6" Command="{Binding CriarBranchAquiCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Branch}" />
+                  <TextBlock Text="Criar branch aqui" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula amarelo" Margin="0,0,6,6" Command="{Binding CriarTagAquiCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Tag}" />
+                  <TextBlock Text="Criar tag" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula roxo" Margin="0,0,6,6"
                       ToolTip.Tip="Aplica este commit na branch atual"
-                      Command="{Binding CherryPickCommand}" />
-              <Button Classes="acao" Content="Reverter commit" Margin="0,0,6,6"
+                      Command="{Binding CherryPickCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.CherryPick}" />
+                  <TextBlock Text="Cherry-pick" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula laranja" Margin="0,0,6,6"
                       ToolTip.Tip="Cria um commit que desfaz este, sem reescrever o histórico"
-                      Command="{Binding ReverterCommitCommand}" />
-              <Button Classes="acao" Content="Reorganizar daqui..." Margin="0,0,6,6"
+                      Command="{Binding ReverterCommitCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Reverter}" />
+                  <TextBlock Text="Reverter commit" />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula roxo" Margin="0,0,6,6"
                       ToolTip.Tip="Rebase interativo: juntar, renomear, apagar ou reordenar os commits daqui até o HEAD"
-                      Command="{Binding ReorganizarCommand}" />
-              <Button Classes="acao danger" Content="Resetar para cá ▾" Margin="0,0,6,6"
+                      Command="{Binding ReorganizarCommand}">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Reorganizar}" />
+                  <TextBlock Text="Reorganizar daqui..." />
+                </StackPanel>
+              </Button>
+              <Button Classes="pilula vermelho" Margin="0,0,6,6"
                       ToolTip.Tip="Move a branch atual para este commit">
+                <StackPanel Classes="comIcone">
+                  <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Resetar}" />
+                  <TextBlock Text="Resetar para cá ▾" />
+                </StackPanel>
                 <Button.Flyout>
                   <MenuFlyout Placement="BottomEdgeAlignedLeft">
-                    <MenuItem Header="Soft: mantém as alterações preparadas" Command="{Binding ResetSoftCommand}" />
-                    <MenuItem Header="Mixed: mantém as alterações como locais" Command="{Binding ResetMixedCommand}" />
-                    <MenuItem Header="Hard: descarta tudo" Command="{Binding ResetHardCommand}" />
+                    <MenuItem Header="Soft: mantém as alterações preparadas" Command="{Binding ResetSoftCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo amarelo" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Mixed: mantém as alterações como locais" Command="{Binding ResetMixedCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo laranja" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Hard: descarta tudo" Command="{Binding ResetHardCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo vermelho" Text="{x:Static controls:Glifos.Resetar}" /></MenuItem.Icon>
+                    </MenuItem>
                   </MenuFlyout>
                 </Button.Flyout>
               </Button>
@@ -208,9 +282,15 @@
               <ListBox Grid.Row="1" ItemsSource="{Binding Files}" SelectedItem="{Binding SelectedFile}">
                 <ListBox.ContextMenu>
                   <ContextMenu>
-                    <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}" />
-                    <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}" />
-                    <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}" />
+                    <MenuItem Header="Histórico do arquivo" Command="{Binding HistoricoDoArquivoCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Historico}" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Autoria das linhas (blame)" Command="{Binding AutoriaDoArquivoCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Autoria}" /></MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="Abrir no diff externo" Command="{Binding AbrirNoDiffExternoCommand}">
+                      <MenuItem.Icon><TextBlock Classes="glifo azul" Text="{x:Static controls:Glifos.Abrir}" /></MenuItem.Icon>
+                    </MenuItem>
                   </ContextMenu>
                 </ListBox.ContextMenu>
                 <ListBox.ItemTemplate>

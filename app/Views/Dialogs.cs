@@ -70,11 +70,9 @@ public abstract class DialogWindow : Window
             Padding = new Thickness(9, 0),
             HorizontalAlignment = HorizontalAlignment.Left,
             HorizontalContentAlignment = HorizontalAlignment.Center,
-            BorderThickness = new Thickness(1), // "tiny" tira a borda; aqui ela volta
         };
         b.Classes.Add("tiny");
         if (perigo) b.Classes.Add("danger");
-        b.Bind(Button.BorderBrushProperty, new DynamicResourceExtension("Border"));
         return b;
     }
 
@@ -251,10 +249,12 @@ public abstract class DialogWindow : Window
 
 public sealed class ConfirmWindow : DialogWindow
 {
-    public ConfirmWindow(string title, string message) : base(title, 420)
+    /// <param name="acao">O texto do botão que confirma. Com <paramref name="perigo"/>, ele sai em vermelho.</param>
+    public ConfirmWindow(string title, string message, string acao = "Confirmar", bool perigo = false) : base(title, 420)
     {
         var no = Btn("Cancelar");
-        var yes = Btn("Confirmar", true);
+        var yes = Btn(acao, !perigo);
+        if (perigo) yes.Classes.Add("vermelho");
         no.Click += (_, _) => Close(false);
         yes.Click += (_, _) => Close(true);
 

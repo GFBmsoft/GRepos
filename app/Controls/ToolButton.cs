@@ -2,19 +2,19 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
-using Avalonia.Media;
 
 namespace GRepos.Controls;
 
 /// <summary>
-/// Botão da barra de ferramentas: ícone desenhado, legenda embaixo e um contador
-/// opcional no canto (commits à frente/atrás, stashes guardados).
+/// Botão da barra de ferramentas: pílula com o glifo, a legenda ao lado e um contador
+/// opcional no canto (commits à frente/atrás, stashes guardados). A cor vem da classe
+/// (azul, verde...), como nos outros botões.
 /// </summary>
 [PseudoClasses(":hasbadge")]
 public class ToolButton : Button
 {
-    public static readonly StyledProperty<Geometry?> IconProperty =
-        AvaloniaProperty.Register<ToolButton, Geometry?>(nameof(Icon));
+    public static readonly StyledProperty<string> GlifoProperty =
+        AvaloniaProperty.Register<ToolButton, string>(nameof(Glifo), "");
 
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<ToolButton, string>(nameof(Label), "");
@@ -22,10 +22,10 @@ public class ToolButton : Button
     public static readonly StyledProperty<string?> BadgeProperty =
         AvaloniaProperty.Register<ToolButton, string?>(nameof(Badge));
 
-    public Geometry? Icon
+    public string Glifo
     {
-        get => GetValue(IconProperty);
-        set => SetValue(IconProperty, value);
+        get => GetValue(GlifoProperty);
+        set => SetValue(GlifoProperty, value);
     }
 
     public string Label
