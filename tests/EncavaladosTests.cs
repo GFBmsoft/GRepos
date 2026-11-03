@@ -518,7 +518,7 @@ public class EncavaladosTests
                 }
 
                 vm.SelectedTab = 1;
-                await Espera.Ate(() => vm.History is { HasDetail: true });
+                await Espera.Ate(() => vm.History is { HasDetail: true, Diff.HasContent: true });
                 Olhar("Histórico");
 
                 vm.SelectedTab = 2;

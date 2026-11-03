@@ -64,11 +64,25 @@
       <Setter Property="CornerRadius" Value="1.5" />
       <Setter Property="Margin" Value="1,0" />
     </Style>
+
+    <!-- cabeçalho estreito (o diff do Histórico na janela mínima, com um arquivo aberto): os
+         dois botões ficam só com o ícone, e o nome vai para a dica. Com a legenda e os
+         contadores, o Diff externo saía cortado na borda -->
+    <ContainerQuery Name="cabecalhoDoDiff" Query="max-width:420">
+      <Style Selector="Button.encolhe > StackPanel.comIcone > TextBlock:not(.glifo)">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
+      <Style Selector="Button.encolhe">
+        <Setter Property="Width" Value="22" />
+        <Setter Property="Padding" Value="0" />
+      </Style>
+    </ContainerQuery>
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,*">
 
     <Border Grid.Row="0" Padding="10,6" Background="{DynamicResource BgPanel}"
+            Container.Name="cabecalhoDoDiff" Container.Sizing="Width"
             BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,0,0,1">
       <Grid ColumnDefinitions="*,Auto,Auto,Auto">
         <TextBlock Grid.Column="0" Classes="mono dim" FontSize="12" Text="{Binding Title}"
@@ -96,7 +110,7 @@
           </ItemsControl>
         </StackPanel>
 
-        <Button Grid.Column="2" Classes="pequena azul azul" Margin="10,0,0,0"
+        <Button Grid.Column="2" Classes="pequena azul encolhe" Margin="10,0,0,0"
                 IsVisible="{Binding TemRecarga}" Command="{Binding AlternarContextoCommand}"
                 ToolTip.Tip="Alterna entre só os blocos alterados e o arquivo inteiro com as alterações marcadas">
           <StackPanel Classes="comIcone">
@@ -104,7 +118,7 @@
             <TextBlock Text="{Binding ContextoRotulo}" />
           </StackPanel>
         </Button>
-        <Button Grid.Column="3" Classes="pequena azul azul" Margin="6,0,0,0"
+        <Button Grid.Column="3" Classes="pequena azul encolhe" Margin="6,0,0,0"
                 IsVisible="{Binding TemExterno}" Command="{Binding AbrirExternoCommand}"
                 ToolTip.Tip="Abre o arquivo inteiro na ferramenta de comparação das Preferências">
           <StackPanel Classes="comIcone">
@@ -136,7 +150,7 @@
               <StackPanel Orientation="Horizontal" Spacing="10">
                 <TextBlock Classes="mono dim" FontSize="11.5" Text="{Binding Header}"
                            VerticalAlignment="Center" />
-                <Button Classes="pequena verde verde"
+                <Button Classes="pequena verde"
                         Command="{Binding ApplyCommand}"
                         IsVisible="{Binding CanApply}">
                   <StackPanel Classes="comIcone">
@@ -144,7 +158,7 @@
                     <TextBlock Text="{Binding ApplyLabel}" />
                   </StackPanel>
                 </Button>
-                <Button Classes="pequena azul azul"
+                <Button Classes="pequena azul"
                         Command="{Binding ApplyLinhasCommand}"
                         IsVisible="{Binding TemLinhas}">
                   <StackPanel Classes="comIcone">
