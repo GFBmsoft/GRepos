@@ -296,6 +296,104 @@ public class UiSmokeTests
         window.Close();
     }
 
+    /// <summary>Sem mensagem não há commit: o botão fica desligado, e mensagem só de espaços não conta.</summary>
+    [AvaloniaFact]
+    public void Commit_fica_desligado_sem_mensagem()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new ChangesViewModel(DemoRepo(), main, split: true);
+        vm.Staged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "a.pas", Index = "M", Worktree = ".", Kind = ChangeKind.Tracked },
+        });
+
+        var view = new ChangesView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var commit = view.GetVisualDescendants().OfType<Button>().First(b => TextoDo(b)?.StartsWith("Commit") == true);
+
+        // desligado também na cor: o botão continuava verde, só mais apagado, e parecia ligado
+        Avalonia.Media.Color Cor(string recurso) =>
+            commit.TryFindResource(recurso, commit.ActualThemeVariant, out var pincel)
+                ? ((Avalonia.Media.ISolidColorBrush)pincel!).Color
+                : throw new System.InvalidOperationException($"sem o recurso {recurso}");
+        Avalonia.Media.Color? Texto() =>
+            ((commit.Content as StackPanel)?.Children.OfType<TextBlock>().Last().Foreground as Avalonia.Media.ISolidColorBrush)?.Color;
+
+        Assert.False(commit.IsEffectivelyEnabled);
+        Assert.Equal(Cor("TextFaint"), Texto());
+        vm.CommitMessage = "   ";
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.False(commit.IsEffectivelyEnabled);
+        vm.CommitMessage = "fix: ajuste";
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.True(commit.IsEffectivelyEnabled);
+        Assert.Equal(Cor("Green"), Texto());
+
+        if (System.Environment.GetEnvironmentVariable("GREPOS_SHOTS") is { } pasta)
+        {
+            System.IO.Directory.CreateDirectory(pasta);
+            vm.CommitMessage = "";
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            using var foto = window.CaptureRenderedFrame();
+            foto?.Save(System.IO.Path.Combine(pasta, "commit-sem-mensagem.png"));
+        }
+        window.Close();
+    }
+
+    /// <summary>
+    /// Preparar, Descartar e Remover tudo só ligam com algo a fazer. Com a lista vazia (ou só
+    /// conflito, que não se prepara nem se descarta daqui) ficavam acesos e não faziam nada.
+    /// </summary>
+    [AvaloniaFact]
+    public void Botoes_de_tudo_desligam_sem_arquivo()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var vm = new ChangesViewModel(DemoRepo(), main, split: true);
+        var view = new ChangesView { DataContext = vm };
+        var window = new Window { Width = 1200, Height = 800, Content = view };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        bool Ligado(string inicio)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            return view.GetVisualDescendants().OfType<Button>()
+                .First(b => TextoDo(b)?.StartsWith(inicio) == true).IsEffectivelyEnabled;
+        }
+
+        Assert.False(Ligado("Preparar tudo"));
+        Assert.False(Ligado("Descartar tudo"));
+        Assert.False(Ligado("Remover tudo"));
+
+        var conflito = new FileItemViewModel
+        {
+            Change = new FileChange { Path = "c.pas", Index = "U", Worktree = "U", Kind = ChangeKind.Conflict },
+        };
+        vm.Unstaged.Add(conflito);
+        Assert.False(Ligado("Preparar tudo"));
+        Assert.False(Ligado("Descartar tudo"));
+
+        vm.Unstaged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "a.pas", Index = ".", Worktree = "M", Kind = ChangeKind.Tracked },
+        });
+        Assert.True(Ligado("Preparar tudo"));
+        Assert.True(Ligado("Descartar tudo"));
+
+        vm.Staged.Add(new FileItemViewModel
+        {
+            Change = new FileChange { Path = "b.pas", Index = "M", Worktree = ".", Kind = ChangeKind.Tracked },
+            Staged = true,
+        });
+        Assert.True(Ligado("Remover tudo"));
+
+        vm.Staged.Clear();
+        Assert.False(Ligado("Remover tudo"));
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void ChangesView_com_varios_marcados_troca_os_rotulos()
     {

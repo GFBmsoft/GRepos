@@ -54,6 +54,8 @@ public sealed partial class ChangesViewModel : ObservableObject
         _repo = repo;
         _main = main;
         Diff = new DiffViewModel { Split = split, Externo = AbrirNoDiffExternoAsync, Recarregar = RecarregarDiffAsync };
+        Staged.CollectionChanged += (_, _) => AvisarBotoes();
+        Unstaged.CollectionChanged += (_, _) => AvisarBotoes();
     }
 
     public DiffViewModel Diff { get; }
@@ -407,6 +409,21 @@ public sealed partial class ChangesViewModel : ObservableObject
         OnPropertyChanged(nameof(RemoverRotulo));
         OnPropertyChanged(nameof(DescartarRotulo));
         OnPropertyChanged(nameof(IgnorarRotulo));
+        AvisarBotoes();
+    }
+
+    /// <summary>
+    /// Os botões do cabeçalho só ligam com algo a fazer. Com a lista vazia (ou só com
+    /// conflito, que não se prepara nem se descarta daqui) eles ficavam acesos e não faziam nada.
+    /// </summary>
+    public bool PodePrepararTudo => Alvo(_marcadosUnstaged, Unstaged).Any(f => f.PodePreparar);
+    public bool PodeDescartarTudo => Alvo(_marcadosUnstaged, Unstaged).Any(f => f.CanDiscard);
+    public bool PodeRemoverTudo => Alvo(_marcadosStaged, Staged).Count > 0;
+
+    private void AvisarBotoes()
+    {
+        foreach (var p in new[] { nameof(PodePrepararTudo), nameof(PodeDescartarTudo), nameof(PodeRemoverTudo) })
+            OnPropertyChanged(p);
     }
 
     /// <summary>Alvo dos botões do cabeçalho: os marcados (se 2+) ou a lista toda.</summary>

@@ -1,3 +1,9 @@
+## 1.0.0.57 — 03/11/2026
+- **Botão desligado fica cinza**: o **Commit** sem mensagem e qualquer outro botão que não pode ser usado aparecem cinza e apagados. Antes eles mantinham a cor da ação e pareciam clicáveis.
+- **Enviar só com o que enviar**: o botão liga quando há commit à frente do remoto ou quando a branch ainda não existe lá. Com a branch em dia, sem remoto ou fora de uma branch, ele fica desligado, e a dica do mouse explica o motivo.
+- **Preparar, Descartar e Remover tudo** ficam desligados quando a lista está vazia ou só tem arquivos em conflito.
+- **Salvar comentário** em pull requests e issues fica desligado enquanto o texto está vazio.
+
 ## 1.0.0.56 — 30/10/2026
 - **Ícones e cores em todas as janelas**: Esteira, Pull requests, Issues, Releases, Segredos, Preferências, Painel, Conflitos, Pastas de trabalho, Terminal e os diálogos agora seguem o mesmo padrão de pílulas da janela principal. A mesma ação tem o mesmo ícone e a mesma cor em qualquer lugar: criar em verde, editar e salvar em azul, mesclar em roxo, excluir e parar em vermelho, cancelar e fechar em cinza.
 

@@ -168,6 +168,13 @@ public sealed class RepoStatus
     public string? Error { get; set; }
 
     /// <summary>
+    /// Há o que enviar: commit à frente do remoto, ou branch que ainda não existe lá (o
+    /// primeiro envio a cria). HEAD solto não tem branch para onde enviar.
+    /// </summary>
+    public bool TemOQueEnviar =>
+        Branch.Length > 0 && Branch != "(detached)" && Error is null && (Ahead > 0 || string.IsNullOrEmpty(Upstream));
+
+    /// <summary>
     /// Arquivos distintos com alteração pendente. Os contadores acima somam situações
     /// (um arquivo preparado e alterado de novo conta nos dois), o que não serve para
     /// dizer "quantos arquivos mexi".

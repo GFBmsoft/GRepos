@@ -169,15 +169,16 @@
     <Setter Property="TextBlock.Foreground" Value="{Binding $parent[Button].Foreground}" />
   </Style>
 
-  <!-- desligado: a mesma pílula, apagada; sem isto valia o cinza do tema Fluent -->
+  <!-- desligado: pílula cinza e texto apagado, qualquer que seja a cor. Só baixar a opacidade
+       deixava a cor da ação, e o Commit sem mensagem continuava verde, com cara de clicável -->
   <Style Selector="Button:disabled /template/ ContentPresenter">
-    <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
-    <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
-    <Setter Property="TextBlock.Foreground" Value="{Binding $parent[Button].Foreground}" />
+    <Setter Property="Background" Value="#146B7280" />
+    <Setter Property="BorderBrush" Value="#406B7280" />
+    <Setter Property="TextBlock.Foreground" Value="{DynamicResource TextFaint}" />
   </Style>
 
   <Style Selector="Button:disabled">
-    <Setter Property="Opacity" Value="0.5" />
+    <Setter Property="Opacity" Value="0.8" />
   </Style>
 
   <!-- Só o conteúdo DIRETO do botão (o ">"): o menu que ele abre é descendente lógico dele,
@@ -185,6 +186,10 @@
        (foi o EV03 do GRemote). Quem confere é Menus_dos_botoes_ficam_em_coluna -->
   <Style Selector="Button > TextBlock:not(.faint):not(.dim), Button > StackPanel.comIcone > TextBlock:not(.faint):not(.dim)">
     <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}" />
+  </Style>
+
+  <Style Selector="Button:disabled > TextBlock, Button:disabled > StackPanel.comIcone > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
   </Style>
 
   <Style Selector="Button > StackPanel.comIcone">
@@ -310,9 +315,6 @@
     <Setter Property="Background" Value="{Binding $parent[Button].BorderBrush}" />
   </Style>
 
-  <Style Selector="controls|ToolButton:disabled">
-    <Setter Property="Opacity" Value="0.5" />
-  </Style>
 
   <!-- as cores das pílulas: Foreground no tema, fundo #24 e contorno #66 da paleta do GTerm,
        a mesma do GRemote. O azul sai da cor de destaque, que o usuário escolhe -->
@@ -368,6 +370,14 @@
     <Setter Property="Foreground" Value="{DynamicResource Orange}" />
     <Setter Property="Background" Value="#24E07B00" />
     <Setter Property="BorderBrush" Value="#66E07B00" />
+  </Style>
+
+  <!-- desligado, como o botão comum: cinza e apagado. Fica depois das cores, senão elas vencem -->
+  <Style Selector="controls|ToolButton:disabled">
+    <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+    <Setter Property="Background" Value="#146B7280" />
+    <Setter Property="BorderBrush" Value="#406B7280" />
+    <Setter Property="Opacity" Value="0.8" />
   </Style>
 
   <!-- glifo solto, nos botões e nos menus; as classes de cor servem para ele também -->

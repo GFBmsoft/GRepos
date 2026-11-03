@@ -1121,7 +1121,7 @@ public sealed partial class MainViewModel : ObservableObject
             var nome = atual.Name;
             Acao("Obter", $"fetch em {nome}", FetchCommand);
             Acao("Puxar", $"pull em {nome}", PullCommand);
-            Acao("Enviar", $"push de {nome}", PushCommand);
+            Acao("Enviar", $"push de {nome}", PushCommand, PodeEnviar);
             Acao("Branches…", $"trocar, criar, mesclar em {nome}", OpenBranchesCommand);
             Acao("Pull requests…", $"ver, criar e mesclar em {nome}", AbrirPullRequestsCommand, TemGitHub);
             Acao("Issues…", $"abertas, fechadas e etiquetas de {nome}", AbrirIssuesCommand, TemGitHub);
@@ -1259,6 +1259,29 @@ public sealed partial class MainViewModel : ObservableObject
     public string BehindBadge => CurrentStatus is { Behind: > 0 } s ? s.Behind.ToString() : "";
     public string AheadBadge => CurrentStatus is { Ahead: > 0 } s ? s.Ahead.ToString() : "";
     public string StashBadge => CurrentStatus is { Stashes: > 0 } s ? s.Stashes.ToString() : "";
+
+    /// <summary>
+    /// Enviar só liga com o que enviar e para onde: antes ele rodava o push com a branch em
+    /// dia, ou sem remoto nenhum, e só depois dizia que não havia o que fazer.
+    /// </summary>
+    public bool PodeEnviar => !Busy && !SemRemoto && CurrentStatus is { TemOQueEnviar: true };
+
+    /// <summary>A dica diz por que o Enviar está desligado, em vez de deixar o usuário adivinhar.</summary>
+    public string EnviarTooltip => CurrentStatus switch
+    {
+        _ when SemRemoto => "Nada a enviar: o repositório não tem remoto (origin)",
+        { Branch: "(detached)" } => "Nada a enviar: o HEAD está solto, fora de uma branch",
+        { TemOQueEnviar: false, Upstream: { Length: > 0 } u } => $"Nada a enviar: a branch está em dia com {u}",
+        _ => "Enviar os commits locais (push)",
+    };
+
+    partial void OnBusyChanged(bool value) => OnPropertyChanged(nameof(PodeEnviar));
+
+    partial void OnSemRemotoChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PodeEnviar));
+        OnPropertyChanged(nameof(EnviarTooltip));
+    }
     public string RepoCountText => $"{_ws.Repos.Count} repositório(s)";
 
     /// <summary>
@@ -1642,7 +1665,7 @@ public sealed partial class MainViewModel : ObservableObject
         foreach (var n in new[] { nameof(CurrentRepo), nameof(CurrentStatus), nameof(HasSelection),
                                   nameof(NoSelection), nameof(HasPair), nameof(RepoTitle), nameof(RepoPath),
                                   nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine), nameof(ChangesTabHeader),
-                                  nameof(PairTabHeader), nameof(BehindBadge), nameof(AheadBadge),
+                                  nameof(PairTabHeader), nameof(BehindBadge), nameof(AheadBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText),
                                   nameof(ForaDaPrincipal), nameof(SemNadaSelecionado),
                                   nameof(AvisoNaBarra), nameof(AvisoNoRodape) })
@@ -1953,7 +1976,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void RefreshHeaderBindings()
     {
         foreach (var n in new[] { nameof(CurrentStatus), nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine),
-                                  nameof(ChangesTabHeader), nameof(BehindBadge), nameof(AheadBadge),
+                                  nameof(ChangesTabHeader), nameof(BehindBadge), nameof(AheadBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText) })
             OnPropertyChanged(n);
     }

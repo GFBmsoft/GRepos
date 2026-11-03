@@ -59,7 +59,7 @@
                       <TextBlock Text="Cancelar" />
                     </StackPanel>
                   </Button>
-                  <Button Classes="tiny azul" BorderThickness="1" BorderBrush="{DynamicResource Accent}"
+                  <Button Classes="tiny azul" IsEnabled="{Binding PodeSalvar}"
                           Command="{Binding $parent[ItemsControl].DataContext.SalvarEdicaoCommand}"
                           CommandParameter="{Binding}">
                     <StackPanel Classes="comIcone">

@@ -37,6 +37,11 @@ public sealed partial class ComentarioViewModel : ObservableObject
     public bool TemOnde => Comentario.Onde.Length > 0;
 
     public bool PodeEditar => Proprio && Comentario.Id > 0 && Comentario.Origem != "revisao" && !Editando;
+
+    /// <summary>Comentário vazio não se salva: para tirá-lo, é excluir.</summary>
+    public bool PodeSalvar => Rascunho.Trim().Length > 0;
+
+    partial void OnRascunhoChanged(string value) => OnPropertyChanged(nameof(PodeSalvar));
     public bool Lendo => !Editando;
 
     /// <summary>Aprovação em verde, pedido de mudança em vermelho; o resto é conversa.</summary>

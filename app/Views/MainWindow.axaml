@@ -296,8 +296,8 @@
           </controls:ToolButton>
           <controls:ToolButton Grid.Column="3" Label="Enviar" Glifo="{x:Static controls:Glifos.Enviar}" Classes="laranja"
                                Badge="{Binding AheadBadge}"
-                               ToolTip.Tip="Enviar os commits locais (push)"
-                               IsEnabled="{Binding !Busy}" Command="{Binding PushCommand}" />
+                               ToolTip.Tip="{Binding EnviarTooltip}" ToolTip.ShowOnDisabled="True"
+                               IsEnabled="{Binding PodeEnviar}" Command="{Binding PushCommand}" />
           <!-- fora da main o botão fica destacado: é fácil esquecer em que branch se está -->
           <controls:ToolButton Grid.Column="4" Label="{Binding BranchCaption}" Classes="semCompactar roxo"
                                Glifo="{x:Static controls:Glifos.Branch}"
