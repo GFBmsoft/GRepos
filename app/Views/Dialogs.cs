@@ -378,6 +378,7 @@ public sealed class GroupWindow : DialogWindow
         {
             var b = new Button
             {
+                Classes = { "amostra" },
                 Width = 28,
                 Height = 28,
                 Margin = new Thickness(0, 0, 6, 6),

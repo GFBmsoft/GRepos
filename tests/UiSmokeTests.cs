@@ -1056,6 +1056,32 @@ public class UiSmokeTests
         janela.Close();
     }
 
+    /// <summary>
+    /// A bolinha da cor continua na cor dela com o mouse em cima. O hover da pílula pinta o
+    /// fundo com o contorno, e o contorno da bolinha é branco: ela ficava branca.
+    /// </summary>
+    [AvaloniaFact]
+    public void Bolinha_da_cor_nao_muda_com_o_mouse_em_cima()
+    {
+        var janela = new GroupWindow("Editar grupo", "Fiscal", "#1F9D55");
+        janela.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var bolinha = janela.GetVisualDescendants().OfType<Button>().First(b => b.Tag is string c && c != "#1F9D55");
+        Assert.Contains("amostra", bolinha.Classes);
+        var fundo = bolinha.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First();
+        Avalonia.Media.Color? Cor() => (fundo.Background as Avalonia.Media.ISolidColorBrush)?.Color;
+        var cor = Avalonia.Media.Color.Parse((string)bolinha.Tag!);
+        Assert.Equal(cor, Cor());
+
+        janela.MouseMove(bolinha.TranslatePoint(new Point(14, 14), janela)!.Value);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.True(bolinha.IsPointerOver);
+        Assert.Equal(cor, Cor());
+
+        janela.Close();
+    }
+
     internal static IssuesViewModel IssuesPopulado()
     {
         var bug = new GRepos.Services.Etiqueta("bug", "#d73a4a");

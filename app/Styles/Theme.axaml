@@ -169,6 +169,13 @@
     <Setter Property="TextBlock.Foreground" Value="{Binding $parent[Button].Foreground}" />
   </Style>
 
+  <!-- amostra de cor (a paleta do grupo): o fundo é a cor dela, também com o mouse em cima. Com
+       o hover da pílula, que pinta o fundo com o contorno, ela ficava branca -->
+  <Style Selector="Button.amostra:pointerover /template/ ContentPresenter, Button.amostra:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{Binding $parent[Button].Background}" />
+    <Setter Property="BorderBrush" Value="{Binding $parent[Button].BorderBrush}" />
+  </Style>
+
   <!-- desligado: pílula cinza e texto apagado, qualquer que seja a cor. Só baixar a opacidade
        deixava a cor da ação, e o Commit sem mensagem continuava verde, com cara de clicável -->
   <Style Selector="Button:disabled /template/ ContentPresenter">

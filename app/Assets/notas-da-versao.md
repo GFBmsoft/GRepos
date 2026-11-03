@@ -1,3 +1,6 @@
+## 1.0.0.58 — 03/11/2026
+- **Cor do grupo**: na janela de grupo, as bolinhas de cor continuam na cor delas com o mouse em cima. Antes elas ficavam brancas.
+
 ## 1.0.0.57 — 03/11/2026
 - **Botão desligado fica cinza**: o **Commit** sem mensagem e qualquer outro botão que não pode ser usado aparecem cinza e apagados. Antes eles mantinham a cor da ação e pareciam clicáveis.
 - **Enviar só com o que enviar**: o botão liga quando há commit à frente do remoto ou quando a branch ainda não existe lá. Com a branch em dia, sem remoto ou fora de uma branch, ele fica desligado, e a dica do mouse explica o motivo.
