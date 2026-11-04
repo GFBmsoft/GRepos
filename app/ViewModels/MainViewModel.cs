@@ -91,7 +91,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly DispatcherTimer _timer = new();
     private Workspace _ws = new();
     private RepoWatcher? _watcher;
-    private bool _reloading;
+    private bool _reloading, _recarregarDeNovo;
 
     public MainViewModel(IDialogService dialogs)
     {
@@ -1726,12 +1726,23 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     private async Task OnDiskChangedAsync(string repoId)
     {
-        if (_reloading || SelectedNode?.Id != repoId) return;
+        if (SelectedNode?.Id != repoId) return;
+        // salvar durante uma recarga não se perde: ela roda de novo ao terminar. Antes o aviso
+        // era descartado, e a tela ficava com o que leu antes do último salvamento
+        if (_reloading)
+        {
+            _recarregarDeNovo = true;
+            return;
+        }
         _reloading = true;
         try
         {
-            await RefreshRepoAsync(repoId);
-            await RecarregarAbaAsync();
+            do
+            {
+                _recarregarDeNovo = false;
+                await RefreshRepoAsync(repoId);
+                await RecarregarAbaAsync();
+            } while (_recarregarDeNovo && SelectedNode?.Id == repoId);
         }
         catch (Exception e)
         {

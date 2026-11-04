@@ -160,6 +160,11 @@ public sealed partial class ChangesViewModel : ObservableObject
                         ?? Staged.FirstOrDefault();
 
             if (again is null) LimparDiff();
+            else if (ReferenceEquals(again, again.Staged ? SelectedStaged : SelectedUnstaged))
+                // o mesmo arquivo continua aberto: a seleção não muda e não relia o diff, e salvar
+                // de novo um arquivo que já estava na lista só aparecia depois de trocar de aba.
+                // Diff igual ao da tela não é remontado (ShowDiffAsync compara)
+                await ShowDiffAsync(again);
             else if (again.Staged) SelectedStaged = again;
             else SelectedUnstaged = again;
 

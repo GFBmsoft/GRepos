@@ -1,3 +1,7 @@
+## 1.0.0.59 — 04/11/2026
+- **Diff em dia ao salvar de novo**: com um arquivo já na lista de alterações, salvar de novo agora atualiza o diff aberto na hora. Antes ele continuava mostrando a versão anterior até você trocar de aba. Vale também para o arquivo preparado.
+- Salvar enquanto a tela ainda está se atualizando não se perde mais: ela se atualiza de novo em seguida.
+
 ## 1.0.0.58 — 03/11/2026
 - **Cor do grupo**: na janela de grupo, as bolinhas de cor continuam na cor delas com o mouse em cima. Antes elas ficavam brancas.
 

@@ -145,6 +145,59 @@ public class ChangesReloadTests
         finally { Limpar(dir); }
     }
 
+    /// <summary>
+    /// Salvar de novo um arquivo que já estava na lista: ele continua "M", a lista não muda e a
+    /// seleção também não, e o diff aberto ficava o de antes até trocar de aba.
+    /// </summary>
+    [Fact]
+    public async Task Arquivo_que_ja_estava_alterado_e_salvo_de_novo_atualiza_o_diff()
+    {
+        var dir = await RepoComTresAlteracoes();
+        try
+        {
+            var vm = Vm(dir);
+            await vm.ReloadAsync();
+            for (var i = 0; i < 100 && vm.Diff.Adicionadas == 0; i++) await Task.Delay(50);
+            var aberto = vm.SelectedUnstaged!;
+            Assert.Equal(1, vm.Diff.Adicionadas);
+
+            File.WriteAllText(Path.Combine(dir, aberto.Path), "alterado\nmais uma\ne outra\n");
+            await vm.ReloadAsync(silent: true);
+            for (var i = 0; i < 40 && vm.Diff.Adicionadas != 3; i++) await Task.Delay(50);
+
+            Assert.Same(aberto, vm.SelectedUnstaged); // o mesmo arquivo, sem recriar o item da lista
+            Assert.Equal(3, vm.Diff.Adicionadas);
+        }
+        finally { Limpar(dir); }
+    }
+
+    /// <summary>O mesmo para o arquivo preparado que ganha outra preparação: o diff do índice muda.</summary>
+    [Fact]
+    public async Task Arquivo_preparado_de_novo_atualiza_o_diff_preparado()
+    {
+        var dir = await RepoComTresAlteracoes();
+        try
+        {
+            var vm = Vm(dir);
+            await vm.ReloadAsync();
+            await vm.StageCommand.ExecuteAsync(vm.Unstaged.Single(f => f.Path == "Unit1.pas"));
+            vm.SelectedStaged = vm.Staged.Single();
+            for (var i = 0; i < 100 && !vm.Diff.Title.Contains("(preparado)"); i++) await Task.Delay(50);
+            var aberto = vm.SelectedStaged!;
+            Assert.Equal(1, vm.Diff.Adicionadas);
+
+            // fora do GRepos: salvou e preparou de novo (o "M" do índice continua "M")
+            File.WriteAllText(Path.Combine(dir, "Unit1.pas"), "alterado\nmais uma\n");
+            await GitService.RunAsync(dir, new[] { "add", "Unit1.pas" });
+            await vm.ReloadAsync(silent: true);
+            for (var i = 0; i < 40 && vm.Diff.Adicionadas != 2; i++) await Task.Delay(50);
+
+            Assert.Same(aberto, vm.SelectedStaged);
+            Assert.Equal(2, vm.Diff.Adicionadas);
+        }
+        finally { Limpar(dir); }
+    }
+
     [Fact]
     public async Task Recarga_sem_mudanca_nao_mexe_na_lista()
     {
