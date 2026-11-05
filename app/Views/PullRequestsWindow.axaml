@@ -27,7 +27,17 @@
     <Border Grid.Row="1" Padding="12,9" CornerRadius="7" Margin="0,0,0,10"
             Background="{DynamicResource BgRaised}" BorderThickness="1"
             BorderBrush="{DynamicResource Green}" IsVisible="{Binding TemInfo}">
-      <TextBlock Text="{Binding Info}" TextWrapping="Wrap" TextTrimming="None" />
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding Info}" TextWrapping="Wrap" TextTrimming="None" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="pequena azul" Margin="10,0,0,0" VerticalAlignment="Center"
+                IsVisible="{Binding TemInfoUrl}" Command="{Binding AbrirInfoNoGitHubCommand}"
+                ToolTip.Tip="Abre este pull request no GitHub">
+          <StackPanel Classes="comIcone">
+            <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Abrir}" />
+            <TextBlock Text="Abrir no GitHub" />
+          </StackPanel>
+        </Button>
+      </Grid>
     </Border>
 
     <!-- lista à esquerda; à direita o detalhe do escolhido ou o formulário de PR novo -->
@@ -253,10 +263,12 @@
                 <ComboBox Grid.Column="0" MinWidth="150" ItemsSource="{Binding Metodos}"
                           SelectedItem="{Binding Metodo}" VerticalAlignment="Center"
                           ToolTip.Tip="Como os commits entram na branch de destino" />
+                <!-- sem destaque: logo depois de criar o PR, o Mesclar em negrito parecia o
+                     próximo passo, e um PR foi mesclado sem revisão -->
                 <Button Grid.Column="1" MinWidth="88" Margin="8,0,0,0"
-                        Classes="primary roxo" IsEnabled="{Binding PodeMesclar}"
+                        Classes="roxo" IsEnabled="{Binding PodeMesclar}"
                         Command="{Binding MesclarCommand}"
-                        ToolTip.Tip="Mescla o pull request no GitHub">
+                        ToolTip.Tip="Mescla o pull request no GitHub. Sem revisão aprovada, a confirmação avisa">
                   <StackPanel Classes="comIcone">
                     <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Mesclar}" />
                     <TextBlock Text="Mesclar" />

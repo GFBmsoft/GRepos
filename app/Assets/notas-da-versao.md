@@ -1,3 +1,7 @@
+## 1.0.0.60 — 05/11/2026
+- **Pull request criado com aviso**: depois de criar um pull request, a janela mostra uma faixa verde com o número dele e o caminho (por exemplo, de feat/x para develop), e um botão para abrir no GitHub. Antes ela só passava para o detalhe, e não ficava claro que tinha dado certo.
+- **Mesclar com cuidado**: o botão **Mesclar** deixou de ser o destaque da tela. Ao mesclar um pull request que ainda não tem revisão aprovada, ou que tem um pedido de mudanças, a confirmação avisa isso numa faixa amarela antes de você confirmar.
+
 ## 1.0.0.59 — 04/11/2026
 - **Diff em dia ao salvar de novo**: com um arquivo já na lista de alterações, salvar de novo agora atualiza o diff aberto na hora. Antes ele continuava mostrando a versão anterior até você trocar de aba. Vale também para o arquivo preparado.
 - Salvar enquanto a tela ainda está se atualizando não se perde mais: ela se atualiza de novo em seguida.

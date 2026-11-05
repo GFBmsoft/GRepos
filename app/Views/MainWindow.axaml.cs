@@ -330,6 +330,9 @@ public partial class MainWindow : Window, IDialogService
     public Task<bool> ConfirmAsync(string title, string message) =>
         new ConfirmWindow(title, message).ShowDialog<bool>(this);
 
+    public Task<bool> ConfirmarComAvisoAsync(string title, string aviso, string message) =>
+        new ConfirmWindow(title, message, aviso: aviso).ShowDialog<bool>(this);
+
     public async Task<string?> PickFolderAsync(string title)
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions

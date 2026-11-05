@@ -300,7 +300,9 @@ public abstract class DialogWindow : Window
 public sealed class ConfirmWindow : DialogWindow
 {
     /// <param name="acao">O texto do botão que confirma. Com <paramref name="perigo"/>, ele sai em vermelho.</param>
-    public ConfirmWindow(string title, string message, string acao = "Confirmar", bool perigo = false) : base(title, 420)
+    /// <param name="aviso">O que convém saber antes de confirmar, numa faixa amarela acima do texto.</param>
+    public ConfirmWindow(string title, string message, string acao = "Confirmar", bool perigo = false, string aviso = "")
+        : base(title, 420)
     {
         var no = Btn("Cancelar");
         var yes = Btn(acao, !perigo);
@@ -308,13 +310,39 @@ public sealed class ConfirmWindow : DialogWindow
         no.Click += (_, _) => Close(false);
         yes.Click += (_, _) => Close(true);
 
-        Compose(title,
-            new Control[]
+        var corpo = new List<Control>();
+        if (aviso.Length > 0)
+            corpo.Add(new Border
             {
-                new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 4) },
-            },
-            new[] { no, yes },
-            rodapeCentralizado: true);
+                Name = "AvisoDaConfirmacao",
+                Padding = new Thickness(10, 8),
+                Margin = new Thickness(0, 0, 0, 10),
+                CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                BorderBrush = new SolidColorBrush(Color.Parse("#66B08500")),
+                Background = new SolidColorBrush(Color.Parse("#24B08500")),
+                Child = new Grid
+                {
+                    ColumnDefinitions = new ColumnDefinitions("Auto,*"),
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Classes = { "glifo", "amarelo" }, Text = Glifos.Alerta,
+                            Margin = new Thickness(0, 1, 8, 0), VerticalAlignment = VerticalAlignment.Top,
+                        },
+                        new TextBlock
+                        {
+                            [Grid.ColumnProperty] = 1,
+                            Classes = { "amarelo" }, Text = aviso, FontWeight = FontWeight.SemiBold,
+                            TextWrapping = TextWrapping.Wrap, TextTrimming = TextTrimming.None,
+                        },
+                    },
+                },
+            });
+        corpo.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 4) });
+
+        Compose(title, corpo, new[] { no, yes }, rodapeCentralizado: true);
     }
 }
 

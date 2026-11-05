@@ -1032,10 +1032,12 @@ public sealed partial class PullRequestsViewModel : ObservableObject
 
         Executando = true;
         Erro = "";
+        Info = "";
         try
         {
+            var destino = NovoDestino;
             var criado = await GitHubService.CriarPullRequestAsync(
-                _ctx.Slug, NovoTitulo, NovoCorpo, _ctx.Branch, NovoDestino, NovoRascunho, _ctx.Usuario);
+                _ctx.Slug, NovoTitulo, NovoCorpo, _ctx.Branch, destino, NovoRascunho, _ctx.Usuario);
 
             NovoCorpo = "";
             Criando = false;
@@ -1043,6 +1045,13 @@ public sealed partial class PullRequestsViewModel : ObservableObject
 
             if (criado is not null)
                 Selecionada = Lista.FirstOrDefault(p => p.Pr.Numero == criado.Numero) ?? Selecionada;
+
+            // sem esta faixa a janela só passava para o detalhe, e o próximo passo parecia o
+            // Mesclar: um PR foi mesclado 16 s depois de criado, sem revisão, achando que não tinha saído
+            Info = criado is null
+                ? $"Pull request criado de {_ctx.Branch} para {destino}."
+                : $"Pull request #{criado.Numero} criado de {_ctx.Branch} para {destino}.";
+            InfoUrl = criado?.Url ?? "";
         }
         catch (Exception e)
         {
@@ -1062,8 +1071,9 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         var item = Selecionada;
         if (item is null || !PodeMesclar) return;
 
-        if (_dialogs is not null && !await _dialogs.ConfirmAsync(
+        if (_dialogs is not null && !await _dialogs.ConfirmarComAvisoAsync(
                 "Mesclar pull request",
+                await AvisoDeRevisaoAsync(item),
                 $"Mesclar {item.Numero} \"{item.Titulo}\"\n{item.Caminho}\n\n" +
                 $"Forma: {Metodo.Nome}. Isso altera a branch {item.Pr.Destino} no GitHub e não tem desfazer por aqui."))
             return;
@@ -1076,6 +1086,7 @@ public sealed partial class PullRequestsViewModel : ObservableObject
             await GitHubService.MesclarPullRequestAsync(_ctx.Slug, item.Pr.Numero, Metodo.Id, _ctx.Usuario);
             Alterou = true;
             Info = $"PR {item.Numero} mesclado com sucesso em {item.Pr.Destino}.";
+            InfoUrl = item.Pr.Url;
 
             // mesclado ele sai dos abertos: a lista passa a mostrar os fechados, com ele
             // selecionado, para se ver o resultado
@@ -1096,6 +1107,33 @@ public sealed partial class PullRequestsViewModel : ObservableObject
             Executando = false;
         }
     }
+
+    /// <summary>
+    /// O que dizer em destaque antes de mesclar, pelas revisões do PR: sem aprovação ou com
+    /// pedido de mudanças. Vazio quando há aprovação (ou quando as revisões não vieram: a
+    /// confirmação segue sem o aviso, como antes).
+    /// </summary>
+    private async Task<string> AvisoDeRevisaoAsync(PrViewModel item)
+    {
+        try
+        {
+            var (aprovaram, pediramMudancas) = await GitHubService.RevisoesDoPrAsync(_ctx.Slug, item.Pr.Numero, _ctx.Usuario);
+            return AvisoDeRevisao(aprovaram, pediramMudancas);
+        }
+        catch (Exception)
+        {
+            return "";
+        }
+    }
+
+    internal static string AvisoDeRevisao(int aprovaram, int pediramMudancas) =>
+        pediramMudancas > 0
+            ? pediramMudancas == 1
+                ? "Há um pedido de mudanças neste pull request, ainda sem nova aprovação."
+                : $"Há {pediramMudancas} pedidos de mudanças neste pull request, ainda sem nova aprovação."
+            : aprovaram == 0
+                ? "Este pull request ainda não tem revisão aprovada. Mesclar agora pula a revisão."
+                : "";
 
     /// <summary>Troca de filtro feita pelo próprio código, que já recarrega em seguida.</summary>
     private bool _semRecarga;
@@ -1154,12 +1192,37 @@ public sealed partial class PullRequestsViewModel : ObservableObject
         }
     }
 
-    /// <summary>O que deu certo e merece ser dito (o PR trazido), no lugar do erro.</summary>
+    /// <summary>O que deu certo e merece ser dito (o PR criado, mesclado ou trazido), no lugar do erro.</summary>
     [ObservableProperty] private string _info = "";
 
     public bool TemInfo => Info.Length > 0;
 
-    partial void OnInfoChanged(string value) => OnPropertyChanged(nameof(TemInfo));
+    /// <summary>O endereço do PR de que a faixa verde fala: com ele, ela ganha o "Abrir no GitHub".</summary>
+    [ObservableProperty] private string _infoUrl = "";
+
+    public bool TemInfoUrl => TemInfo && InfoUrl.Length > 0;
+
+    partial void OnInfoChanged(string value)
+    {
+        OnPropertyChanged(nameof(TemInfo));
+        if (value.Length == 0) InfoUrl = "";
+        OnPropertyChanged(nameof(TemInfoUrl));
+    }
+
+    partial void OnInfoUrlChanged(string value) => OnPropertyChanged(nameof(TemInfoUrl));
+
+    [RelayCommand]
+    private void AbrirInfoNoGitHub()
+    {
+        try
+        {
+            if (InfoUrl.Length > 0) ShellService.AbrirUrl(InfoUrl);
+        }
+        catch (Exception e)
+        {
+            Erro = e.Message;
+        }
+    }
 
     private async Task EscreverAsync(Func<Task> acao)
     {

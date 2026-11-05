@@ -17,6 +17,14 @@ namespace GRepos.ViewModels;
 public interface IDialogService
 {
     Task<bool> ConfirmAsync(string title, string message);
+
+    /// <summary>
+    /// Confirmação com um aviso em destaque, numa faixa amarela acima do texto. Quem não
+    /// implementa cai na confirmação comum, com o aviso no começo do texto.
+    /// </summary>
+    Task<bool> ConfirmarComAvisoAsync(string title, string aviso, string message) =>
+        ConfirmAsync(title, aviso.Length == 0 ? message : aviso + "\n\n" + message);
+
     Task<string?> PickFolderAsync(string title);
     Task<string?> PromptAsync(string title, string label, string initial = "");
 

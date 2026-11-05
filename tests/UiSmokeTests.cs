@@ -1516,6 +1516,80 @@ public class UiSmokeTests
         window.Close();
     }
 
+    /// <summary>
+    /// Depois de criar, a janela diz que criou e oferece abrir no GitHub; o Mesclar fica sem
+    /// destaque. Antes ela só passava para o detalhe, com o Mesclar em negrito como próximo
+    /// passo, e um PR foi mesclado 16 s depois de criado, sem revisão.
+    /// </summary>
+    [AvaloniaFact]
+    public void PR_criado_avisa_e_o_Mesclar_nao_e_o_destaque()
+    {
+        var vm = PullRequestsPopulado();
+        var window = new PullRequestsWindow { DataContext = vm, Width = 940, Height = 640 };
+        window.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var mesclar = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.MesclarCommand);
+        Assert.DoesNotContain("primary", mesclar.Classes);
+        Assert.Contains("roxo", mesclar.Classes);
+
+        var abrir = window.GetVisualDescendants().OfType<Button>().Single(b => b.Command == vm.AbrirInfoNoGitHubCommand);
+        Assert.False(abrir.IsEffectivelyVisible);
+        vm.Info = "Pull request #43 criado de imp/boleto para develop.";
+        vm.InfoUrl = "https://github.com/bmsoftsistemas/Financeiro/pull/43";
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.True(abrir.IsEffectivelyVisible);
+
+        // a faixa limpa leva o endereço junto: a próxima mensagem não herda o link
+        vm.Info = "";
+        Assert.Equal("", vm.InfoUrl);
+        vm.Info = "O repositório está agora na branch imp/boleto.";
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.False(abrir.IsEffectivelyVisible);
+        window.Close();
+    }
+
+    [Fact]
+    public void Revisoes_contam_pela_ultima_de_cada_pessoa()
+    {
+        const string json = """
+            [
+              { "user": { "login": "ana" }, "state": "APPROVED" },
+              { "user": { "login": "ana" }, "state": "CHANGES_REQUESTED" },
+              { "user": { "login": "bia" }, "state": "APPROVED" },
+              { "user": { "login": "caio" }, "state": "COMMENTED", "body": "boa" },
+              { "user": { "login": "davi" }, "state": "APPROVED" },
+              { "user": { "login": "davi" }, "state": "DISMISSED" }
+            ]
+            """;
+        Assert.Equal((1, 1), GRepos.Services.GitHubService.SituacaoDasRevisoes(json));
+        Assert.Equal((0, 0), GRepos.Services.GitHubService.SituacaoDasRevisoes("[]"));
+
+        Assert.Contains("ainda não tem revisão aprovada", PullRequestsViewModel.AvisoDeRevisao(0, 0));
+        Assert.Contains("um pedido de mudanças", PullRequestsViewModel.AvisoDeRevisao(1, 1));
+        Assert.Contains("2 pedidos de mudanças", PullRequestsViewModel.AvisoDeRevisao(0, 2));
+        Assert.Equal("", PullRequestsViewModel.AvisoDeRevisao(1, 0));
+    }
+
+    /// <summary>O aviso da confirmação vem em faixa amarela, acima do texto; sem aviso, a janela de sempre.</summary>
+    [AvaloniaFact]
+    public void Confirmacao_com_aviso_mostra_a_faixa_amarela()
+    {
+        var comAviso = new ConfirmWindow("Mesclar pull request", "Mesclar #42?", aviso: PullRequestsViewModel.AvisoDeRevisao(0, 0));
+        comAviso.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        var faixa = comAviso.GetVisualDescendants().OfType<Border>().Single(b => b.Name == "AvisoDaConfirmacao");
+        Assert.True(faixa.IsEffectivelyVisible);
+        Assert.Contains(faixa.GetVisualDescendants().OfType<TextBlock>(), t => t.Text!.Contains("revisão aprovada"));
+        comAviso.Close();
+
+        var semAviso = new ConfirmWindow("Mesclar pull request", "Mesclar #42?");
+        semAviso.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        Assert.DoesNotContain(semAviso.GetVisualDescendants().OfType<Border>(), b => b.Name == "AvisoDaConfirmacao");
+        semAviso.Close();
+    }
+
     [AvaloniaFact]
     public void CtrlF_leva_o_foco_ao_filtro_e_Esc_limpa()
     {

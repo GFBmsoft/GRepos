@@ -446,6 +446,21 @@ public class ScreenshotTests
         var novo = new PullRequestsWindow { DataContext = vm };
         ShotJanela(novo, "pull-requests-novo", 940, 640);
         novo.Close();
+
+        // logo depois de criar: a faixa verde com o link, e o Mesclar sem destaque
+        var criado = UiSmokeTests.PullRequestsPopulado();
+        criado.Info = "Pull request #42 criado de imp/boleto para develop.";
+        criado.InfoUrl = "https://github.com/bmsoftsistemas/Financeiro/pull/42";
+        var depois = new PullRequestsWindow { DataContext = criado };
+        ShotJanela(depois, "pull-requests-criado", 940, 640);
+        depois.Close();
+
+        var confirmar = new ConfirmWindow("Mesclar pull request",
+            "Mesclar #42 \"fix(boleto): ocultar campo do boleto online\"\nfeat/boleto → develop\n\n" +
+            "Forma: Merge commit. Isso altera a branch develop no GitHub e não tem desfazer por aqui.",
+            aviso: PullRequestsViewModel.AvisoDeRevisao(0, 0));
+        ShotJanela(confirmar, "pull-requests-mesclar-sem-revisao", 420, 300);
+        confirmar.Close();
     }
 
     /// <summary>Preferências na seção das notas: a versão escolhida e o que mudou nela.</summary>

@@ -1279,6 +1279,27 @@ public static partial class GitHubService
         return lista;
     }
 
+    /// <summary>
+    /// Quantas pessoas aprovaram e quantas pediram mudanças, pela última revisão de cada uma:
+    /// quem aprovou e depois pediu mudanças conta como pedido de mudanças, e revisão descartada
+    /// (DISMISSED) deixa de valer. Comentário solto não muda a situação de ninguém.
+    /// </summary>
+    public static (int Aprovaram, int PediramMudancas) SituacaoDasRevisoes(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var ultima = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in Lista(doc))
+        {
+            var estado = Texto(r, "state");
+            if (estado is "APPROVED" or "CHANGES_REQUESTED" or "DISMISSED") ultima[Login(r)] = estado;
+        }
+        return (ultima.Values.Count(e => e == "APPROVED"), ultima.Values.Count(e => e == "CHANGES_REQUESTED"));
+    }
+
+    public static async Task<(int Aprovaram, int PediramMudancas)> RevisoesDoPrAsync(string slug, int numero, string usuario = "") =>
+        SituacaoDasRevisoes(await BaixarAsync(
+            $"https://api.github.com/repos/{slug}/pulls/{numero}/reviews?per_page=100", usuario, "as revisões"));
+
     /// <summary>Comentários feitos numa linha do código, com o arquivo e a linha.</summary>
     public static List<Comentario> LerComentariosDeCodigo(string json)
     {
