@@ -32,6 +32,9 @@ internal static class IsolamentoDoWorkspace
         // executável dos testes fica em bin/, que é do projeto
         WorkspaceStore.PastaDoAppDeTeste = Path.Combine(raiz, "app");
         Directory.CreateDirectory(WorkspaceStore.PastaDoAppDeTeste);
+
+        // as mensagens que o GConv deixa: a aba Alterações de todo teste lê a pasta, e nenhum lê a do GConv de verdade
+        MensagemDoGConv.PastaDeTeste = Path.Combine(raiz, "gconv-commit");
     }
 }
 

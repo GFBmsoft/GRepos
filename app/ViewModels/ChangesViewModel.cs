@@ -71,7 +71,78 @@ public sealed partial class ChangesViewModel : ObservableObject
     public bool CanCommit => !Busy && !string.IsNullOrWhiteSpace(CommitMessage) && (Staged.Count > 0 || Amend);
     public string CommitCaption => Staged.Count > 0 ? $"Commit ({Staged.Count})" : "Commit";
 
-    partial void OnCommitMessageChanged(string value) => OnPropertyChanged(nameof(CanCommit));
+    partial void OnCommitMessageChanged(string value)
+    {
+        OnPropertyChanged(nameof(CanCommit));
+        // apagar a mensagem do GConv é dispensá-la: ela não volta na próxima recarga
+        if (_sugestao is not null && string.IsNullOrWhiteSpace(value))
+        {
+            lock (Dispensadas) Dispensadas.Add(_sugestao.Chave);
+            DefinirSugestao(null);
+        }
+    }
+
+    // ── a mensagem que o GConv deixou para este repositório (a conversão DBISAM → MySQL) ──
+
+    /// <summary>A mensagem do GConv que está no campo, enquanto está.</summary>
+    private MensagemDoGConv.Sugestao? _sugestao;
+
+    /// <summary>As mensagens do GConv apagadas do campo enquanto o app está aberto (valem para todos os repositórios).</summary>
+    private static readonly HashSet<string> Dispensadas = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DicaSugestao))]
+    private string _sugestaoTexto = "";
+    public bool TemSugestao => _sugestao is not null;
+
+    /// <summary>A linha inteira (no painel estreito ela sai cortada) e o que fazer com a mensagem.</summary>
+    public string DicaSugestao => SugestaoTexto + ". O GConv deixou esta mensagem para as alterações da conversão: " +
+                                  "revise o diff antes de commitar. Apagar o texto tira a mensagem, e ela não volta.";
+
+    private void DefinirSugestao(MensagemDoGConv.Sugestao? s)
+    {
+        _sugestao = s;
+        SugestaoTexto = s is null ? "" : "Mensagem do GConv: " + (s.Descricao.Length > 0 ? s.Descricao : "conversão DBISAM → MySQL");
+        OnPropertyChanged(nameof(TemSugestao));
+    }
+
+    /// <summary>
+    /// Com o campo vazio e alteração pendente, põe a mensagem que o GConv gravou para este HEAD e esta branch. Nunca pisa
+    /// no que foi digitado nem no "Emendar último". Se o HEAD andou (commit por fora) e a mensagem continua intacta no
+    /// campo, ela sai: descrevia as alterações de antes.
+    /// </summary>
+    private async Task SugerirDoGConvAsync(RepoStatus status)
+    {
+        if (_sugestao is not null)
+        {
+            // editada, fica o texto de quem editou; só o aviso de que veio do GConv sai
+            if (status.Head != _sugestao.Head)
+            {
+                if (CommitMessage == _sugestao.Mensagem) CommitMessage = "";
+                else DefinirSugestao(null);
+            }
+            return;
+        }
+        if (!string.IsNullOrWhiteSpace(CommitMessage) || Amend || Staged.Count + Unstaged.Count == 0) return;
+        var (repo, head, branch) = (_repo.Path, status.Head, status.Branch);
+        var s = await Task.Run(() => MensagemDoGConv.Achar(repo, head, branch));
+        if (s is null) return;
+        lock (Dispensadas) if (Dispensadas.Contains(s.Chave)) return;
+        // digitou ou marcou "Emendar" enquanto a pasta era lida
+        if (!string.IsNullOrWhiteSpace(CommitMessage) || Amend || _sugestao is not null) return;
+        MostrarSugestao(s);
+    }
+
+    /// <summary>Põe a mensagem do GConv no campo, com a linha que diz de onde ela veio (separado para o teste de tela).</summary>
+    internal void MostrarSugestao(MensagemDoGConv.Sugestao s)
+    {
+        CommitMessage = s.Mensagem;
+        DefinirSugestao(s);
+    }
+
+    /// <summary>Tira a mensagem do GConv do campo (é o mesmo que apagar o texto).</summary>
+    [RelayCommand]
+    private void DispensarSugestao() => CommitMessage = "";
     partial void OnAmendChanged(bool value)
     {
         OnPropertyChanged(nameof(CanCommit));
@@ -171,6 +242,7 @@ public sealed partial class ChangesViewModel : ObservableObject
             // o status saiu da mesma chamada: aplicar direto evita um segundo "git status"
             _main.ApplyStatus(_repo.Id, status);
             GuardarRemoto(status);
+            await SugerirDoGConvAsync(status);
             Operacao = GitService.OperacaoEmAndamento(_repo.Path);
             OnPropertyChanged(nameof(OperacaoTexto));
         }

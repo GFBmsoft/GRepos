@@ -110,3 +110,12 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
   lógico dele, e os itens saíam lado a lado (EV03 do GRemote). `Menus_dos_botoes_ficam_em_coluna`.
 - Operação destrutiva (descartar, dropar stash, remover repositório, excluir branch) sempre confirma antes.
 - Textos de interface em pt-br com acentuação correta.
+- **Mensagem de commit do GConv** (1.0.0.61, pedido do usuário em 09/11: "integrar com o GRepos para a
+  mensagem já ir para o campo de mensagem do commit"). O GConv (`D:\Projetos\Private\GConv`, a conversão
+  DBISAM → MySQL) grava em `%LOCALAPPDATA%\GConv\commit\<pasta>-<hash>.json` um arquivo por repositório
+  (`MensagemParaOGRepos` do GConv: `Repositorio`, `Branch`, `Head` completo, `Mensagem`, `Descricao`) ao fim da
+  conversão e de cada correção. `MensagemDoGConv.Achar` casa o caminho (sem maiúsculas nem barra no fim), o HEAD
+  e a branch; a recarga da aba Alterações (`SugerirDoGConvAsync`) põe a mensagem com o campo vazio, sem "Emendar"
+  e com alteração pendente. Apagada não volta (`Dispensadas`, pela gravação); HEAD que andou com ela intacta
+  tira do campo. O GRepos só lê: não apaga nem muda o arquivo do GConv. Nos testes a pasta é desviada
+  (`MensagemDoGConv.PastaDeTeste`, no `IsolamentoDoWorkspace`). Mudou o formato no GConv? Mude aqui também.

@@ -1,3 +1,10 @@
+## 1.0.0.61 — 09/11/2026
+- **Mensagem de commit do GConv**: no repositório de um módulo convertido de DBISAM para MySQL pelo GConv, a aba **Alterações** já abre com a mensagem de commit da conversão no campo: o resumo, os pedidos e os commits da Origem, com o texto que cada desenvolvedor escreveu. As correções que o GConv fez depois entram no fim da mesma mensagem.
+- Em cima do campo, uma linha diz de onde a mensagem veio, por exemplo "conversão do Notas em 09/11 10:24 + 1 correção".
+- O que você digitou não é trocado, nem a mensagem do **Emendar último**. Para tirar a mensagem do GConv, apague o texto ou clique no **X** da linha. Ela não volta, a não ser que o GConv grave uma nova (uma correção, por exemplo).
+- A mensagem só vale para as alterações que o GConv deixou. Depois do commit, ou ao trocar de branch, ela some do campo e não aparece mais.
+- O campo de mensagem cresce até um limite e, passando dele, rola por dentro. Uma mensagem longa não empurra mais as listas de arquivos.
+
 ## 1.0.0.60 — 05/11/2026
 - **Pull request criado com aviso**: depois de criar um pull request, a janela mostra uma faixa verde com o número dele e o caminho (por exemplo, de feat/x para develop), e um botão para abrir no GitHub. Antes ela só passava para o detalhe, e não ficava claro que tinha dado certo.
 - **Mesclar com cuidado**: o botão **Mesclar** deixou de ser o destaque da tela. Ao mesclar um pull request que ainda não tem revisão aprovada, ou que tem um pedido de mudanças, a confirmação avisa isso numa faixa amarela antes de você confirmar.

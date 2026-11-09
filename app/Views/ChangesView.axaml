@@ -238,8 +238,21 @@
 
         <Border Grid.Row="3" Padding="8" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0">
           <StackPanel Spacing="7">
+            <!-- a mensagem que o GConv deixou para este repositório (conversão DBISAM para MySQL): de onde veio, e o X que a tira -->
+            <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding TemSugestao}">
+              <TextBlock Grid.Column="0" Classes="glifo azul" Text="{x:Static controls:Glifos.Commit}" Margin="0,0,6,0" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1" Text="{Binding SugestaoTexto}" Classes="dim" FontSize="12" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                         ToolTip.Tip="{Binding DicaSugestao}" />
+              <Button Grid.Column="2" Classes="pequena redonda cinza" Margin="6,0,0,0" Command="{Binding DispensarSugestaoCommand}"
+                      ToolTip.Tip="Tirar a mensagem do GConv do campo">
+                <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Fechar}" />
+              </Button>
+            </Grid>
+            <!-- MaxHeight: a mensagem do GConv pode ter dezenas de commits da Origem; acima disso o campo rola por dentro
+                 em vez de empurrar as listas de arquivos -->
             <TextBox Name="Mensagem" Watermark="Mensagem de commit (Ctrl+Enter faz o commit)"
-                     AcceptsReturn="True" MinHeight="64"
+                     AcceptsReturn="True" MinHeight="64" MaxHeight="240"
                      TextWrapping="Wrap" Text="{Binding CommitMessage}" />
             <!-- os botões têm lugar garantido; quem encolhe (com reticências) é o rótulo da caixa -->
             <Grid ColumnDefinitions="*,0,Auto,Auto">
