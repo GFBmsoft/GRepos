@@ -1,3 +1,10 @@
+## 1.0.0.62 — 10/11/2026
+- **Abertura mais rápida**: com muitos repositórios, o app abre bem mais depressa. Num workspace de 61 repositórios, a janela aparece em pouco mais de 1 segundo (antes passava de 2), a tela já responde em menos de 3 segundos (antes, perto de 6) e a esteira e os pull requests de todos os cartões chegam na metade do tempo.
+- A esteira de cada cartão do painel aparece assim que o status daquele repositório chega, sem esperar os outros.
+- **Enviar leva ao histórico**: depois de enviar os commits pela aba **Alterações**, o app passa sozinho para o **Histórico**, onde dá para ver a branch remota alcançar a local. Se o envio falhar, você continua em Alterações.
+- O executável ficou um pouco maior, porque agora já vem compilado para abrir mais rápido.
+- A primeira abertura depois de uma atualização ainda pode demorar alguns segundos: é o Windows conferindo o arquivo novo. Da segunda em diante, a abertura é rápida.
+
 ## 1.0.0.61 — 09/11/2026
 - **Mensagem de commit do GConv**: no repositório de um módulo convertido de DBISAM para MySQL pelo GConv, a aba **Alterações** já abre com a mensagem de commit da conversão no campo: o resumo, os pedidos e os commits da Origem, com o texto que cada desenvolvedor escreveu. As correções que o GConv fez depois entram no fim da mesma mensagem.
 - Em cima do campo, uma linha diz de onde a mensagem veio, por exemplo "conversão do Notas em 09/11 10:24 + 1 correção".

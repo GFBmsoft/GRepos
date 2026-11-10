@@ -306,8 +306,14 @@
                 </StackPanel>
                 </Button>
 
-                <!-- ============================================== cartão aberto -->
-                <Border IsVisible="{Binding Expandido}" Padding="11,8,11,10"
+                <!-- ============================================== cartão aberto
+                     Montado só quando abre: escondido com IsVisible ele era construído em
+                     todos os cartões, com esteira, caixa de workflow e dez botões cada, e
+                     com sessenta repositórios isso prendia a tela por segundos ao abrir o app -->
+                <ContentControl Content="{Binding Aberto}">
+                 <ContentControl.ContentTemplate>
+                  <DataTemplate DataType="vm:CartaoRepoViewModel">
+                <Border Padding="11,8,11,10"
                         BorderBrush="{DynamicResource BorderSoft}" BorderThickness="0,1,0,0">
                   <StackPanel Spacing="8">
 
@@ -500,6 +506,9 @@
                     </WrapPanel>
                   </StackPanel>
                 </Border>
+                  </DataTemplate>
+                 </ContentControl.ContentTemplate>
+                </ContentControl>
                </StackPanel>
               </Grid>
             </Border>

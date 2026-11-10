@@ -30,11 +30,11 @@ teste rodar. Não zere esses desvios num `finally`: guarde e restaure o valor an
 Arquivo único, quando a ideia é levar só o .exe (o `dist` normal são ~20 arquivos):
 
 ```bash
-# precisa do .NET 8 Desktop Runtime instalado (~25 MB)
+# precisa do .NET 8 Desktop Runtime instalado (~47 MB)
 dotnet publish app -c Release -r win-x64 --self-contained false \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist-unico
 
-# não precisa de nada instalado (~89 MB)
+# não precisa de nada instalado (~115 MB)
 dotnet publish app -c Release -r win-x64 --self-contained true \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist-standalone
 ```
@@ -43,6 +43,11 @@ dotnet publish app -c Release -r win-x64 --self-contained true \
 HarfBuzz nativos e, sem ele, essas DLLs ficam soltas ao lado do .exe — que era o que o
 arquivo único deveria evitar. O workflow `.github/workflows/build.yml` gera os dois a cada
 push na main (artefato de 30 dias) e, num push de tag `1.0.0.N`, publica a Release.
+
+Todo publish de Release com `-r` sai em **ReadyToRun** (no `GRepos.csproj`): a janela abre em
+~1,1 s em vez de ~2,2 s. Tem de ser **não composto** (`PublishReadyToRunComposite=false`): o
+composto embute o .NET e, reaproveitado do `obj` pelo publish seguinte, derrubava o .exe que
+depende do runtime antes do `Main` (exatamente a ordem do workflow).
 
 ## Arquitetura
 
@@ -89,6 +94,10 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
   pode roubar seleção nem posição de rolagem do usuário.
 - Antes de otimizar, **meça**: o relato de lentidão em um repositório de 3,6 mil arquivos
   era falta de atualização automática, não custo do git (que respondia em ~60 ms).
+  `GREPOS_TEMPOS=<arquivo>` grava as marcas da abertura (janela, tela livre, varredura, token,
+  esteiras), contadas do início do processo; com `GREPOS_HOME` numa cópia do workspace, mede
+  sem tocar no real. Na abertura com 61 repositórios o que pesava era a tela presa montando os
+  cartões, o credential manager chamado oito vezes e a esteira esperando a varredura inteira.
 - **Atualização do app**: o Windows não deixa **sobrescrever** um .exe em execução, mas
   deixa **renomear**. Por isso a troca é `atual → .old`, `novo → atual`, reabre — e o
   `.old` some na abertura seguinte. Nada de `.bat` esperando o app fechar. Só vale para o

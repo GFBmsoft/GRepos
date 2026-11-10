@@ -187,6 +187,12 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
     [ObservableProperty] private EsteiraViewModel? _esteira;
     private string _branchDaEsteira = "";
 
+    /// <summary>
+    /// O próprio cartão quando aberto, nulo quando fechado: é o conteúdo da parte de baixo
+    /// do cartão, que assim só é montada ao abrir (ver o PainelView).
+    /// </summary>
+    public CartaoRepoViewModel? Aberto => Expandido ? this : null;
+
     public string Seta => Expandido ? "" : "";
 
     public bool MostraEsteira => Expandido && Esteira is not null;
@@ -197,7 +203,7 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
 
     partial void OnExpandidoChanged(bool value)
     {
-        foreach (var p in new[] { nameof(Seta), nameof(MostraEsteira),
+        foreach (var p in new[] { nameof(Seta), nameof(Aberto), nameof(MostraEsteira),
                                   nameof(MostraSemEsteira), nameof(MostraConsultando) })
             OnPropertyChanged(p);
 
@@ -465,18 +471,37 @@ public sealed partial class PainelViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Quantos cartões consultam o GitHub ao mesmo tempo, cada um com a esteira e os PRs
+    /// juntos. A resposta leva meio segundo do outro lado, quase nada de processador aqui.
+    /// </summary>
+    internal const int EsteirasSimultaneas = 10;
+
+    /// <summary>
     /// Consulta a esteira de cada repositório em paralelo. Falha de um não atrapalha os
     /// outros, e quem não tem Actions termina como "sem esteira", não como erro.
     /// </summary>
-    public async Task CarregarEsteirasAsync()
+    /// <param name="antes">
+    /// O que cada cartão espera antes de consultar (o status do repositório, na abertura do
+    /// app); falso deixa o cartão de fora. A espera fica fora da fila, para quem ainda não
+    /// pode consultar não ocupar a vaga de quem já pode.
+    /// </param>
+    /// <param name="remoto">
+    /// Como ler a URL do remoto; sem ele, o git direto. Na abertura o painel passa a fila do
+    /// git da varredura, para os dois não somarem processos disputando a máquina.
+    /// </param>
+    public async Task CarregarEsteirasAsync(Func<CartaoRepoViewModel, Task<bool>>? antes = null,
+        Func<Repo, Task<string>>? remoto = null)
     {
+        remoto ??= r => GitService.RemoteUrlAsync(r.Path);
+
         // em fila curta: cem repositórios de uma vez eram cem processos do git e cem
         // consultas à API no mesmo instante, e a tela ficava presa esperando por eles
-        using var vagas = new System.Threading.SemaphoreSlim(6);
+        using var vagas = new System.Threading.SemaphoreSlim(EsteirasSimultaneas);
         await Task.WhenAll(Cartoes.Select(async cartao =>
         {
+            if (antes is not null && !await antes(cartao)) return;
             await vagas.WaitAsync();
-            try { await CarregarEsteiraAsync(cartao); }
+            try { await CarregarEsteiraAsync(cartao, remoto); }
             finally { vagas.Release(); }
         }));
         OnPropertyChanged(nameof(Resumo));
@@ -491,11 +516,11 @@ public sealed partial class PainelViewModel : ObservableObject
     /// <summary>Seções de todos os níveis, em ordem de árvore.</summary>
     public IEnumerable<SecaoPainelViewModel> TodasAsSecoes => Secoes.SelectMany(s => s.ComSubsecoes);
 
-    private static async Task CarregarEsteiraAsync(CartaoRepoViewModel cartao)
+    private static async Task CarregarEsteiraAsync(CartaoRepoViewModel cartao, Func<Repo, Task<string>> lerRemoto)
     {
         try
         {
-            var remoto = await GitService.RemoteUrlAsync(cartao.Repo.Path);
+            var remoto = await lerRemoto(cartao.Repo);
             var slug = GitHubService.Slug(remoto);
             if (slug is null)
             {
@@ -505,21 +530,34 @@ public sealed partial class PainelViewModel : ObservableObject
 
             cartao.Slug = slug;
             cartao.Usuario = GitHubService.ContaDoRepositorio(cartao.Repo.Conta, remoto);
-
-            var run = await GitHubService.UltimaExecucaoAsync(
-                slug, cartao.Status?.Branch ?? "", cartao.Usuario);
-
-            cartao.CiDetalhe = run.Detalhe;
-            cartao.CiWorkflow = run.Workflow;
-            cartao.CiUrl = run.Url;
-            cartao.CiSituacao = run.Situacao; // por último: é ele que reavisa a tela
-
-            await CarregarPrsAsync(cartao);
         }
         catch (Exception)
         {
             cartao.CiSituacao = "nenhum";
             cartao.PrConsultado = true;
+            return;
+        }
+
+        // esteira e PRs não dependem uma da outra: juntas, o cartão espera a mais lenta das
+        // duas consultas, e não a soma, como quando os PRs só saíam depois da esteira
+        await Task.WhenAll(CarregarCiAsync(cartao), CarregarPrsAsync(cartao));
+    }
+
+    private static async Task CarregarCiAsync(CartaoRepoViewModel cartao)
+    {
+        try
+        {
+            var run = await GitHubService.UltimaExecucaoAsync(
+                cartao.Slug, cartao.Status?.Branch ?? "", cartao.Usuario);
+
+            cartao.CiDetalhe = run.Detalhe;
+            cartao.CiWorkflow = run.Workflow;
+            cartao.CiUrl = run.Url;
+            cartao.CiSituacao = run.Situacao; // por último: é ele que reavisa a tela
+        }
+        catch (Exception)
+        {
+            cartao.CiSituacao = "nenhum";
         }
     }
 

@@ -17,8 +17,10 @@ public partial class App : Application
         // toda janela, diálogos inclusive: no Windows 10 a barra de título não segue o tema sozinha
         Window.WindowOpenedEvent.AddClassHandler<Window>((janela, _) => BarraDeTitulo.Acompanhar(janela));
 
+        Tempos.Marcar("Avalonia pronto");
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             desktop.MainWindow = new MainWindow();
+        Tempos.Marcar("MainWindow construída");
 
         base.OnFrameworkInitializationCompleted();
     }

@@ -850,6 +850,63 @@ public class UiSmokeTests
         window.Close();
     }
 
+    /// <summary>
+    /// O cartão fechado não monta a parte de baixo (esteira, caixa de workflow e os botões):
+    /// escondida com IsVisible ela era construída em todos, e com sessenta repositórios isso
+    /// prendia a tela por segundos ao abrir o app. Abrir monta; fechar desmonta.
+    /// </summary>
+    [AvaloniaFact]
+    public void Cartao_fechado_nao_monta_a_parte_aberta()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var cartoes = Enumerable.Range(1, 3).Select(i => new CartaoRepoViewModel(
+            new Repo { Id = "r" + i, Name = "Repo " + i }, new RepoStatus { Branch = "main" }, "#4F8CFF", main)
+        { CiSituacao = "nenhum" }).ToList();
+
+        var vm = new PainelViewModel("Todos", "", cartoes, main);
+        var window = new Window { Width = 1000, Height = 700, Content = new PainelView { DataContext = vm } };
+        window.Show();
+        window.UpdateLayout();
+
+        int BotoesAbrir() => window.GetVisualDescendants().OfType<TextBlock>().Count(t => t.Text == "Abrir repositório");
+
+        Assert.Equal(0, BotoesAbrir());
+
+        cartoes[1].Expandido = true;
+        window.UpdateLayout();
+        Assert.Equal(1, BotoesAbrir());
+        Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(),
+            t => t.Text == "Este repositório não tem esteira (GitHub Actions)." && t.IsEffectivelyVisible);
+
+        cartoes[1].Expandido = false;
+        window.UpdateLayout();
+        Assert.Equal(0, BotoesAbrir());
+
+        // desmontar não pode apagar a escolha da caixa de workflow: o SelectedItem é de mão
+        // dupla, e a caixa saindo da tela gravava nulo de volta, e o Executar perdia o alvo
+        var esteira = new EsteiraViewModel("", "main", "", "Repo 1", visiveis: 1, somenteBranch: true);
+        var build = new GRepos.Services.GitHubService.Workflow { Id = 7, Nome = "build" };
+        esteira.Workflows = new System.Collections.ObjectModel.ObservableCollection<GRepos.Services.GitHubService.Workflow>
+            { new() { Id = 6, Nome = "release" }, build };
+        esteira.WorkflowEscolhido = build;
+        cartoes[0].CiSituacao = "sucesso";
+        cartoes[0].Esteira = esteira;
+
+        cartoes[0].Expandido = true;
+        window.UpdateLayout();
+        Assert.Same(build, window.GetVisualDescendants().OfType<ComboBox>().Single().SelectedItem);
+
+        cartoes[0].Expandido = false;
+        window.UpdateLayout();
+        Assert.Same(build, esteira.WorkflowEscolhido);
+
+        cartoes[0].Expandido = true;
+        window.UpdateLayout();
+        Assert.Same(build, window.GetVisualDescendants().OfType<ComboBox>().Single().SelectedItem);
+
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void PainelView_monta_vazio()
     {

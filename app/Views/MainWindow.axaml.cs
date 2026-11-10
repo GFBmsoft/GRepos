@@ -42,7 +42,11 @@ public partial class MainWindow : Window, IDialogService
         };
         Closed += (_, _) => _vm.EncerrarTerminais();
 
-        Opened += (_, _) => Carga = CarregarAsync();
+        Opened += (_, _) =>
+        {
+            Tempos.Marcar("janela aberta");
+            Carga = CarregarAsync();
+        };
     }
 
     /// <summary>

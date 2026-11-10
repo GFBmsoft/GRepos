@@ -313,12 +313,23 @@ public sealed partial class MainViewModel : ObservableObject
         var painel = Painel;
         if (painel is null) return;
 
-        // a esteira é consultada pela branch de cada repositório: com a varredura ainda
-        // em curso (abertura do app), espera o status chegar para perguntar pela branch certa
-        if (_varrendo && _varredura is { } emCurso) await emCurso;
-        if (!ReferenceEquals(painel, Painel)) return;
-
-        await painel.CarregarEsteirasAsync();
+        // A esteira é escolhida pela branch de cada repositório, e na abertura do app a
+        // varredura ainda está em curso. Cada cartão espera o status do seu repositório, não
+        // o dos sessenta: os primeiros já consultam o GitHub enquanto o git responde pelos
+        // outros. Antes todos esperavam o último, e a esteira só terminava aos 17 segundos.
+        Tempos.Marcar("esteiras: início");
+        await painel.CarregarEsteirasAsync(
+            async cartao =>
+            {
+                await StatusDaVarreduraAsync(cartao.Repo.Id);
+                if (!ReferenceEquals(painel, Painel)) return false;
+                if (_statusConhecido.TryGetValue(cartao.Repo.Id, out var status)) cartao.Status = status;
+                return true;
+            },
+            // na fila da varredura, que atende por ordem de chegada: o remoto de cada um
+            // sai depois dos status já enfileirados, sem somar processos aos deles
+            repo => NaFilaDoGitAsync(() => GitService.RemoteUrlAsync(repo.Path)));
+        Tempos.Marcar("esteiras: fim");
         if (ReferenceEquals(painel, Painel)) painel.Subtitulo = painel.Resumo;
     }
 
@@ -1376,6 +1387,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _ws = WorkspaceStore.Load();
         _carregado = true;
+        Tempos.Marcar($"workspace lido ({_ws.Repos.Count} repositórios)");
         GitService.CredentialUser = _ws.Settings.GithubUser;
         MigrarContas();
         AplicarContasDosRepositorios();
@@ -1393,6 +1405,10 @@ public sealed partial class MainViewModel : ObservableObject
         // a varredura: os cartões se preenchem conforme cada repositório responde.
         if (_ws.Repos.Count > 0) MostrarPainel(null);
         else SelectedNode = Tree.OfType<RepoNode>().FirstOrDefault();
+        Tempos.Marcar("painel montado");
+        // a tela responde de novo quando a fila de baixa prioridade anda: antes disso a
+        // janela já está na tela, mas presa montando e medindo o que acabou de receber
+        if (Tempos.Ligado) Dispatcher.UIThread.Post(() => Tempos.Marcar("tela livre"), DispatcherPriority.Background);
 
         await varredura;
     }
@@ -1899,7 +1915,31 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     private static readonly int GitsSimultaneos = Math.Clamp(Environment.ProcessorCount, 4, 8);
 
+    /// <summary>
+    /// A fila dos gits em segundo plano: a varredura e o remoto que a esteira do painel lê.
+    /// Cada uma com a sua somava dezoito processos numa máquina de quatro núcleos, e a
+    /// varredura demorava mais com o painel aberto.
+    /// </summary>
+    private readonly SemaphoreSlim _vagasDoGit = new(GitsSimultaneos);
+
+    private async Task<T> NaFilaDoGitAsync<T>(Func<Task<T>> git)
+    {
+        await _vagasDoGit.WaitAsync().ConfigureAwait(false);
+        try { return await Task.Run(git).ConfigureAwait(false); }
+        finally { _vagasDoGit.Release(); }
+    }
+
     private Task? _varredura;
+
+    /// <summary>
+    /// Um aviso por repositório da varredura em curso, dado quando o status dele chega;
+    /// nulo fora dela. É o que deixa o cartão do painel começar sem esperar os outros.
+    /// </summary>
+    private Dictionary<string, TaskCompletionSource>? _statusDaVarredura;
+
+    /// <summary>Termina quando a varredura em curso traz o status do repositório (ou já, sem varredura).</summary>
+    private Task StatusDaVarreduraAsync(string repoId) =>
+        _statusDaVarredura?.GetValueOrDefault(repoId)?.Task ?? Task.CompletedTask;
 
     private Task VarrerAsync(bool automatica)
     {
@@ -1916,30 +1956,40 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _varrendo = true;
         if (!automatica) Scanning = true;
+
+        var repos = _ws.Repos.ToList();
+        var avisos = new Dictionary<string, TaskCompletionSource>();
+        foreach (var r in repos)
+            avisos.TryAdd(r.Id, new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
+        _statusDaVarredura = avisos;
         try
         {
-            using var vagas = new SemaphoreSlim(GitsSimultaneos);
-            var pendentes = _ws.Repos.ToList().Select(r => StatusNaFilaAsync(r, vagas)).ToList();
+            var pendentes = repos.Select(StatusNaFilaAsync).ToList();
 
             // cada repositório aparece assim que o git dele responde: com muitos, esperar
             // o último para mostrar o primeiro deixava a árvore vazia por segundos
+            var total = pendentes.Count;
             while (pendentes.Count > 0)
             {
                 var pronta = await Task.WhenAny(pendentes);
                 pendentes.Remove(pronta);
                 var (repo, status) = await pronta;
-                if (status is null) continue;
-
-                // guardado mesmo sem nó: o repositório pode estar num grupo recolhido
-                _statusConhecido[repo.Id] = status;
-                if (_nodes.TryGetValue(repo.Id, out var node))
+                if (pendentes.Count == total - 1) Tempos.Marcar("varredura: primeiro status");
+                if (status is not null)
                 {
-                    node.Status = status;
-                    node.Refreshed();
+                    // guardado mesmo sem nó: o repositório pode estar num grupo recolhido
+                    _statusConhecido[repo.Id] = status;
+                    if (_nodes.TryGetValue(repo.Id, out var node))
+                    {
+                        node.Status = status;
+                        node.Refreshed();
+                    }
+                    if (CurrentRepo?.Id == repo.Id) RefreshHeaderBindings();
                 }
-                if (CurrentRepo?.Id == repo.Id) RefreshHeaderBindings();
+                avisos.GetValueOrDefault(repo.Id)?.TrySetResult();
             }
 
+            Tempos.Marcar($"varredura: último status ({total})");
             RefreshHeaderBindings();
             // o painel aberto acompanha: antes só o botão dele repassava o status novo
             AtualizarCartoesDoPainel();
@@ -1950,26 +2000,24 @@ public sealed partial class MainViewModel : ObservableObject
         }
         finally
         {
+            // quem ainda esperava (varredura que falhou no meio) segue com o que se sabe
+            foreach (var aviso in avisos.Values) aviso.TrySetResult();
+            if (ReferenceEquals(_statusDaVarredura, avisos)) _statusDaVarredura = null;
             _varrendo = false;
             if (!automatica) Scanning = false;
         }
     }
 
     /// <summary>Status de um repositório, fora da thread da tela; null se o git nem chegou a rodar.</summary>
-    private static async Task<(Repo Repo, RepoStatus? Status)> StatusNaFilaAsync(Repo repo, SemaphoreSlim vagas)
+    private async Task<(Repo Repo, RepoStatus? Status)> StatusNaFilaAsync(Repo repo)
     {
-        await vagas.WaitAsync().ConfigureAwait(false);
         try
         {
-            return (repo, await Task.Run(() => GitService.StatusAsync(repo.Path)).ConfigureAwait(false));
+            return (repo, await NaFilaDoGitAsync(() => GitService.StatusAsync(repo.Path)).ConfigureAwait(false));
         }
         catch (Exception)
         {
             return (repo, null); // um repositório com problema não derruba a varredura dos outros
-        }
-        finally
-        {
-            vagas.Release();
         }
     }
 
@@ -2008,11 +2056,12 @@ public sealed partial class MainViewModel : ObservableObject
     /// O que dizer no fim, a partir do repositório antes e depois. Sem ele vale a última
     /// linha que o git escreveu, traduzida.
     /// </param>
-    private async Task RunAsync(Func<string, Task<string>> action, string nome, string verbo,
+    /// <returns>Se a operação deu certo.</returns>
+    private async Task<bool> RunAsync(Func<string, Task<string>> action, string nome, string verbo,
         Func<RepoStatus?, RepoStatus?, Aviso>? resumo = null)
     {
         var repo = CurrentRepo;
-        if (repo is null) return;
+        if (repo is null) return false;
         Busy = true;
         var antes = CurrentStatus;
 
@@ -2036,11 +2085,13 @@ public sealed partial class MainViewModel : ObservableObject
                 : aviso.Detalhe;
 
             Avisar("sucesso", aviso.Titulo, detalhe);
+            return true;
         }
         catch (Exception e)
         {
             var aviso = MensagensGit.Erro(verbo, e.Message);
             Avisar("erro", aviso.Titulo, aviso.Detalhe);
+            return false;
         }
         finally
         {
@@ -2115,9 +2166,15 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task Push()
     {
-        await RunAsync(
+        var repo = CurrentRepo;
+        var enviou = await RunAsync(
             p => GitService.PushAsync(p, string.IsNullOrEmpty(CurrentStatus?.Upstream)),
             "Enviar", "enviar", MensagensGit.Enviado);
+
+        // Enviado da aba Alterações (o caminho de commitar e enviar), o que se quer ver em
+        // seguida é o histórico, com a branch remota alcançando a local; antes era preciso
+        // clicar na aba. O Par fica onde está: lá os dois lados já aparecem juntos.
+        if (enviou && SelectedTab == 0 && repo is not null && CurrentRepo?.Id == repo.Id) SelectedTab = 1;
 
         // o envio costuma disparar a esteira, que leva alguns segundos para aparecer na API
         _esperarEsteiraAte = DateTime.UtcNow + EsperaAposEnviar;

@@ -333,10 +333,56 @@ public static partial class GitHubService
     /// Token do Git Credential Manager. GCM_INTERACTIVE=never e GIT_TERMINAL_PROMPT=0
     /// garantem que nada abra janela de login: sem credencial salva, simplesmente falha.
     /// </summary>
-    private static async Task<string?> TokenAsync(string usuario)
+    private static Task<string?> TokenAsync(string usuario)
     {
-        if (Tokens.TryGetValue(usuario, out var guardado)) return guardado;
+        if (Tokens.TryGetValue(usuario, out var guardado)) return Task.FromResult(guardado);
 
+        // Ao abrir o app, perfil, pendências e as esteiras pedem o token juntos, antes de o
+        // primeiro voltar: eram oito credential managers (meio segundo de processador cada)
+        // disputando a máquina com a varredura. Quem chega no meio espera a mesma busca.
+        lock (TravaDosTokens)
+        {
+            if (Tokens.TryGetValue(usuario, out guardado)) return Task.FromResult(guardado);
+            if (TokensEmBusca.TryGetValue(usuario, out var emCurso)) return emCurso;
+
+            var busca = BuscarTokenAsync(usuario);
+            if (!busca.IsCompleted) TokensEmBusca[usuario] = busca;
+            return busca;
+        }
+    }
+
+    /// <summary>
+    /// Busca já o token da conta principal das preferências, para quem pedir depois encontrá-lo
+    /// pronto (ou a busca em andamento). Falha calada: o token é buscado de novo quando usado.
+    /// </summary>
+    public static async Task AdiantarTokenAsync()
+    {
+        try
+        {
+            var usuario = WorkspaceStore.Load().Settings.GithubUser;
+            if (usuario.Length > 0) await TokenAsync(usuario);
+        }
+        catch (Exception) { /* fica para quando o token for usado */ }
+    }
+
+    private static readonly object TravaDosTokens = new();
+    private static readonly Dictionary<string, Task<string?>> TokensEmBusca = new();
+
+    private static async Task<string?> BuscarTokenAsync(string usuario)
+    {
+        try
+        {
+            return await LerTokenAsync(usuario);
+        }
+        finally
+        {
+            lock (TravaDosTokens) TokensEmBusca.Remove(usuario);
+        }
+    }
+
+    private static async Task<string?> LerTokenAsync(string usuario)
+    {
+        Tempos.Marcar($"credential fill: início ({usuario})");
         string? token = null;
         try
         {
@@ -359,6 +405,7 @@ public static partial class GitHubService
         }
 
         Tokens[usuario] = token;
+        Tempos.Marcar($"credential fill: fim ({usuario})");
         return token;
     }
 
