@@ -95,7 +95,13 @@ public sealed partial class RepoNode : SidebarNode
     /// Pílula da branch atual, como as refs no histórico. A cor segue o tipo do git-flow
     /// (principal, develop, feat, fix) — o mesmo código de cores da tela de branches.
     /// </summary>
-    public string BranchNome => Status?.Branch ?? "";
+    public string BranchNome => Status?.Branch ?? BranchLida ?? "";
+
+    /// <summary>
+    /// Branch lida do HEAD ao montar a árvore, para aparecer junto com o nome; o status,
+    /// quando chega, vale no lugar dela (ver <see cref="Services.GitService.BranchDoHead"/>).
+    /// </summary>
+    public string? BranchLida { get; init; }
     public bool TemBranch => BranchNome.Length > 0 && !HasError;
     public string BranchRotulo => Rotulos.Branch(BranchNome);
     public string BranchCor => GitFlow.Cor(GitFlow.Classificar(BranchNome));

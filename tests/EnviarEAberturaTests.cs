@@ -133,6 +133,103 @@ public class EnviarEAberturaTests
         }
     }
 
+    [Theory]
+    [InlineData("ref: refs/heads/main\n", "main")]
+    [InlineData("ref: refs/heads/feat/cartao-pix\r\n", "feat/cartao-pix")]
+    [InlineData("4f2c9a1e0b7d3c5a8e6f1b2d4c7a9e0f3b5d8c1a\n", null)]  // HEAD solto
+    [InlineData("ref: refs/heads/.invalid\n", null)]                  // reftable
+    [InlineData("ref: refs/remotes/origin/main\n", null)]
+    [InlineData("", null)]
+    public void Branch_do_conteudo_do_head(string conteudo, string? esperado) =>
+        Assert.Equal(esperado, GitService.BranchDoConteudoDoHead(conteudo));
+
+    /// <summary>
+    /// Repositórios de verdade: branch com barra, HEAD solto, worktree (o .git é um arquivo
+    /// apontando para a pasta dela) e pasta que não é repositório.
+    /// </summary>
+    [Fact]
+    public async Task Branch_do_head_sem_chamar_o_git()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        try
+        {
+            Assert.Equal("main", GitService.BranchDoHead(meu));
+
+            await Git(meu, "checkout", "-qb", "feat/pix");
+            Assert.Equal("feat/pix", GitService.BranchDoHead(meu));
+
+            var outra = Path.Combine(raiz, "outra");
+            await Git(meu, "worktree", "add", "-q", "-b", "imp/boleto", outra);
+            Assert.Equal("imp/boleto", GitService.BranchDoHead(outra));
+
+            await Git(meu, "checkout", "-q", "--detach");
+            Assert.Null(GitService.BranchDoHead(meu));
+
+            Assert.Null(GitService.BranchDoHead(raiz));                          // não é repositório
+            Assert.Null(GitService.BranchDoHead(Path.Combine(raiz, "nao-existe")));
+        }
+        finally { Limpar(raiz); }
+    }
+
+    /// <summary>
+    /// O pedido: a branch na árvore aparecia só quando a varredura trazia o status, segundos
+    /// depois do nome. Agora vem do HEAD ao montar a árvore e o painel. Com o status
+    /// conhecido, a árvore nem lê o arquivo: vale o status.
+    /// </summary>
+    [Fact]
+    public async Task Arvore_e_painel_mostram_a_branch_antes_do_status()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", Path.Combine(raiz, "home"));
+        try
+        {
+            await Git(meu, "checkout", "-qb", "feat/pix");
+
+            // o nó que o AddRepository monta nasce antes de qualquer status: o refresh que
+            // ele dispara só começa depois da árvore
+            var main = new MainViewModel(new FakeDialogs());
+            main.AddRepository(meu, "Financeiro", null);
+
+            var no = main.Tree.OfType<RepoNode>().Single();
+            Assert.Equal("feat/pix", no.BranchLida);
+            Assert.True(no.TemBranch);
+            Assert.Equal("feat/pix", no.BranchNome);
+
+            main.MostrarPainel(null);
+            Assert.Equal("feat/pix", main.Painel!.Cartoes.Single().Branch);
+
+            await main.RefreshAllAsync();
+            main.RebuildTree();
+            var depois = main.Tree.OfType<RepoNode>().Single();
+            Assert.NotNull(depois.Status);
+            Assert.Null(depois.BranchLida);
+            Assert.Equal("feat/pix", depois.BranchNome);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            Limpar(raiz);
+        }
+    }
+
+    /// <summary>No cartão, como na árvore: a lida até o status chegar; com erro, o traço.</summary>
+    [Fact]
+    public void Cartao_mostra_a_branch_lida_ate_o_status_chegar()
+    {
+        var repo = new Repo { Id = "r1", Name = "Financeiro" };
+        var cartao = new CartaoRepoViewModel(repo, null, "#4F8CFF") { BranchLida = "feat/pix" };
+        Assert.Equal("feat/pix", cartao.Branch);
+
+        cartao.Status = new RepoStatus { Branch = "develop" };
+        Assert.Equal("develop", cartao.Branch);
+
+        cartao.Status = new RepoStatus { Error = "pasta não encontrada" };
+        Assert.Equal("—", cartao.Branch);
+
+        Assert.Equal("—", new CartaoRepoViewModel(repo, null, "#4F8CFF").Branch);
+    }
+
     /// <summary>
     /// Na abertura, a esteira de cada cartão esperava a varredura dos sessenta repositórios
     /// terminar. Agora cada um espera só o status do seu: liberado um, ele consulta e termina

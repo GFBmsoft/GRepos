@@ -47,7 +47,12 @@ public sealed partial class CartaoRepoViewModel : ObservableObject
     public string Nome => Repo.Name;
     public string Caminho => Repo.Path;
 
-    public string Branch => Status?.Branch is { Length: > 0 } b ? b : "—";
+    public string Branch => Status is null
+        ? BranchLida ?? "—"
+        : Status.Branch is { Length: > 0 } b ? b : "—";
+
+    /// <summary>Branch lida do HEAD, enquanto o status não chega (como na árvore).</summary>
+    public string? BranchLida { get; init; }
     public bool TemErro => Status?.Error is { Length: > 0 };
     public string Erro => Status?.Error ?? "";
 

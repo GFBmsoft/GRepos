@@ -351,6 +351,41 @@ public static class GitService
         return Path.IsPathRooted(gitDir) ? gitDir : Path.GetFullPath(Path.Combine(repo, gitDir));
     }
 
+    /// <summary>
+    /// Branch atual lida direto do <c>HEAD</c>, sem chamar o git: é o que a árvore mostra
+    /// enquanto o status do repositório não chega. Com sessenta repositórios a varredura leva
+    /// alguns segundos, e a branch só aparecia com ela. Null quando não dá para saber assim
+    /// (HEAD solto, pasta que não é repositório): aí a branch espera o status, como antes.
+    /// </summary>
+    public static string? BranchDoHead(string repo)
+    {
+        try
+        {
+            if (GitDir(repo) is not { } gitDir) return null;
+            var head = Path.Combine(gitDir, "HEAD");
+            return File.Exists(head) ? BranchDoConteudoDoHead(File.ReadAllText(head)) : null;
+        }
+        catch (Exception)
+        {
+            return null; // é só uma prévia: o status traz a branch de qualquer jeito
+        }
+    }
+
+    /// <summary>
+    /// "ref: refs/heads/feat/x" vira "feat/x". Hash (HEAD solto) e o ".invalid" que o git
+    /// grava no HEAD dos repositórios com reftable (a branch de verdade fica nas tabelas)
+    /// não dizem a branch: null.
+    /// </summary>
+    public static string? BranchDoConteudoDoHead(string conteudo)
+    {
+        const string prefixo = "ref: refs/heads/";
+        var linha = conteudo.Trim();
+        if (!linha.StartsWith(prefixo, StringComparison.Ordinal)) return null;
+
+        var branch = linha[prefixo.Length..].Trim();
+        return branch.Length == 0 || branch == ".invalid" ? null : branch;
+    }
+
     // ------------------------------------------------- operação em andamento
 
     public enum Operacao { Nenhuma, Merge, Rebase, CherryPick, Revert }

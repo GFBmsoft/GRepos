@@ -1,3 +1,6 @@
+## 1.0.0.63 — 10/11/2026
+- **Branch na hora**: ao abrir o app, a branch de cada repositório já aparece na árvore e nos cartões do painel junto com o nome. Antes ela surgia aos poucos, conforme cada repositório era consultado. O que há para enviar, receber e as alterações continuam chegando logo em seguida.
+
 ## 1.0.0.62 — 10/11/2026
 - **Abertura mais rápida**: com muitos repositórios, o app abre bem mais depressa. Num workspace de 61 repositórios, a janela aparece em pouco mais de 1 segundo (antes passava de 2), a tela já responde em menos de 3 segundos (antes, perto de 6) e a esteira e os pull requests de todos os cartões chegam na metade do tempo.
 - A esteira de cada cartão do painel aparece assim que o status daquele repositório chega, sem esperar os outros.

@@ -64,6 +64,21 @@ public class RepoNodeTests
         Assert.True(Node(new RepoStatus { Branch = "main" }).TemBranch);
     }
 
+    /// <summary>A branch lida do HEAD aparece até o status chegar; com ele, vale o status.</summary>
+    [Fact]
+    public void Branch_lida_do_head_vale_ate_o_status_chegar()
+    {
+        var no = new RepoNode { Repo = new Repo { Id = "r1", Name = "Financeiro" }, BranchLida = "feat/pix" };
+        Assert.True(no.TemBranch);
+        Assert.Equal("Purple", no.BranchCor);
+
+        no.Status = new RepoStatus { Branch = "develop" };
+        Assert.Equal("develop", no.BranchNome);
+
+        no.Status = new RepoStatus { Branch = "", Error = "pasta não encontrada" };
+        Assert.False(no.TemBranch);
+    }
+
     [Fact]
     public void Badges_aparecem_conforme_o_status()
     {

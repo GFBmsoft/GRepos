@@ -195,7 +195,7 @@ public sealed partial class MainViewModel : ObservableObject
                 r,
                 _statusConhecido.GetValueOrDefault(r.Id),
                 CorDoGrupo(r.GroupId),
-                this));
+                this) { BranchLida = BranchLida(r) });
 
         var painel = new PainelViewModel(titulo, "", cartoes, this);
         painel.Subtitulo = painel.Resumo;
@@ -1397,6 +1397,7 @@ public sealed partial class MainViewModel : ObservableObject
         _ = VerificarAtualizacaoAsync();
 
         RebuildTree();
+        Tempos.Marcar("árvore montada");
         ApplyTimer();
         var varredura = RefreshAllAsync();
 
@@ -1666,6 +1667,21 @@ public sealed partial class MainViewModel : ObservableObject
 
     private static int RoleOrder(Repo r) => r.Role switch { "origem" => 0, "destino" => 1, _ => 2 };
 
+    /// <summary>Branch lida do HEAD de quem ainda não tem status, lida uma vez para a árvore e o painel.</summary>
+    private readonly Dictionary<string, string?> _branchesLidas = new();
+
+    /// <summary>
+    /// A branch do HEAD enquanto o status do repositório não chegou; com ele, null (vale o
+    /// status). Ler o arquivo custa quase nada, ao contrário de esperar a varredura.
+    /// </summary>
+    private string? BranchLida(Repo r)
+    {
+        if (_statusConhecido.ContainsKey(r.Id)) return null;
+        if (!_branchesLidas.TryGetValue(r.Id, out var branch))
+            _branchesLidas[r.Id] = branch = GitService.BranchDoHead(r.Path);
+        return branch;
+    }
+
     private RepoNode MakeNode(Repo r, bool paired, string groupColor, int nivel = 0)
     {
         var node = new RepoNode
@@ -1676,6 +1692,7 @@ public sealed partial class MainViewModel : ObservableObject
             GroupColor = groupColor,
             Minimalista = _ws.Settings.ArvoreMinimalista,
             Status = _statusConhecido.GetValueOrDefault(r.Id),
+            BranchLida = BranchLida(r),
         };
         _nodes[r.Id] = node;
         if (SelectedNode?.Id == r.Id) SelectedNode = node;
