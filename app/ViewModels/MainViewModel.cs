@@ -447,6 +447,9 @@ public sealed partial class MainViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _semRemoto;
 
+    /// <summary>O origin do repositório aberto já foi lido, e existe.</summary>
+    private bool _remotoConferido;
+
     public bool TemCi => CiSituacao.Length > 0 && CiSituacao != "nenhum";
 
     /// <summary>Verde passou, vermelho quebrou, amarelo rodando — a cor é o recado.</summary>
@@ -579,6 +582,7 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task AtualizarRemotoAsync(Repo repo)
     {
         RemoteWebUrl = "";
+        _remotoConferido = false;
         SemRemoto = false;
         _ciSlug = "";
         _esperarEsteiraAte = default;
@@ -594,7 +598,9 @@ public sealed partial class MainViewModel : ObservableObject
             var remoto = await GitService.RemoteUrlAsync(repo.Path);
             if (SelectedNode?.Repo.Id != repo.Id) return; // trocou de repositório no meio
             RemoteWebUrl = GitService.WebUrl(remoto);
+            _remotoConferido = remoto.Length > 0;
             SemRemoto = remoto.Length == 0;
+            AtualizarEnvio(); // a branch sem par esperava o remoto para ser contada
 
             var slug = GitHubService.Slug(remoto);
             if (slug is null) return;
@@ -1276,8 +1282,74 @@ public sealed partial class MainViewModel : ObservableObject
 
     // selos da barra: vazio esconde o contador
     public string BehindBadge => CurrentStatus is { Behind: > 0 } s ? s.Behind.ToString() : "";
-    public string AheadBadge => CurrentStatus is { Ahead: > 0 } s ? s.Ahead.ToString() : "";
     public string StashBadge => CurrentStatus is { Stashes: > 0 } s ? s.Stashes.ToString() : "";
+
+    /// <summary>
+    /// O selo do Enviar conta os arquivos que vão ao remoto, não os commits: um commit com
+    /// três arquivos mostrava "1", e parecia contagem errada. Os commits ficam na dica.
+    /// </summary>
+    public string EnviarBadge => _envio?.Selo ?? "";
+
+    // o que o Enviar leva, do repositório aberto, e de que estado do repositório saiu
+    private EnvioPendente? _envio;
+    private string _envioChave = "";
+    private string _envioRepo = "";
+
+    /// <summary>A última contagem disparada: os testes esperam por ela.</summary>
+    internal Task ContagemDoEnvio { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// Conta de novo só quando o HEAD ou o remoto andam. A contagem é outro processo do git,
+    /// e a recarga dispara a cada arquivo salvo: sem a chave, todo salvamento num repositório
+    /// com commit a enviar custaria o dobro.
+    /// </summary>
+    private void AtualizarEnvio()
+    {
+        var repo = CurrentRepo;
+        var status = CurrentStatus;
+
+        // a branch sem par conta contra as branches do origin: sem remoto confirmado, o log
+        // andaria pelo histórico inteiro do repositório
+        var conta = repo is not null && status is { TemOQueEnviar: true } && !SemRemoto &&
+                    (!string.IsNullOrEmpty(status.Upstream) || _remotoConferido);
+        var chave = conta
+            ? string.Join('|', repo!.Id, status!.Head, status.Branch, status.Upstream, status.Ahead, status.Behind)
+            : "";
+        if (chave == _envioChave) return;
+        _envioChave = chave;
+
+        // sem o que contar, ou em outro repositório, o número antigo não vale. No mesmo
+        // repositório ele fica até o novo chegar: o selo não some e volta a cada commit
+        if (!conta || _envioRepo != repo!.Id) DefinirEnvio(null);
+        if (!conta) return;
+
+        _envioRepo = repo!.Id;
+        ContagemDoEnvio = ContarEnvioAsync(repo.Path, status!, chave);
+    }
+
+    private async Task ContarEnvioAsync(string caminho, RepoStatus status, string chave)
+    {
+        EnvioPendente? envio;
+        try
+        {
+            envio = await GitService.EnvioPendenteAsync(caminho, status);
+        }
+        catch (Exception)
+        {
+            envio = null; // um selo não justifica erro na tela: o botão segue ligado, sem número
+        }
+
+        // o repositório andou, ou a seleção trocou, enquanto o git contava
+        if (chave == _envioChave) DefinirEnvio(envio);
+    }
+
+    private void DefinirEnvio(EnvioPendente? envio)
+    {
+        if (_envio == envio) return;
+        _envio = envio;
+        OnPropertyChanged(nameof(EnviarBadge));
+        OnPropertyChanged(nameof(EnviarTooltip));
+    }
 
     /// <summary>
     /// Enviar só liga com o que enviar e para onde: antes ele rodava o push com a branch em
@@ -1291,6 +1363,7 @@ public sealed partial class MainViewModel : ObservableObject
         _ when SemRemoto => "Nada a enviar: o repositório não tem remoto (origin)",
         { Branch: "(detached)" } => "Nada a enviar: o HEAD está solto, fora de uma branch",
         { TemOQueEnviar: false, Upstream: { Length: > 0 } u } => $"Nada a enviar: a branch está em dia com {u}",
+        { TemOQueEnviar: true } s when _envio is { } envio => envio.Dica(s),
         _ => "Enviar os commits locais (push)",
     };
 
@@ -1298,6 +1371,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnSemRemotoChanged(bool value)
     {
+        AtualizarEnvio();
         OnPropertyChanged(nameof(PodeEnviar));
         OnPropertyChanged(nameof(EnviarTooltip));
     }
@@ -1703,10 +1777,14 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnSelectedNodeChanged(RepoNode? value)
     {
+        // o remoto lido e o que havia para enviar eram do repositório anterior
+        _remotoConferido = false;
+        AtualizarEnvio();
+
         foreach (var n in new[] { nameof(CurrentRepo), nameof(CurrentStatus), nameof(HasSelection),
                                   nameof(NoSelection), nameof(HasPair), nameof(RepoTitle), nameof(RepoPath),
                                   nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine), nameof(ChangesTabHeader),
-                                  nameof(PairTabHeader), nameof(BehindBadge), nameof(AheadBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
+                                  nameof(PairTabHeader), nameof(BehindBadge), nameof(EnviarBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText),
                                   nameof(ForaDaPrincipal), nameof(SemNadaSelecionado),
                                   nameof(AvisoNaBarra), nameof(AvisoNoRodape) })
@@ -2059,8 +2137,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void RefreshHeaderBindings()
     {
+        AtualizarEnvio();
         foreach (var n in new[] { nameof(CurrentStatus), nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine),
-                                  nameof(ChangesTabHeader), nameof(BehindBadge), nameof(AheadBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
+                                  nameof(ChangesTabHeader), nameof(BehindBadge), nameof(EnviarBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText) })
             OnPropertyChanged(n);
     }

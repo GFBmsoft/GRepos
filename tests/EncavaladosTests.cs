@@ -655,4 +655,70 @@ public class EncavaladosTests
             try { System.IO.Directory.Delete(home, true); } catch (Exception) { /* pasta temporária */ }
         }
     }
+
+    /// <summary>
+    /// O selo do Enviar no botão de verdade, com um commit de três arquivos: mostra "3", os
+    /// arquivos, e não "1", os commits. Os bindings são reflexivos: um nome errado no XAML
+    /// não quebra o build, só deixa o botão sem número.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task Enviar_mostra_no_selo_os_arquivos_a_enviar()
+    {
+        var home = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "grepos-selo-" + System.IO.Path.GetRandomFileName());
+        var remoto = System.IO.Path.Combine(home, "remoto.git");
+        var dir = System.IO.Path.Combine(home, "Financeiro");
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", home);
+        try
+        {
+            System.IO.Directory.CreateDirectory(home);
+            await Git(home, "init", "-q", "--bare", "-b", "main", remoto);
+            await Git(home, "clone", "-q", remoto, dir);
+            await Git(dir, "config", "user.email", "t@t");
+            await Git(dir, "config", "user.name", "Teste");
+            await Git(dir, "checkout", "-qb", "main");
+            System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "a.txt"), "inicial\n");
+            await Git(dir, "add", "-A");
+            await Git(dir, "commit", "-qm", "inicial");
+            await Git(dir, "push", "-q", "-u", "origin", "main");
+            foreach (var nome in new[] { "b.txt", "c.txt", "d.txt" })
+                System.IO.File.WriteAllText(System.IO.Path.Combine(dir, nome), "novo\n");
+            await Git(dir, "add", "-A");
+            await Git(dir, "commit", "-qm", "um commit, três arquivos");
+
+            var ws = new Workspace { Groups = { new Group { Id = "mod", Name = "Módulos", Color = "#2F7BE8" } } };
+            ws.Repos.Add(new Repo { Id = "fin", Name = "Financeiro", Path = dir, GroupId = "mod" });
+            WorkspaceStore.Save(ws);
+
+            var janela = new MainWindow();
+            var vm = (MainViewModel)janela.DataContext!;
+            await vm.InitAsync();
+            janela.Width = 1440;
+            janela.Height = 900;
+            janela.Show();
+            await janela.Carga;
+            vm.SelecionarRepositorio("fin");
+            await vm.RefreshRepoAsync("fin");
+            await Espera.Ate(() => vm.EnviarBadge == "3");
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            var enviar = janela.GetVisualDescendants().OfType<GRepos.Controls.ToolButton>().Single(b => b.Label == "Enviar");
+            Assert.Equal("3", enviar.Badge);
+            Assert.Equal(1, vm.CurrentStatus?.Ahead);
+
+            janela.Close();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            try
+            {
+                // os objetos do git são somente leitura, e a exclusão parava neles
+                foreach (var f in System.IO.Directory.EnumerateFiles(home, "*", System.IO.SearchOption.AllDirectories))
+                    System.IO.File.SetAttributes(f, System.IO.FileAttributes.Normal);
+                System.IO.Directory.Delete(home, true);
+            }
+            catch (Exception) { /* pasta temporária */ }
+        }
+    }
 }

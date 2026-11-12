@@ -314,6 +314,30 @@ public static class GitService
     }
 
     /// <summary>
+    /// O que o Enviar leva ao remoto: commits e arquivos distintos. Fica fora do status de
+    /// propósito: é outro processo do git, com o custo de um status inteiro, e só o
+    /// repositório aberto mostra o número. Quem chama guarda o resultado enquanto o HEAD
+    /// e o remoto não andam.
+    /// </summary>
+    public static async Task<EnvioPendente> EnvioPendenteAsync(string repo, RepoStatus status)
+    {
+        if (!status.TemOQueEnviar) return EnvioPendente.Nada;
+
+        if (!string.IsNullOrEmpty(status.Upstream))
+        {
+            // três pontos: o que este lado mudou desde que se separou do remoto. Com dois,
+            // o arquivo de um commit que só existe lá entraria na conta do que enviar
+            var nomes = await Run(repo, "diff", "--name-only", "@{upstream}...HEAD");
+            return new EnvioPendente(status.Ahead, EnvioPendente.ContarArquivos(nomes));
+        }
+
+        // branch sem par: vai o que nenhuma branch do origin tem ainda. O "branch.ab" do
+        // status não existe aqui, e o selo ficava vazio mesmo com commits a enviar
+        var log = await Run(repo, "log", EnvioPendente.FormatoDoLog, "--name-only", "HEAD", "--not", "--remotes=origin");
+        return EnvioPendente.DoLog(log);
+    }
+
+    /// <summary>
     /// Conta os stashes lendo o reflog em disco. Chamar "git stash list" custava outro
     /// processo — metade do tempo do status — só para preencher um contador.
     /// </summary>

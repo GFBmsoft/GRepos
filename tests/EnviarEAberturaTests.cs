@@ -13,6 +13,7 @@ namespace GRepos.Tests;
 /// <summary>
 /// O Enviar que leva ao histórico e a abertura do app com muitos repositórios: a esteira de
 /// cada cartão sai assim que o status do repositório dele chega, sem esperar os outros.
+/// E o selo do Enviar, que conta os arquivos que vão ao remoto.
 /// </summary>
 [Collection(WorkspaceGlobal.Nome)]
 public class EnviarEAberturaTests
@@ -125,6 +126,190 @@ public class EnviarEAberturaTests
 
             Assert.Equal("erro", main.StatusTipo);
             Assert.Equal(0, main.SelectedTab);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            Limpar(raiz);
+        }
+    }
+
+    /// <summary>Marca de commit, depois os arquivos dele; o mesmo arquivo em dois commits conta uma vez.</summary>
+    [Fact]
+    public void Envio_lido_do_log()
+    {
+        Assert.Equal(EnvioPendente.Nada, EnvioPendente.DoLog(""));
+        Assert.Equal(new EnvioPendente(1, 2), EnvioPendente.DoLog("\u0001\n\na.txt\nb.txt\n"));
+
+        // um commit vazio, e o c.txt mexido em dois commits
+        Assert.Equal(new EnvioPendente(3, 2),
+            EnvioPendente.DoLog("\u0001\n\u0001\n\nc.txt\n\u0001\n\nImpressão/b ç.txt\nc.txt\n"));
+        Assert.Equal(new EnvioPendente(1, 1), EnvioPendente.DoLog("\u0001\r\n\r\na.txt\r\n"));
+    }
+
+    [Theory]
+    [InlineData(1, 3, "origin/main", "Enviar 1 commit com 3 arquivos (push)")]
+    [InlineData(2, 1, "origin/main", "Enviar 2 commits com 1 arquivo (push)")]
+    [InlineData(1, 0, "origin/main", "Enviar 1 commit, sem arquivo alterado (push)")]
+    [InlineData(2, 5, null, "Enviar a branch feat/pix, que ainda não existe no remoto: 2 commits com 5 arquivos (push)")]
+    [InlineData(0, 0, null, "Enviar a branch feat/pix, que ainda não existe no remoto (push)")]
+    public void Dica_do_enviar_diz_commits_e_arquivos(int commits, int arquivos, string? upstream, string esperado)
+    {
+        var status = new RepoStatus { Branch = "feat/pix", Upstream = upstream, Ahead = commits };
+        Assert.Equal(esperado, new EnvioPendente(commits, arquivos).Dica(status));
+    }
+
+    /// <summary>
+    /// O pedido: o Enviar não mostrava o total de arquivos a enviar. O número era o de
+    /// commits, e um commit com três arquivos mostrava "1".
+    /// </summary>
+    [Fact]
+    public async Task Envio_conta_os_arquivos_e_nao_os_commits()
+    {
+        var (raiz, meu) = await ComCommitAEnviar(); // um commit a enviar, com o b.txt
+        try
+        {
+            // o segundo mexe de novo no b.txt e traz dois arquivos, um deles com acento
+            File.WriteAllText(Path.Combine(meu, "b.txt"), "de novo\n");
+            File.WriteAllText(Path.Combine(meu, "c.txt"), "c\n");
+            Directory.CreateDirectory(Path.Combine(meu, "Impressão"));
+            File.WriteAllText(Path.Combine(meu, "Impressão", "d ç.txt"), "d\n");
+            await Git(meu, "add", "-A");
+            await Git(meu, "commit", "-qm", "mais dois");
+
+            var status = await GitService.StatusAsync(meu);
+
+            Assert.Equal(new EnvioPendente(2, 3), await GitService.EnvioPendenteAsync(meu, status));
+        }
+        finally { Limpar(raiz); }
+    }
+
+    /// <summary>Atrás e à frente ao mesmo tempo: o que só o remoto tem não é arquivo a enviar.</summary>
+    [Fact]
+    public async Task Envio_nao_conta_o_que_so_existe_no_remoto()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        try
+        {
+            var outro = Path.Combine(raiz, "outro");
+            await Git(raiz, "clone", "-q", Path.Combine(raiz, "remoto.git"), outro);
+            await Git(outro, "config", "user.email", "o@o");
+            await Git(outro, "config", "user.name", "Outro");
+            File.WriteAllText(Path.Combine(outro, "x.txt"), "x\n");
+            File.WriteAllText(Path.Combine(outro, "y.txt"), "y\n");
+            await Git(outro, "add", "-A");
+            await Git(outro, "commit", "-qm", "do colega");
+            await Git(outro, "push", "-q");
+            await Git(meu, "fetch", "-q");
+
+            var status = await GitService.StatusAsync(meu);
+
+            Assert.Equal(1, status.Behind);
+            Assert.Equal(new EnvioPendente(1, 1), await GitService.EnvioPendenteAsync(meu, status));
+        }
+        finally { Limpar(raiz); }
+    }
+
+    /// <summary>
+    /// Branch que ainda não existe no remoto: o status não traz a contagem, e o selo ficava
+    /// vazio mesmo com commits. Conta o que nenhuma branch do origin tem.
+    /// </summary>
+    [Fact]
+    public async Task Branch_sem_par_conta_o_que_o_remoto_ainda_nao_tem()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        try
+        {
+            await Git(meu, "push", "-q");
+            await Git(meu, "checkout", "-qb", "feat/pix");
+
+            // recém-criada: vai só a branch
+            var nova = await GitService.StatusAsync(meu);
+            Assert.True(string.IsNullOrEmpty(nova.Upstream));
+            Assert.Equal(EnvioPendente.Nada, await GitService.EnvioPendenteAsync(meu, nova));
+
+            File.WriteAllText(Path.Combine(meu, "c.txt"), "c\n");
+            await Git(meu, "add", "-A");
+            await Git(meu, "commit", "-qm", "um");
+            File.WriteAllText(Path.Combine(meu, "c.txt"), "c de novo\n");
+            File.WriteAllText(Path.Combine(meu, "d.txt"), "d\n");
+            await Git(meu, "add", "-A");
+            await Git(meu, "commit", "-qm", "dois");
+
+            var status = await GitService.StatusAsync(meu);
+
+            Assert.Equal(new EnvioPendente(2, 2), await GitService.EnvioPendenteAsync(meu, status));
+        }
+        finally { Limpar(raiz); }
+    }
+
+    /// <summary>
+    /// Na tela: o selo com os arquivos, a dica com os commits. A recarga com o HEAD no mesmo
+    /// lugar (é o que acontece a cada arquivo salvo) não chama o git de novo para contar.
+    /// </summary>
+    [Fact]
+    public async Task Selo_do_enviar_mostra_os_arquivos()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", Path.Combine(raiz, "home"));
+        try
+        {
+            // o commit a enviar passa a ter três arquivos
+            File.WriteAllText(Path.Combine(meu, "c.txt"), "c\n");
+            File.WriteAllText(Path.Combine(meu, "d.txt"), "d\n");
+            await Git(meu, "add", "-A");
+            await Git(meu, "commit", "-q", "--amend", "--no-edit");
+
+            var main = await AbrirNaAbaAlteracoes(meu);
+            await Espera.Ate(() => main.EnviarBadge == "3");
+            Assert.Equal("Enviar 1 commit com 3 arquivos (push)", main.EnviarTooltip);
+
+            var contagem = main.ContagemDoEnvio;
+            File.WriteAllText(Path.Combine(meu, "solto.txt"), "sem commit\n");
+            await main.RefreshRepoAsync(main.Repos.Single().Id);
+            Assert.Same(contagem, main.ContagemDoEnvio);
+            Assert.Equal("3", main.EnviarBadge);
+
+            await main.PushCommand.ExecuteAsync(null);
+
+            Assert.Equal("", main.EnviarBadge);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            Limpar(raiz);
+        }
+    }
+
+    /// <summary>Branch nova com commits: o selo aparece, e a dica diz que ela será criada no remoto.</summary>
+    [Fact]
+    public async Task Selo_do_enviar_na_branch_sem_par()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", Path.Combine(raiz, "home"));
+        try
+        {
+            await Git(meu, "push", "-q");
+            await Git(meu, "checkout", "-qb", "feat/pix");
+            File.WriteAllText(Path.Combine(meu, "c.txt"), "c\n");
+            File.WriteAllText(Path.Combine(meu, "d.txt"), "d\n");
+            await Git(meu, "add", "-A");
+            await Git(meu, "commit", "-qm", "pix");
+
+            var main = new MainViewModel(new FakeDialogs());
+            main.AddRepository(meu, "Financeiro", null);
+            main.RebuildTree();
+            var id = main.Repos.Single().Id;
+            main.SelecionarRepositorio(id);
+            await main.RefreshRepoAsync(id);
+
+            // a contagem espera o remoto ser lido
+            await Espera.Ate(() => main.EnviarBadge == "2");
+            Assert.Equal(
+                "Enviar a branch feat/pix, que ainda não existe no remoto: 1 commit com 2 arquivos (push)",
+                main.EnviarTooltip);
         }
         finally
         {

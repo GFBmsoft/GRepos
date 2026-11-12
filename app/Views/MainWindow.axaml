@@ -295,7 +295,7 @@
             </controls:ToolButton.ContextMenu>
           </controls:ToolButton>
           <controls:ToolButton Grid.Column="3" Label="Enviar" Glifo="{x:Static controls:Glifos.Enviar}" Classes="laranja"
-                               Badge="{Binding AheadBadge}"
+                               Badge="{Binding EnviarBadge}"
                                ToolTip.Tip="{Binding EnviarTooltip}" ToolTip.ShowOnDisabled="True"
                                IsEnabled="{Binding PodeEnviar}" Command="{Binding PushCommand}" />
           <!-- fora da main o botão fica destacado: é fácil esquecer em que branch se está -->

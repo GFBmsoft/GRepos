@@ -1,3 +1,9 @@
+## 1.0.0.64 — 12/11/2026
+- **Enviar com o total de arquivos**: o número no botão **Enviar** passa a ser o de arquivos que vão para o remoto. Antes era o de commits: um commit com três arquivos mostrava "1", e parecia que faltava arquivo.
+- Parando o mouse no botão, a dica diz os dois números, por exemplo "Enviar 1 commit com 3 arquivos".
+- Em branch que ainda não existe no remoto, o número também aparece. Antes o botão ficava sem número, mesmo com commits a enviar.
+- Na árvore e nos cartões do painel, o **↑** continua contando commits.
+
 ## 1.0.0.63 — 10/11/2026
 - **Branch na hora**: ao abrir o app, a branch de cada repositório já aparece na árvore e nos cartões do painel junto com o nome. Antes ela surgia aos poucos, conforme cada repositório era consultado. O que há para enviar, receber e as alterações continuam chegando logo em seguida.
 
