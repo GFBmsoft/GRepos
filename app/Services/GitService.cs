@@ -281,6 +281,7 @@ public static class GitService
             return (s, new List<FileChange>());
         }
 
+        var temContagem = false;
         foreach (var line in raw.Split('\n'))
         {
             if (line.StartsWith("# branch.head ")) s.Branch = line[14..].Trim();
@@ -288,6 +289,7 @@ public static class GitService
             else if (line.StartsWith("# branch.oid ")) s.Head = line[13..].Trim();
             else if (line.StartsWith("# branch.ab "))
             {
+                temContagem = true;
                 foreach (var tok in line[12..].Split(' ', StringSplitOptions.RemoveEmptyEntries))
                 {
                     if (tok.Length < 2 || !int.TryParse(tok[1..], out var n)) continue;
@@ -303,6 +305,10 @@ public static class GitService
                 if (line[3] != '.') s.Unstaged++;
             }
         }
+
+        // par configurado, mas sem a linha da contagem: a branch remota não existe. "(initial)"
+        // é o repositório ainda sem commit, que não tem o que enviar
+        s.ParAusente = !string.IsNullOrEmpty(s.Upstream) && !temContagem && s.Head != "(initial)";
 
         s.Stashes = CountStashes(repo);
 
@@ -323,7 +329,7 @@ public static class GitService
     {
         if (!status.TemOQueEnviar) return EnvioPendente.Nada;
 
-        if (!string.IsNullOrEmpty(status.Upstream))
+        if (status.TemPar)
         {
             // três pontos: o que este lado mudou desde que se separou do remoto. Com dois,
             // o arquivo de um commit que só existe lá entraria na conta do que enviar
@@ -331,8 +337,9 @@ public static class GitService
             return new EnvioPendente(status.Ahead, EnvioPendente.ContarArquivos(nomes));
         }
 
-        // branch sem par: vai o que nenhuma branch do origin tem ainda. O "branch.ab" do
-        // status não existe aqui, e o selo ficava vazio mesmo com commits a enviar
+        // branch sem par, nova ou com o par apagado no remoto: vai o que nenhuma branch do
+        // origin tem ainda. O "branch.ab" do status não existe aqui, e o selo ficava vazio
+        // mesmo com commits a enviar
         var log = await Run(repo, "log", EnvioPendente.FormatoDoLog, "--name-only", "HEAD", "--not", "--remotes=origin");
         return EnvioPendente.DoLog(log);
     }
@@ -343,7 +350,7 @@ public static class GitService
     /// </summary>
     public static async Task<RecebimentoPendente> RecebimentoPendenteAsync(string repo, RepoStatus status)
     {
-        if (status.Behind <= 0 || status.Error is not null || string.IsNullOrEmpty(status.Upstream))
+        if (status.Behind <= 0 || status.Error is not null || !status.TemPar)
             return RecebimentoPendente.Nada;
 
         // os três pontos ao contrário do envio: o que o remoto mudou desde que este lado se

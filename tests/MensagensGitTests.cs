@@ -40,6 +40,22 @@ public class MensagensGitTests
         Assert.Contains("ainda não tem par no remoto", MensagensGit.Verificado(S("imp/x", upstream: null)).Detalhe);
     }
 
+    /// <summary>
+    /// Par apagado no remoto: o Obter e o F5 diziam "em dia", e o Enviar que recria a branch
+    /// dizia "nada a enviar".
+    /// </summary>
+    [Fact]
+    public void Par_apagado_no_remoto_nao_e_estar_em_dia()
+    {
+        var semPar = S("feat/x", "origin/feat/x");
+        semPar.ParAusente = true;
+        const string esperado = "A branch feat/x está sem par: origin/feat/x não existe no remoto. Use Enviar para criá-la lá.";
+
+        Assert.Equal(new Aviso("Obter concluído", esperado), MensagensGit.Obtido(semPar));
+        Assert.Equal(new Aviso("Alterações verificadas", esperado), MensagensGit.Verificado(semPar));
+        Assert.Equal("Branch feat/x criada no remoto.", MensagensGit.Enviado(semPar, S("feat/x", "origin/feat/x")).Detalhe);
+    }
+
     [Fact]
     public void Puxar_conta_os_commits_que_chegaram()
     {

@@ -1,3 +1,9 @@
+## 1.0.0.66 — 12/11/2026
+- **Enviar na branch apagada no remoto**: quando a branch é apagada no GitHub (por exemplo, ao mesclar o pull request apagando a branch) e você usa o **Obter**, a branch daqui fica sem par. O **Enviar** ficava desligado, dizendo que ela estava em dia. Agora ele liga, a dica avisa que a branch será criada no remoto, e o envio a recria lá.
+- Nessa situação, o **Obter** e o **F5** dizem que a branch está sem par, em vez de "em dia com o remoto".
+- O mesmo vale para o clone de um repositório vazio: depois do primeiro commit, o **Enviar** já funciona.
+- No **lote**, a branch com o par apagado é pulada, com o motivo na linha. Recriar a branch fica para o **Enviar** de cada repositório.
+
 ## 1.0.0.65 — 12/11/2026
 - **Puxar com o total de arquivos**: o número no botão **Puxar** também passa a ser o de arquivos, os que chegam do remoto. Lado a lado, **Puxar** e **Enviar** agora contam a mesma coisa.
 - A dica do **Puxar** diz os dois números, por exemplo "Trazer 2 commits com 5 arquivos do remoto".

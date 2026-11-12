@@ -304,6 +304,132 @@ public class EnviarEAberturaTests
         finally { Limpar(raiz); }
     }
 
+    /// <summary>Feat/pix enviada com um commit de dois arquivos, apagada no remoto e podada pelo Obter.</summary>
+    private static async Task ParApagadoNoRemoto(string raiz, string meu)
+    {
+        await Git(meu, "push", "-q");
+        await Git(meu, "checkout", "-qb", "feat/pix");
+        File.WriteAllText(Path.Combine(meu, "c.txt"), "c\n");
+        File.WriteAllText(Path.Combine(meu, "d.txt"), "d\n");
+        await Git(meu, "add", "-A");
+        await Git(meu, "commit", "-qm", "pix");
+        await Git(meu, "push", "-q", "-u", "origin", "feat/pix");
+        await Git(Path.Combine(raiz, "remoto.git"), "branch", "-qD", "feat/pix");
+        await Git(meu, "fetch", "-q", "--all", "--prune"); // o que o Obter faz
+    }
+
+    /// <summary>
+    /// O pedido: branch com o par apagado no remoto deixava o Enviar desligado, dizendo "em
+    /// dia". O git traz o par sem a contagem, e isso era lido como 0 à frente e 0 atrás.
+    /// </summary>
+    [Fact]
+    public async Task Par_apagado_no_remoto_e_marcado_no_status()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        try
+        {
+            await ParApagadoNoRemoto(raiz, meu);
+
+            var status = await GitService.StatusAsync(meu);
+
+            Assert.Equal("origin/feat/pix", status.Upstream);
+            Assert.True(status.ParAusente);
+            Assert.True(status.TemOQueEnviar);
+            Assert.Equal(new EnvioPendente(1, 2), await GitService.EnvioPendenteAsync(meu, status));
+            Assert.Equal(
+                "Enviar 1 commit com 2 arquivos e criar origin/feat/pix, que não existe no remoto (push)",
+                new EnvioPendente(1, 2).Dica(status));
+            Assert.Equal(
+                "Enviar a branch feat/pix e criar origin/feat/pix, que não existe no remoto (push)",
+                EnvioPendente.Nada.Dica(status));
+
+            // com o par no lugar, a marca não aparece
+            await Git(meu, "checkout", "-q", "main");
+            var comPar = await GitService.StatusAsync(meu);
+            Assert.False(comPar.ParAusente);
+            Assert.False(comPar.TemOQueEnviar);
+        }
+        finally { Limpar(raiz); }
+    }
+
+    /// <summary>
+    /// Clone de um remoto vazio: o par já vem configurado e não existe lá. Sem commit não há
+    /// o que enviar; depois do primeiro, o Enviar ficava desligado do mesmo jeito.
+    /// </summary>
+    [Fact]
+    public async Task Clone_de_remoto_vazio_envia_depois_do_primeiro_commit()
+    {
+        var raiz = Path.Combine(Path.GetTempPath(), "grepos-vazio-" + Path.GetRandomFileName());
+        var remoto = Path.Combine(raiz, "remoto.git");
+        var meu = Path.Combine(raiz, "meu");
+        Directory.CreateDirectory(raiz);
+        try
+        {
+            await Git(raiz, "init", "-q", "--bare", "-b", "main", remoto);
+            await Git(raiz, "clone", "-q", remoto, meu);
+            await Git(meu, "config", "user.email", "t@t");
+            await Git(meu, "config", "user.name", "Teste");
+
+            var semCommit = await GitService.StatusAsync(meu);
+            Assert.Equal("origin/main", semCommit.Upstream);
+            Assert.False(semCommit.ParAusente);
+            Assert.False(semCommit.TemOQueEnviar);
+
+            File.WriteAllText(Path.Combine(meu, "a.txt"), "inicial\n");
+            await Git(meu, "add", "a.txt");
+            await Git(meu, "commit", "-qm", "inicial");
+
+            var status = await GitService.StatusAsync(meu);
+            Assert.True(status.ParAusente);
+            Assert.True(status.TemOQueEnviar);
+            Assert.Equal(new EnvioPendente(1, 1), await GitService.EnvioPendenteAsync(meu, status));
+        }
+        finally { Limpar(raiz); }
+    }
+
+    /// <summary>
+    /// Na tela, com o par apagado: o Enviar liga, a dica diz que a branch será criada, e o
+    /// envio a recria no remoto. Voltar ao remoto some: não há para onde voltar.
+    /// </summary>
+    [Fact]
+    public async Task Enviar_recria_a_branch_apagada_no_remoto()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", Path.Combine(raiz, "home"));
+        try
+        {
+            await ParApagadoNoRemoto(raiz, meu);
+
+            var main = new MainViewModel(new FakeDialogs());
+            main.AddRepository(meu, "Financeiro", null);
+            main.RebuildTree();
+            var id = main.Repos.Single().Id;
+            main.SelecionarRepositorio(id);
+            await main.RefreshRepoAsync(id);
+
+            await Espera.Ate(() => main.EnviarBadge == "2");
+            Assert.True(main.PodeEnviar);
+            Assert.Equal(
+                "Enviar 1 commit com 2 arquivos e criar origin/feat/pix, que não existe no remoto (push)",
+                main.EnviarTooltip);
+            await main.Changes!.ReloadAsync();
+            Assert.False(main.Changes.TemRemoto);
+
+            await main.PushCommand.ExecuteAsync(null);
+
+            Assert.True(main.CurrentStatus?.TemPar);
+            Assert.False(main.PodeEnviar);
+            Assert.Equal("", main.EnviarBadge);
+            Assert.Contains("feat/pix", await Git(Path.Combine(raiz, "remoto.git"), "branch", "--list", "feat/pix"));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            Limpar(raiz);
+        }
+    }
+
     /// <summary>
     /// Na tela: o selo com os arquivos, a dica com os commits. A recarga com o HEAD no mesmo
     /// lugar (é o que acontece a cada arquivo salvo) não chama o git de novo para contar.

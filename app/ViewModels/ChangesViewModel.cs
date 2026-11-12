@@ -591,7 +591,8 @@ public sealed partial class ChangesViewModel : ObservableObject
 
     private void GuardarRemoto(RepoStatus status)
     {
-        _upstream = string.IsNullOrEmpty(status.Upstream) ? null : status.Upstream;
+        // par apagado no remoto não é para onde voltar: o reset daria erro do git
+        _upstream = status.TemPar ? status.Upstream : null;
         _ahead = status.Ahead;
         OnPropertyChanged(nameof(TemRemoto));
         OnPropertyChanged(nameof(VoltarAoRemotoRotulo));

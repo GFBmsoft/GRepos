@@ -1313,7 +1313,7 @@ public sealed partial class MainViewModel : ObservableObject
         // a branch sem par conta contra as branches do origin: sem remoto confirmado, o log
         // andaria pelo histórico inteiro do repositório
         var enviar = repo is not null && status is { TemOQueEnviar: true } && !SemRemoto &&
-                     (!string.IsNullOrEmpty(status.Upstream) || _remotoConferido);
+                     (status.TemPar || _remotoConferido);
         var puxar = repo is not null && status is { Behind: > 0, Error: null };
         var chave = enviar || puxar
             ? string.Join('|', repo!.Id, status!.Head, status.Branch, status.Upstream, status.Ahead, status.Behind, enviar, puxar)

@@ -168,11 +168,26 @@ public sealed class RepoStatus
     public string? Error { get; set; }
 
     /// <summary>
-    /// Há o que enviar: commit à frente do remoto, ou branch que ainda não existe lá (o
-    /// primeiro envio a cria). HEAD solto não tem branch para onde enviar.
+    /// A branch aponta para um par que não existe no remoto: apagado lá (o pull request
+    /// mesclado com "apagar a branch", podado pelo Obter) ou remoto ainda vazio. O git traz o
+    /// "branch.upstream" sem o "branch.ab", e sem esta marca a branch parecia em dia, com 0
+    /// à frente e 0 atrás: o Enviar ficava desligado.
+    /// </summary>
+    public bool ParAusente { get; set; }
+
+    /// <summary>
+    /// O par existe no remoto. É isto, e não o Upstream preenchido, que decide o que depende
+    /// de haver uma branch lá: comparar, puxar, voltar ao remoto.
+    /// </summary>
+    [JsonIgnore]
+    public bool TemPar => !string.IsNullOrEmpty(Upstream) && !ParAusente;
+
+    /// <summary>
+    /// Há o que enviar: commit à frente do remoto, ou branch que não existe lá (o envio a
+    /// cria). HEAD solto não tem branch para onde enviar.
     /// </summary>
     public bool TemOQueEnviar =>
-        Branch.Length > 0 && Branch != "(detached)" && Error is null && (Ahead > 0 || string.IsNullOrEmpty(Upstream));
+        Branch.Length > 0 && Branch != "(detached)" && Error is null && (Ahead > 0 || !TemPar);
 
     /// <summary>
     /// Arquivos distintos com alteração pendente. Os contadores acima somam situações

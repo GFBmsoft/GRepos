@@ -58,7 +58,7 @@ public static class Lote
                 {
                     var status = await GitService.StatusAsync(repo);
                     if (status.Branch.Length == 0) return ResultadoDoLote.Pulado("HEAD solto, sem branch para puxar");
-                    if (string.IsNullOrEmpty(status.Upstream)) return ResultadoDoLote.Pulado("a branch não tem par no remoto");
+                    if (!status.TemPar) return ResultadoDoLote.Pulado("a branch não tem par no remoto");
 
                     var saida = await GitService.PullSoAvancoAsync(repo);
                     return ResultadoDoLote.Ok(saida.Contains("Already up to date", StringComparison.OrdinalIgnoreCase)
@@ -70,6 +70,10 @@ public static class Lote
                 {
                     var status = await GitService.StatusAsync(repo);
                     if (status.Branch.Length == 0) return ResultadoDoLote.Pulado("HEAD solto, sem branch para enviar");
+
+                    // par apagado no remoto: quem decide recriar a branch é o Enviar do repositório,
+                    // um por vez. Em lote, voltariam de uma vez as branches já mescladas e apagadas
+                    if (status.ParAusente) return ResultadoDoLote.Pulado("o par da branch não existe no remoto");
 
                     var semPar = string.IsNullOrEmpty(status.Upstream);
                     if (!semPar && status.Ahead == 0) return ResultadoDoLote.Pulado("nada a enviar");

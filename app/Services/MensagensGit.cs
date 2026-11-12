@@ -19,12 +19,20 @@ public static class MensagensGit
     internal static string Commits(int n) => n == 1 ? "1 commit" : $"{n} commits";
     internal static string Arquivos(int n) => n == 1 ? "1 arquivo" : $"{n} arquivos";
 
+    /// <summary>
+    /// O par da branch não existe no remoto: apagado lá, e o Obter acabou de podar a
+    /// referência. Antes saía "em dia com o remoto", com o Enviar desligado.
+    /// </summary>
+    private static string SemPar(RepoStatus s) =>
+        $"A branch {s.Branch} está sem par: {s.Upstream} não existe no remoto. Use Enviar para criá-la lá.";
+
     /// <summary>"Obter" não muda os arquivos: o que importa é o que ficou para puxar.</summary>
     public static Aviso Obtido(RepoStatus? depois)
     {
         if (depois is null) return new Aviso("Obter concluído");
         if (string.IsNullOrEmpty(depois.Upstream))
             return new Aviso("Obter concluído", $"A branch {depois.Branch} ainda não tem par no remoto.");
+        if (depois.ParAusente) return new Aviso("Obter concluído", SemPar(depois));
 
         return depois.Behind > 0
             ? new Aviso("Obter concluído", $"Há {Commits(depois.Behind)} no remoto para puxar em {depois.Branch}.")
@@ -41,6 +49,7 @@ public static class MensagensGit
         if (depois is null) return new Aviso(titulo);
         if (string.IsNullOrEmpty(depois.Upstream))
             return new Aviso(titulo, $"A branch {depois.Branch} ainda não tem par no remoto.");
+        if (depois.ParAusente) return new Aviso(titulo, SemPar(depois));
 
         var partes = new System.Collections.Generic.List<string>();
         if (depois.Behind > 0) partes.Add($"{Commits(depois.Behind)} para puxar");
@@ -68,8 +77,8 @@ public static class MensagensGit
     {
         if (depois is null) return new Aviso("Enviar concluído");
 
-        // a branch não existia no remoto: o envio a criou lá
-        if (antes is not null && string.IsNullOrEmpty(antes.Upstream) && !string.IsNullOrEmpty(depois.Upstream))
+        // a branch não existia no remoto, nova ou com o par apagado: o envio a criou lá
+        if (antes is not null && !antes.TemPar && depois.TemPar)
             return new Aviso("Enviar concluído", $"Branch {depois.Branch} criada no remoto.");
 
         var enviados = Math.Max(0, (antes?.Ahead ?? 0) - depois.Ahead);

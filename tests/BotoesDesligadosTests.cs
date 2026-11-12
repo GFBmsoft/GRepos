@@ -23,6 +23,20 @@ public class BotoesDesligadosTests
         Assert.Equal(esperado, status.TemOQueEnviar);
     }
 
+    /// <summary>
+    /// Par apagado no remoto: 0 à frente e 0 atrás, mas não está em dia, não há com quem
+    /// comparar. O Enviar liga, para criar a branch lá de novo.
+    /// </summary>
+    [Fact]
+    public void Par_apagado_no_remoto_tem_o_que_enviar()
+    {
+        var status = new RepoStatus { Branch = "feat/x", Upstream = "origin/feat/x", ParAusente = true };
+
+        Assert.False(status.TemPar);
+        Assert.True(status.TemOQueEnviar);
+        Assert.True(new RepoStatus { Branch = "feat/x", Upstream = "origin/feat/x" }.TemPar);
+    }
+
     [Fact]
     public void Repositorio_com_erro_nao_tem_o_que_enviar()
     {

@@ -84,6 +84,11 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
 - `Grid` do Avalonia 11.2 não tem `ColumnSpacing`/`RowSpacing`; use `Margin`.
 - Ao mexer no parsing do `git status --porcelain=v2`, confira a contagem de campos: são 7
   antes do caminho na linha `1`, 8 na `2` (renomeado) e 9 na `u` (conflito). Já errei isso.
+- **`# branch.upstream` sem `# branch.ab` não é "em dia"**: é par configurado que não existe no
+  remoto (apagado lá e podado pelo Obter, ou clone de remoto vazio). O status marca
+  `RepoStatus.ParAusente`. Para decidir o que depende de haver branch no remoto, use `TemPar`,
+  não `Upstream` preenchido: foi assim que o Enviar ficou desligado dizendo "em dia" (1.0.0.66).
+  No lote essa branch é pulada, não recriada.
 - **Um `git status` por recarga.** `StatusAndChangesAsync` devolve status e lista juntos;
   chamar `StatusAsync` e `ChangesAsync` em sequência dobra o custo. O contador de stash sai
   do reflog em disco (`.git/logs/refs/stash`), não de `git stash list`.

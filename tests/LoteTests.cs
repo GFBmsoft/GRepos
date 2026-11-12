@@ -152,6 +152,34 @@ public class LoteTests
         }
     }
 
+    /// <summary>
+    /// Branch com o par apagado no remoto: o lote não a recria (voltariam de uma vez as
+    /// branches já mescladas e apagadas) e diz por que pulou, em vez de "nada a enviar".
+    /// </summary>
+    [Fact]
+    public async Task Par_apagado_no_remoto_e_pulado_com_o_motivo()
+    {
+        var (raiz, _, meu) = await Cenario("a");
+        try
+        {
+            await Git(meu, "checkout", "-qb", "feat/pix");
+            await Commit(meu, "pix.txt", "pix");
+            await Git(meu, "push", "-q", "-u", "origin", "feat/pix");
+            await Git(Path.Combine(raiz, "remoto.git"), "branch", "-qD", "feat/pix");
+            await Git(meu, "fetch", "-q", "--prune");
+
+            var enviar = await Lote.ExecutarAsync(meu, OperacaoEmLote.Enviar);
+            Assert.Equal(("pulado", "o par da branch não existe no remoto"), (enviar.Situacao, enviar.Mensagem));
+
+            var puxar = await Lote.ExecutarAsync(meu, OperacaoEmLote.Puxar);
+            Assert.Equal(("pulado", "a branch não tem par no remoto"), (puxar.Situacao, puxar.Mensagem));
+        }
+        finally
+        {
+            Limpar(Path.GetDirectoryName(raiz)!);
+        }
+    }
+
     [Fact]
     public async Task Pasta_que_nao_e_repositorio_vira_erro_na_linha_e_nao_excecao()
     {

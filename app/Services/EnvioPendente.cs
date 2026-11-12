@@ -55,6 +55,13 @@ public sealed record EnvioPendente(int Commits, int Arquivos)
             : Arquivos == 0 ? $"{MensagensGit.Commits(Commits)}, sem arquivo alterado"
             : $"{MensagensGit.Commits(Commits)} com {MensagensGit.Arquivos(Arquivos)}";
 
+        // o par foi apagado no remoto (ou o remoto está vazio): o envio o cria de novo
+        if (status.ParAusente)
+        {
+            var oQueVai = oQue.Length == 0 ? $"a branch {status.Branch}" : oQue;
+            return $"Enviar {oQueVai} e criar {status.Upstream}, que não existe no remoto (push)";
+        }
+
         // branch nova: o envio a cria no remoto, com ou sem commit próprio
         if (string.IsNullOrEmpty(status.Upstream))
         {
