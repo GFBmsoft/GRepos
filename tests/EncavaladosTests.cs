@@ -657,12 +657,13 @@ public class EncavaladosTests
     }
 
     /// <summary>
-    /// O selo do Enviar no botão de verdade, com um commit de três arquivos: mostra "3", os
-    /// arquivos, e não "1", os commits. Os bindings são reflexivos: um nome errado no XAML
-    /// não quebra o build, só deixa o botão sem número.
+    /// Os selos do Enviar e do Puxar nos botões de verdade. Um commit de três arquivos a
+    /// enviar mostra "3", e um de dois a puxar mostra "2": os arquivos, e não "1", os commits.
+    /// Os bindings são reflexivos: um nome errado no XAML não quebra o build, só deixa o
+    /// botão sem número.
     /// </summary>
     [AvaloniaFact]
-    public async Task Enviar_mostra_no_selo_os_arquivos_a_enviar()
+    public async Task Enviar_e_Puxar_mostram_no_selo_os_arquivos()
     {
         var home = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "grepos-selo-" + System.IO.Path.GetRandomFileName());
         var remoto = System.IO.Path.Combine(home, "remoto.git");
@@ -686,6 +687,18 @@ public class EncavaladosTests
             await Git(dir, "add", "-A");
             await Git(dir, "commit", "-qm", "um commit, três arquivos");
 
+            // outro clone envia um commit de dois arquivos: este fica atrás em 1
+            var outro = System.IO.Path.Combine(home, "outro");
+            await Git(home, "clone", "-q", remoto, outro);
+            await Git(outro, "config", "user.email", "o@o");
+            await Git(outro, "config", "user.name", "Outro");
+            foreach (var nome in new[] { "x.txt", "y.txt" })
+                System.IO.File.WriteAllText(System.IO.Path.Combine(outro, nome), "do colega\n");
+            await Git(outro, "add", "-A");
+            await Git(outro, "commit", "-qm", "um commit, dois arquivos");
+            await Git(outro, "push", "-q");
+            await Git(dir, "fetch", "-q");
+
             var ws = new Workspace { Groups = { new Group { Id = "mod", Name = "Módulos", Color = "#2F7BE8" } } };
             ws.Repos.Add(new Repo { Id = "fin", Name = "Financeiro", Path = dir, GroupId = "mod" });
             WorkspaceStore.Save(ws);
@@ -699,12 +712,19 @@ public class EncavaladosTests
             await janela.Carga;
             vm.SelecionarRepositorio("fin");
             await vm.RefreshRepoAsync("fin");
-            await Espera.Ate(() => vm.EnviarBadge == "3");
+            await Espera.Ate(() => vm.EnviarBadge == "3" && vm.PuxarBadge == "2");
             Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-            var enviar = janela.GetVisualDescendants().OfType<GRepos.Controls.ToolButton>().Single(b => b.Label == "Enviar");
+            var botoes = janela.GetVisualDescendants().OfType<GRepos.Controls.ToolButton>().ToList();
+            var enviar = botoes.Single(b => b.Label == "Enviar");
+            var puxar = botoes.Single(b => b.Label == "Puxar");
             Assert.Equal("3", enviar.Badge);
+            Assert.Equal("2", puxar.Badge);
+            Assert.Equal(
+                "Trazer 1 commit com 2 arquivos do remoto (pull). Clique direito: opções",
+                ToolTip.GetTip(puxar));
             Assert.Equal(1, vm.CurrentStatus?.Ahead);
+            Assert.Equal(1, vm.CurrentStatus?.Behind);
 
             janela.Close();
         }

@@ -600,7 +600,7 @@ public sealed partial class MainViewModel : ObservableObject
             RemoteWebUrl = GitService.WebUrl(remoto);
             _remotoConferido = remoto.Length > 0;
             SemRemoto = remoto.Length == 0;
-            AtualizarEnvio(); // a branch sem par esperava o remoto para ser contada
+            AtualizarSelosDoRemoto(); // a branch sem par esperava o remoto para ser contada
 
             var slug = GitHubService.Slug(remoto);
             if (slug is null) return;
@@ -1281,66 +1281,77 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     // selos da barra: vazio esconde o contador
-    public string BehindBadge => CurrentStatus is { Behind: > 0 } s ? s.Behind.ToString() : "";
     public string StashBadge => CurrentStatus is { Stashes: > 0 } s ? s.Stashes.ToString() : "";
 
     /// <summary>
-    /// O selo do Enviar conta os arquivos que vão ao remoto, não os commits: um commit com
-    /// três arquivos mostrava "1", e parecia contagem errada. Os commits ficam na dica.
+    /// Os selos do Enviar e do Puxar contam arquivos, não commits: um commit com três
+    /// arquivos mostrava "1", e parecia contagem errada. Os commits ficam na dica.
     /// </summary>
     public string EnviarBadge => _envio?.Selo ?? "";
+    public string PuxarBadge => _recebimento?.Selo ?? "";
+    public string PuxarTooltip => _recebimento?.Dica ?? RecebimentoPendente.DicaSemContagem;
 
-    // o que o Enviar leva, do repositório aberto, e de que estado do repositório saiu
+    // o que o Enviar leva e o Puxar traz, do repositório aberto, e de que estado dele saiu
     private EnvioPendente? _envio;
-    private string _envioChave = "";
-    private string _envioRepo = "";
+    private RecebimentoPendente? _recebimento;
+    private string _selosChave = "";
+    private string _selosRepo = "";
 
     /// <summary>A última contagem disparada: os testes esperam por ela.</summary>
-    internal Task ContagemDoEnvio { get; private set; } = Task.CompletedTask;
+    internal Task ContagemDosSelos { get; private set; } = Task.CompletedTask;
 
     /// <summary>
     /// Conta de novo só quando o HEAD ou o remoto andam. A contagem é outro processo do git,
     /// e a recarga dispara a cada arquivo salvo: sem a chave, todo salvamento num repositório
-    /// com commit a enviar custaria o dobro.
+    /// com commit a enviar ou a puxar custaria o dobro.
     /// </summary>
-    private void AtualizarEnvio()
+    private void AtualizarSelosDoRemoto()
     {
         var repo = CurrentRepo;
         var status = CurrentStatus;
 
         // a branch sem par conta contra as branches do origin: sem remoto confirmado, o log
         // andaria pelo histórico inteiro do repositório
-        var conta = repo is not null && status is { TemOQueEnviar: true } && !SemRemoto &&
-                    (!string.IsNullOrEmpty(status.Upstream) || _remotoConferido);
-        var chave = conta
-            ? string.Join('|', repo!.Id, status!.Head, status.Branch, status.Upstream, status.Ahead, status.Behind)
+        var enviar = repo is not null && status is { TemOQueEnviar: true } && !SemRemoto &&
+                     (!string.IsNullOrEmpty(status.Upstream) || _remotoConferido);
+        var puxar = repo is not null && status is { Behind: > 0, Error: null };
+        var chave = enviar || puxar
+            ? string.Join('|', repo!.Id, status!.Head, status.Branch, status.Upstream, status.Ahead, status.Behind, enviar, puxar)
             : "";
-        if (chave == _envioChave) return;
-        _envioChave = chave;
+        if (chave == _selosChave) return;
+        _selosChave = chave;
 
         // sem o que contar, ou em outro repositório, o número antigo não vale. No mesmo
         // repositório ele fica até o novo chegar: o selo não some e volta a cada commit
-        if (!conta || _envioRepo != repo!.Id) DefinirEnvio(null);
-        if (!conta) return;
+        var outroRepo = repo is null || _selosRepo != repo.Id;
+        if (!enviar || outroRepo) DefinirEnvio(null);
+        if (!puxar || outroRepo) DefinirRecebimento(null);
+        if (!enviar && !puxar) return;
 
-        _envioRepo = repo!.Id;
-        ContagemDoEnvio = ContarEnvioAsync(repo.Path, status!, chave);
+        _selosRepo = repo!.Id;
+        ContagemDosSelos = ContarSelosAsync(repo.Path, status!, chave, enviar, puxar);
     }
 
-    private async Task ContarEnvioAsync(string caminho, RepoStatus status, string chave)
+    private async Task ContarSelosAsync(string caminho, RepoStatus status, string chave, bool enviar, bool puxar)
     {
-        EnvioPendente? envio;
-        try
-        {
-            envio = await GitService.EnvioPendenteAsync(caminho, status);
-        }
-        catch (Exception)
-        {
-            envio = null; // um selo não justifica erro na tela: o botão segue ligado, sem número
-        }
+        // os dois sentidos juntos: repositório atrás e à frente não espera um para contar o outro
+        var envio = enviar ? SemErro(GitService.EnvioPendenteAsync(caminho, status)) : Task.FromResult<EnvioPendente?>(null);
+        var recebimento = puxar
+            ? SemErro(GitService.RecebimentoPendenteAsync(caminho, status))
+            : Task.FromResult<RecebimentoPendente?>(null);
+        await Task.WhenAll(envio, recebimento);
 
         // o repositório andou, ou a seleção trocou, enquanto o git contava
-        if (chave == _envioChave) DefinirEnvio(envio);
+        if (chave != _selosChave) return;
+        DefinirEnvio(await envio);
+        DefinirRecebimento(await recebimento);
+    }
+
+    /// <summary>Um selo não justifica erro na tela: o botão segue como está, sem número.</summary>
+    private static async Task<T?> SemErro<T>(Task<T> contagem) where T : class
+    {
+        try { return await contagem; }
+        catch (Exception) { return null; }
     }
 
     private void DefinirEnvio(EnvioPendente? envio)
@@ -1349,6 +1360,14 @@ public sealed partial class MainViewModel : ObservableObject
         _envio = envio;
         OnPropertyChanged(nameof(EnviarBadge));
         OnPropertyChanged(nameof(EnviarTooltip));
+    }
+
+    private void DefinirRecebimento(RecebimentoPendente? recebimento)
+    {
+        if (_recebimento == recebimento) return;
+        _recebimento = recebimento;
+        OnPropertyChanged(nameof(PuxarBadge));
+        OnPropertyChanged(nameof(PuxarTooltip));
     }
 
     /// <summary>
@@ -1371,7 +1390,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnSemRemotoChanged(bool value)
     {
-        AtualizarEnvio();
+        AtualizarSelosDoRemoto();
         OnPropertyChanged(nameof(PodeEnviar));
         OnPropertyChanged(nameof(EnviarTooltip));
     }
@@ -1779,12 +1798,12 @@ public sealed partial class MainViewModel : ObservableObject
     {
         // o remoto lido e o que havia para enviar eram do repositório anterior
         _remotoConferido = false;
-        AtualizarEnvio();
+        AtualizarSelosDoRemoto();
 
         foreach (var n in new[] { nameof(CurrentRepo), nameof(CurrentStatus), nameof(HasSelection),
                                   nameof(NoSelection), nameof(HasPair), nameof(RepoTitle), nameof(RepoPath),
                                   nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine), nameof(ChangesTabHeader),
-                                  nameof(PairTabHeader), nameof(BehindBadge), nameof(EnviarBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
+                                  nameof(PairTabHeader), nameof(PuxarBadge), nameof(PuxarTooltip), nameof(EnviarBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText),
                                   nameof(ForaDaPrincipal), nameof(SemNadaSelecionado),
                                   nameof(AvisoNaBarra), nameof(AvisoNoRodape) })
@@ -2137,9 +2156,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void RefreshHeaderBindings()
     {
-        AtualizarEnvio();
+        AtualizarSelosDoRemoto();
         foreach (var n in new[] { nameof(CurrentStatus), nameof(BranchCaption), nameof(BranchTooltip), nameof(StatusLine),
-                                  nameof(ChangesTabHeader), nameof(BehindBadge), nameof(EnviarBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
+                                  nameof(ChangesTabHeader), nameof(PuxarBadge), nameof(PuxarTooltip), nameof(EnviarBadge), nameof(PodeEnviar), nameof(EnviarTooltip),
                                   nameof(StashBadge), nameof(ShowError), nameof(ErrorText) })
             OnPropertyChanged(n);
     }

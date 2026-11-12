@@ -338,6 +338,21 @@ public static class GitService
     }
 
     /// <summary>
+    /// O que o Puxar traz: os commits atrás e os arquivos distintos que eles mudam. Como o
+    /// envio, é um git a mais e fica fora do status. Vale o que o último Obter trouxe.
+    /// </summary>
+    public static async Task<RecebimentoPendente> RecebimentoPendenteAsync(string repo, RepoStatus status)
+    {
+        if (status.Behind <= 0 || status.Error is not null || string.IsNullOrEmpty(status.Upstream))
+            return RecebimentoPendente.Nada;
+
+        // os três pontos ao contrário do envio: o que o remoto mudou desde que este lado se
+        // separou dele, sem os arquivos dos commits que só existem aqui
+        var nomes = await Run(repo, "diff", "--name-only", "HEAD...@{upstream}");
+        return new RecebimentoPendente(status.Behind, EnvioPendente.ContarArquivos(nomes));
+    }
+
+    /// <summary>
     /// Conta os stashes lendo o reflog em disco. Chamar "git stash list" custava outro
     /// processo — metade do tempo do status — só para preencher um contador.
     /// </summary>

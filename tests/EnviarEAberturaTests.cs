@@ -13,7 +13,7 @@ namespace GRepos.Tests;
 /// <summary>
 /// O Enviar que leva ao histórico e a abertura do app com muitos repositórios: a esteira de
 /// cada cartão sai assim que o status do repositório dele chega, sem esperar os outros.
-/// E o selo do Enviar, que conta os arquivos que vão ao remoto.
+/// E os selos do Enviar e do Puxar, que contam os arquivos que vão ao remoto e vêm dele.
 /// </summary>
 [Collection(WorkspaceGlobal.Nome)]
 public class EnviarEAberturaTests
@@ -184,30 +184,91 @@ public class EnviarEAberturaTests
         finally { Limpar(raiz); }
     }
 
-    /// <summary>Atrás e à frente ao mesmo tempo: o que só o remoto tem não é arquivo a enviar.</summary>
+    /// <summary>Outro clone envia um commit com dois arquivos, e este busca: fica um commit atrás.</summary>
+    private static async Task ColegaEnviaDoisArquivos(string raiz, string meu)
+    {
+        var outro = Path.Combine(raiz, "outro");
+        await Git(raiz, "clone", "-q", Path.Combine(raiz, "remoto.git"), outro);
+        await Git(outro, "config", "user.email", "o@o");
+        await Git(outro, "config", "user.name", "Outro");
+        File.WriteAllText(Path.Combine(outro, "x.txt"), "x\n");
+        File.WriteAllText(Path.Combine(outro, "y.txt"), "y\n");
+        await Git(outro, "add", "-A");
+        await Git(outro, "commit", "-qm", "do colega");
+        await Git(outro, "push", "-q");
+        await Git(meu, "fetch", "-q");
+    }
+
+    /// <summary>
+    /// Atrás e à frente ao mesmo tempo: cada sentido conta só os arquivos do seu lado. O que
+    /// só o remoto tem não é arquivo a enviar, e o commit daqui não é arquivo a puxar.
+    /// </summary>
     [Fact]
-    public async Task Envio_nao_conta_o_que_so_existe_no_remoto()
+    public async Task Atras_e_a_frente_cada_lado_conta_os_seus_arquivos()
     {
         var (raiz, meu) = await ComCommitAEnviar();
         try
         {
-            var outro = Path.Combine(raiz, "outro");
-            await Git(raiz, "clone", "-q", Path.Combine(raiz, "remoto.git"), outro);
-            await Git(outro, "config", "user.email", "o@o");
-            await Git(outro, "config", "user.name", "Outro");
-            File.WriteAllText(Path.Combine(outro, "x.txt"), "x\n");
-            File.WriteAllText(Path.Combine(outro, "y.txt"), "y\n");
-            await Git(outro, "add", "-A");
-            await Git(outro, "commit", "-qm", "do colega");
-            await Git(outro, "push", "-q");
-            await Git(meu, "fetch", "-q");
+            var emDia = await GitService.StatusAsync(meu);
+            Assert.Equal(RecebimentoPendente.Nada, await GitService.RecebimentoPendenteAsync(meu, emDia));
 
+            await ColegaEnviaDoisArquivos(raiz, meu);
             var status = await GitService.StatusAsync(meu);
 
             Assert.Equal(1, status.Behind);
             Assert.Equal(new EnvioPendente(1, 1), await GitService.EnvioPendenteAsync(meu, status));
+            Assert.Equal(new RecebimentoPendente(1, 2), await GitService.RecebimentoPendenteAsync(meu, status));
         }
         finally { Limpar(raiz); }
+    }
+
+    [Theory]
+    [InlineData(1, 2, "Trazer 1 commit com 2 arquivos do remoto (pull). Clique direito: opções")]
+    [InlineData(3, 1, "Trazer 3 commits com 1 arquivo do remoto (pull). Clique direito: opções")]
+    [InlineData(2, 0, "Trazer 2 commits do remoto, sem arquivo alterado (pull). Clique direito: opções")]
+    [InlineData(0, 0, "Trazer os commits do remoto (pull). Clique direito: opções")]
+    public void Dica_do_puxar_diz_commits_e_arquivos(int commits, int arquivos, string esperado) =>
+        Assert.Equal(esperado, new RecebimentoPendente(commits, arquivos).Dica);
+
+    /// <summary>
+    /// O pedido seguinte ao do Enviar: o Puxar também em arquivos, para os dois selos, lado a
+    /// lado, contarem a mesma coisa. Puxado, o selo some e a dica volta à de sempre.
+    /// </summary>
+    [Fact]
+    public async Task Selo_do_puxar_mostra_os_arquivos()
+    {
+        var (raiz, meu) = await ComCommitAEnviar();
+        var antes = Environment.GetEnvironmentVariable("GREPOS_HOME");
+        Environment.SetEnvironmentVariable("GREPOS_HOME", Path.Combine(raiz, "home"));
+        try
+        {
+            // só atrás: o commit daqui já foi, e o do colega chega com dois arquivos
+            await Git(meu, "push", "-q");
+            await ColegaEnviaDoisArquivos(raiz, meu);
+
+            var main = new MainViewModel(new FakeDialogs());
+            main.AddRepository(meu, "Financeiro", null);
+            main.RebuildTree();
+            var id = main.Repos.Single().Id;
+            main.SelecionarRepositorio(id);
+            await main.RefreshRepoAsync(id);
+
+            await Espera.Ate(() => main.PuxarBadge == "2");
+            Assert.Equal(1, main.CurrentStatus?.Behind);
+            Assert.Equal("", main.EnviarBadge);
+            Assert.Equal("Trazer 1 commit com 2 arquivos do remoto (pull). Clique direito: opções", main.PuxarTooltip);
+
+            await main.PullCommand.ExecuteAsync(null);
+
+            Assert.Equal(0, main.CurrentStatus?.Behind);
+            Assert.Equal("", main.PuxarBadge);
+            Assert.Equal(RecebimentoPendente.DicaSemContagem, main.PuxarTooltip);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GREPOS_HOME", antes);
+            Limpar(raiz);
+        }
     }
 
     /// <summary>
@@ -265,10 +326,10 @@ public class EnviarEAberturaTests
             await Espera.Ate(() => main.EnviarBadge == "3");
             Assert.Equal("Enviar 1 commit com 3 arquivos (push)", main.EnviarTooltip);
 
-            var contagem = main.ContagemDoEnvio;
+            var contagem = main.ContagemDosSelos;
             File.WriteAllText(Path.Combine(meu, "solto.txt"), "sem commit\n");
             await main.RefreshRepoAsync(main.Repos.Single().Id);
-            Assert.Same(contagem, main.ContagemDoEnvio);
+            Assert.Same(contagem, main.ContagemDosSelos);
             Assert.Equal("3", main.EnviarBadge);
 
             await main.PushCommand.ExecuteAsync(null);

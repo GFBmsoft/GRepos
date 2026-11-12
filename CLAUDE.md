@@ -87,12 +87,13 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
 - **Um `git status` por recarga.** `StatusAndChangesAsync` devolve status e lista juntos;
   chamar `StatusAsync` e `ChangesAsync` em sequência dobra o custo. O contador de stash sai
   do reflog em disco (`.git/logs/refs/stash`), não de `git stash list`.
-- **O selo do Enviar conta arquivos, não commits** (1.0.0.64: com os commits, um commit de três
-  arquivos mostrava "1" e parecia contagem errada). `GitService.EnvioPendenteAsync` é um git a
-  mais, com o custo de um status; por isso fica fora dele e só roda para o repositório aberto,
-  quando HEAD, branch ou à frente/atrás mudam (`AtualizarEnvio`, no `MainViewModel`). Branch sem
-  par conta contra `--remotes=origin`, e só com o remoto confirmado: sem remoto, o log andaria
-  pelo histórico inteiro. O `↑` da árvore e dos cartões continua em commits.
+- **Os selos do Enviar e do Puxar contam arquivos, não commits** (1.0.0.64 e 1.0.0.65: com os
+  commits, um commit de três arquivos mostrava "1" e parecia contagem errada). Cada contagem
+  (`GitService.EnvioPendenteAsync` e `RecebimentoPendenteAsync`) é um git a mais, com o custo de
+  um status; por isso ficam fora dele e só rodam para o repositório aberto, quando HEAD, branch
+  ou à frente/atrás mudam (`AtualizarSelosDoRemoto`, no `MainViewModel`). Branch sem par conta
+  contra `--remotes=origin`, e só com o remoto confirmado: sem remoto, o log andaria pelo
+  histórico inteiro. O `↑` e o `↓` da árvore e dos cartões continuam em commits.
 - `/dev/null` não existe no Windows: diff de arquivo novo é montado por `NewFileDiff`, no
   formato que o `git apply` aceita (é o que faz o botão "Preparar bloco" funcionar neles).
 - A tela se atualiza sozinha pelo `RepoWatcher` (FileSystemWatcher com debounce). Ao mexer

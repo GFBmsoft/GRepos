@@ -1,3 +1,8 @@
+## 1.0.0.65 — 12/11/2026
+- **Puxar com o total de arquivos**: o número no botão **Puxar** também passa a ser o de arquivos, os que chegam do remoto. Lado a lado, **Puxar** e **Enviar** agora contam a mesma coisa.
+- A dica do **Puxar** diz os dois números, por exemplo "Trazer 2 commits com 5 arquivos do remoto".
+- Na árvore e nos cartões do painel, o **↓** continua contando commits, como o **↑**.
+
 ## 1.0.0.64 — 12/11/2026
 - **Enviar com o total de arquivos**: o número no botão **Enviar** passa a ser o de arquivos que vão para o remoto. Antes era o de commits: um commit com três arquivos mostrava "1", e parecia que faltava arquivo.
 - Parando o mouse no botão, a dica diz os dois números, por exemplo "Enviar 1 commit com 3 arquivos".

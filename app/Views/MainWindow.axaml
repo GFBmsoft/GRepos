@@ -280,8 +280,8 @@
             </controls:ToolButton.ContextMenu>
           </controls:ToolButton>
           <controls:ToolButton Grid.Column="2" Label="Puxar" Glifo="{x:Static controls:Glifos.Puxar}" Classes="verde"
-                               Badge="{Binding BehindBadge}"
-                               ToolTip.Tip="Trazer os commits do remoto (pull). Clique direito: opções"
+                               Badge="{Binding PuxarBadge}"
+                               ToolTip.Tip="{Binding PuxarTooltip}"
                                IsEnabled="{Binding !Busy}" Command="{Binding PullCommand}">
             <controls:ToolButton.ContextMenu>
               <ContextMenu>

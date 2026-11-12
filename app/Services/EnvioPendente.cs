@@ -51,11 +51,9 @@ public sealed record EnvioPendente(int Commits, int Arquivos)
     /// <summary>A dica do botão: os dois números, já que o selo só mostra os arquivos.</summary>
     public string Dica(RepoStatus status)
     {
-        var commits = Commits == 1 ? "1 commit" : $"{Commits} commits";
         var oQue = Commits == 0 ? ""
-            : Arquivos == 0 ? $"{commits}, sem arquivo alterado"
-            : Arquivos == 1 ? $"{commits} com 1 arquivo"
-            : $"{commits} com {Arquivos} arquivos";
+            : Arquivos == 0 ? $"{MensagensGit.Commits(Commits)}, sem arquivo alterado"
+            : $"{MensagensGit.Commits(Commits)} com {MensagensGit.Arquivos(Arquivos)}";
 
         // branch nova: o envio a cria no remoto, com ou sem commit próprio
         if (string.IsNullOrEmpty(status.Upstream))

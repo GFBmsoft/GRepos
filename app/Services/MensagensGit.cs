@@ -16,7 +16,8 @@ public sealed record Aviso(string Titulo, string Detalhe = "");
 /// </summary>
 public static class MensagensGit
 {
-    private static string Commits(int n) => n == 1 ? "1 commit" : $"{n} commits";
+    internal static string Commits(int n) => n == 1 ? "1 commit" : $"{n} commits";
+    internal static string Arquivos(int n) => n == 1 ? "1 arquivo" : $"{n} arquivos";
 
     /// <summary>"Obter" não muda os arquivos: o que importa é o que ficou para puxar.</summary>
     public static Aviso Obtido(RepoStatus? depois)
