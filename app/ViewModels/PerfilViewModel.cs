@@ -22,10 +22,12 @@ public sealed partial class PerfilViewModel : ObservableObject
     private readonly IReadOnlyList<Repo> _repos;
     private readonly string _login;
 
-    public PerfilViewModel(string login, IReadOnlyList<Repo> repos, ContagemDeLinhas? contagem = null)
+    public PerfilViewModel(string login, IReadOnlyList<Repo> repos, ContagemDeLinhas? contagem = null,
+                           string corDosQuadros = "github")
     {
         _login = login;
         _repos = repos;
+        _corDosQuadros = CoresDeDestaque.De(corDosQuadros).Id; // direto no campo: abrir não é escolher
         Titulo = login.Length > 0 ? login + "@github" : "Perfil";
 
         // a última contagem volta junto com o cartão: contar de novo é caro
@@ -38,6 +40,8 @@ public sealed partial class PerfilViewModel : ObservableObject
                 ? q.ToLocalTime()
                 : null;
             _linhasContadas = true;
+            _linguagensLocais = new Dictionary<string, long>(contagem.Linguagens ?? new(), StringComparer.OrdinalIgnoreCase);
+            Fatias = EstatisticasDoPerfil.Fatias(_linguagensLocais);
         }
     }
 
@@ -127,8 +131,178 @@ public sealed partial class PerfilViewModel : ObservableObject
         ? "1 contribuição no último ano"
         : $"{TotalContribuicoes:N0} contribuições no último ano";
 
-    partial void OnDiasChanged(IReadOnlyList<DiaContribuicao>? value) =>
+    partial void OnDiasChanged(IReadOnlyList<DiaContribuicao>? value)
+    {
+        _ritmo = EstatisticasDoPerfil.Ritmo(value);
+        _sequencias = EstatisticasDoPerfil.Sequencias(value);
+        BarrasDaSemana = Barras(_ritmo);
+
         OnPropertyChanged(nameof(TemContribuicoes));
+        AvisarQuadros();
+    }
+
+    // ---------------------------------------------- quadros (github-cool-readme)
+    //
+    // A segunda faixa do cartão, no desenho dos cartões do github-cool-readme: resumo, linguagens,
+    // ritmo semanal e sequências. O resumo, o ritmo e as sequências são da conta (o calendário do
+    // GitHub, que conta também os repositórios privados); as linguagens são das linhas dos seus
+    // commits aqui na máquina. O GitHub só detalharia as linguagens dos repositórios que o token
+    // enxerga, e sem os da organização a barra saía C# e Go, sem o Pascal do dia a dia.
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
+    private RitmoSemanal? _ritmo;
+    private Sequencias _sequencias = EstatisticasDoPerfil.Sequencias(null);
+    private Dictionary<string, long> _linguagensLocais = new(StringComparer.OrdinalIgnoreCase);
+
+    [ObservableProperty] private ResumoDeContribuicoes? _resumo;
+
+    partial void OnResumoChanged(ResumoDeContribuicoes? value) => AvisarQuadros();
+
+    /// <summary>A faixa aparece quando há o que mostrar em algum dos quadros.</summary>
+    public bool TemQuadros => TemResumo || TemRitmo || TemSequencias || TemLinguagensLocais;
+
+    // cor de destaque
+
+    /// <summary>Id de <see cref="CoresDeDestaque"/>; muda pelo clique direito do cartão.</summary>
+    [ObservableProperty] private string _corDosQuadros = "github";
+
+    /// <summary>Quem grava a cor escolhida no workspace (o MainViewModel).</summary>
+    public Action<string>? GuardarCor { get; init; }
+
+    /// <summary>Recurso do tema das barras do ritmo e do destaque das sequências.</summary>
+    public string CorDasBarras => CoresDeDestaque.De(CorDosQuadros).Barras;
+
+    /// <summary>Recurso do tema do anel dos dias ativos.</summary>
+    public string CorDoAnel => CoresDeDestaque.De(CorDosQuadros).Anel;
+
+    [RelayCommand]
+    private void EscolherCor(string? id)
+    {
+        var cor = CoresDeDestaque.De(id).Id;
+        if (cor == CorDosQuadros) return;
+
+        CorDosQuadros = cor;
+        GuardarCor?.Invoke(cor);
+    }
+
+    partial void OnCorDosQuadrosChanged(string value)
+    {
+        OnPropertyChanged(nameof(CorDasBarras));
+        OnPropertyChanged(nameof(CorDoAnel));
+    }
+
+    // resumo
+
+    public bool TemResumo => Resumo is not null;
+    public string CommitsTexto => (Resumo?.Commits ?? 0).ToString("N0", PtBr);
+    public string PullRequestsTexto => (Resumo?.PullRequests ?? 0).ToString("N0", PtBr);
+    public string RevisoesTexto => (Resumo?.Revisoes ?? 0).ToString("N0", PtBr);
+    public string IssuesTexto => (Resumo?.Issues ?? 0).ToString("N0", PtBr);
+    public string PrivadasTexto => (Resumo?.Privadas ?? 0).ToString("N0", PtBr);
+    public bool TemPrivadas => Resumo is { Privadas: > 0 };
+
+    /// <summary>O anel: a parte do ano com alguma contribuição.</summary>
+    public string AtivosTexto => Percentual(_sequencias.FracaoAtivos, 0);
+
+    /// <summary>Em graus, para o arco. Fechado em 360 o arco some: para um pouco antes.</summary>
+    public double AtivosAngulo => Math.Clamp(_sequencias.FracaoAtivos * 360, 0, 359.9);
+
+    public string AtivosDica => $"{_sequencias.DiasAtivos.ToString("N0", PtBr)} de " +
+                                $"{_sequencias.DiasNoPeriodo.ToString("N0", PtBr)} dias com alguma contribuição";
+
+    // ritmo semanal
+
+    public bool TemRitmo => _ritmo is not null;
+
+    [ObservableProperty] private IReadOnlyList<BarraDaSemana> _barrasDaSemana = Array.Empty<BarraDaSemana>();
+
+    public string MaisCheioNome => _ritmo?.MaisCheio.NomeCompleto ?? "";
+    public string MaisCheioRotulo => $"mais cheio · {(_ritmo?.MaisCheio.Quantidade ?? 0).ToString("N0", PtBr)}";
+    public string MaisVazioNome => _ritmo?.MaisVazio.NomeCompleto ?? "";
+    public string MaisVazioRotulo => $"mais vazio · {(_ritmo?.MaisVazio.Quantidade ?? 0).ToString("N0", PtBr)}";
+    public string UteisTexto => Percentual(_ritmo?.FracaoUteis ?? 0, 0);
+
+    /// <summary>Altura máxima da barra do ritmo semanal, em pixels.</summary>
+    public const double AlturaDaBarra = 52;
+
+    private static IReadOnlyList<BarraDaSemana> Barras(RitmoSemanal? ritmo)
+    {
+        if (ritmo is null) return Array.Empty<BarraDaSemana>();
+
+        var maximo = Math.Max(1, ritmo.MaisCheio.Quantidade);
+        var media = ritmo.Dias.Average(d => d.Quantidade);
+
+        // acima da média na cor cheia, abaixo dela mais apagada, como no cartão de referência
+        return ritmo.Dias.Select(d => new BarraDaSemana(
+                d.Nome,
+                Math.Max(2, AlturaDaBarra * d.Quantidade / maximo),
+                d.Quantidade >= media ? 1.0 : 0.5,
+                $"{d.NomeCompleto}: {d.Quantidade.ToString("N0", PtBr)} " +
+                (d.Quantidade == 1 ? "contribuição" : "contribuições") + " no último ano"))
+            .ToList();
+    }
+
+    // sequências
+
+    public bool TemSequencias => _sequencias.DiasAtivos > 0;
+    public string AtualTexto => EmDias(_sequencias.Atual);
+    public string MaiorTexto => EmDias(_sequencias.Maior);
+    public string MelhorDiaNumero => _sequencias.NoMelhorDia.ToString("N0", PtBr);
+    public string MelhorDiaRotulo => _sequencias.MelhorDia is { } d ? $"melhor dia · {d:dd/MM}" : "melhor dia";
+    public string MelhorDiaDica => _sequencias.MelhorDia is { } d
+        ? $"{_sequencias.NoMelhorDia.ToString("N0", PtBr)} contribuições em {d.ToString("dddd, dd/MM/yyyy", PtBr)}"
+        : "";
+    public string MelhorMesNumero => _sequencias.NoMelhorMes.ToString("N0", PtBr);
+    public string MelhorMesRotulo => _sequencias.MelhorMes is { } m
+        ? $"melhor mês · {m.ToString("MMM/yy", PtBr).Replace(".", "")}"
+        : "melhor mês";
+    public string MelhorMesDica => _sequencias.MelhorMes is { } m
+        ? $"{_sequencias.NoMelhorMes.ToString("N0", PtBr)} contribuições em {m.ToString("MMMM 'de' yyyy", PtBr)}"
+        : "";
+
+    private static string EmDias(int n) => n == 1 ? "1 dia" : $"{n.ToString("N0", PtBr)} dias";
+
+    // linguagens
+
+    [ObservableProperty] private IReadOnlyList<FatiaDeLinguagem> _fatias = Array.Empty<FatiaDeLinguagem>();
+
+    public bool TemLinguagensLocais => Fatias.Count > 0;
+
+    public IReadOnlyList<LegendaDeLinguagem> Legenda => Fatias
+        .Select(f => new LegendaDeLinguagem(f.Nome, f.Cor, Percentual(f.Fracao, 1)))
+        .ToList();
+
+    /// <summary>O convite do quadro vazio: ainda não contou, ou contou numa versão sem as linguagens.</summary>
+    public string LinguagensConvite => LinhasContadas
+        ? "Conte de novo as linhas para ver as linguagens dos seus commits."
+        : "Conte as linhas para ver as linguagens dos seus commits.";
+
+    partial void OnFatiasChanged(IReadOnlyList<FatiaDeLinguagem> value)
+    {
+        OnPropertyChanged(nameof(TemLinguagensLocais));
+        OnPropertyChanged(nameof(Legenda));
+        OnPropertyChanged(nameof(TemQuadros));
+    }
+
+    private static string Percentual(double fracao, int casas) =>
+        (fracao * 100).ToString(casas == 0 ? "0" : "0.0", PtBr) + "%";
+
+    private void AvisarQuadros()
+    {
+        foreach (var p in new[]
+                 {
+                     nameof(TemQuadros), nameof(TemResumo), nameof(CommitsTexto), nameof(PullRequestsTexto),
+                     nameof(RevisoesTexto), nameof(IssuesTexto), nameof(PrivadasTexto), nameof(TemPrivadas),
+                     nameof(AtivosTexto), nameof(AtivosAngulo), nameof(AtivosDica),
+                     nameof(TemRitmo), nameof(MaisCheioNome), nameof(MaisCheioRotulo), nameof(MaisVazioNome),
+                     nameof(MaisVazioRotulo), nameof(UteisTexto),
+                     nameof(TemSequencias), nameof(AtualTexto), nameof(MaiorTexto), nameof(MelhorDiaNumero),
+                     nameof(MelhorDiaRotulo), nameof(MelhorDiaDica), nameof(MelhorMesNumero),
+                     nameof(MelhorMesRotulo), nameof(MelhorMesDica),
+                 })
+            OnPropertyChanged(p);
+    }
 
     partial void OnTotalContribuicoesChanged(int value) => OnPropertyChanged(nameof(ContribuicoesTexto));
 
@@ -152,6 +326,7 @@ public sealed partial class PerfilViewModel : ObservableObject
         OnPropertyChanged(nameof(LinhasTexto));
         OnPropertyChanged(nameof(LinhasDetalhe));
         OnPropertyChanged(nameof(PodeRecontar));
+        OnPropertyChanged(nameof(LinguagensConvite));
     }
 
     [RelayCommand]
@@ -190,6 +365,7 @@ public sealed partial class PerfilViewModel : ObservableObject
             {
                 TotalContribuicoes = c.Total;
                 Dias = c.Dias;
+                if (c.Resumo is not null) Resumo = c.Resumo;
             }
 
             PerfilCache.Guardar(_login, new PerfilGuardado
@@ -198,6 +374,7 @@ public sealed partial class PerfilViewModel : ObservableObject
                 // sem resposta nova, as contribuições e a foto de antes continuam valendo
                 TotalContribuicoes = c?.Total ?? guardado?.TotalContribuicoes ?? 0,
                 Dias = (c?.Dias ?? guardado?.Dias ?? (IReadOnlyList<DiaContribuicao>)Array.Empty<DiaContribuicao>()).ToList(),
+                Resumo = c?.Resumo ?? guardado?.Resumo,
                 Foto = foto is not null ? Convert.ToBase64String(foto) : guardado?.Foto ?? "",
                 Quando = DateTime.UtcNow,
             });
@@ -219,6 +396,7 @@ public sealed partial class PerfilViewModel : ObservableObject
         Perfil = guardado.Perfil;
         TotalContribuicoes = guardado.TotalContribuicoes;
         if (guardado.Dias.Count > 0) Dias = guardado.Dias;
+        if (guardado.Resumo is not null) Resumo = guardado.Resumo;
 
         if (guardado.Foto.Length > 0)
         {
@@ -272,6 +450,7 @@ public sealed partial class PerfilViewModel : ObservableObject
         ContandoLinhas = true;
         long mais = 0, menos = 0;
         var feitos = 0;
+        var porLinguagem = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
 
         // só os commits do usuário, e cada commit uma vez: o par Origem × Destino
         // compartilha o histórico e somava tudo em dobro
@@ -288,7 +467,7 @@ public sealed partial class PerfilViewModel : ObservableObject
                 ProgressoLinhas = $"{++feitos}/{_repos.Count} — {repo.Name}";
                 try
                 {
-                    var (a, r) = await GitService.ContarLinhasAsync(repo.Path, autores, contados);
+                    var (a, r) = await GitService.ContarLinhasAsync(repo.Path, autores, contados, porLinguagem);
                     mais += a;
                     menos += r;
                 }
@@ -302,6 +481,8 @@ public sealed partial class PerfilViewModel : ObservableObject
             LinhasRemovidas = menos;
             _contadoEm = DateTime.Now;
             LinhasContadas = true;
+            _linguagensLocais = porLinguagem;
+            Fatias = EstatisticasDoPerfil.Fatias(porLinguagem);
             OnPropertyChanged(nameof(LinhasTexto));
             OnPropertyChanged(nameof(LinhasDetalhe));
             ProgressoLinhas = "";
@@ -311,6 +492,7 @@ public sealed partial class PerfilViewModel : ObservableObject
                 Adicionadas = mais,
                 Removidas = menos,
                 Quando = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                Linguagens = porLinguagem,
             });
         }
         finally
@@ -319,3 +501,9 @@ public sealed partial class PerfilViewModel : ObservableObject
         }
     }
 }
+
+/// <summary>Uma barra do ritmo semanal: a altura já em pixels e a força da cor.</summary>
+public sealed record BarraDaSemana(string Nome, double Altura, double Opacidade, string Dica);
+
+/// <summary>Um item da legenda de linguagens: a bolinha, o nome e o percentual.</summary>
+public sealed record LegendaDeLinguagem(string Nome, string Cor, string Percentual);

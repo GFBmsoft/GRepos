@@ -14,6 +14,9 @@ public sealed class PerfilGuardado
     public int TotalContribuicoes { get; set; }
     public List<DiaContribuicao> Dias { get; set; } = new();
 
+    /// <summary>Nulo no cache de versões anteriores: o quadro aparece na próxima consulta.</summary>
+    public ResumoDeContribuicoes? Resumo { get; set; }
+
     /// <summary>A foto em base64; vazia quando a conta não tem ou ela não chegou.</summary>
     public string Foto { get; set; } = "";
 

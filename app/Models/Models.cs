@@ -60,6 +60,12 @@ public sealed class Settings
     /// <summary>Quantas execuções a esteira mostra antes de recolher o resto.</summary>
     public int EsteirasVisiveis { get; set; } = 6;
 
+    /// <summary>
+    /// Cor de destaque dos quadros do cartão de perfil (id de <c>CoresDeDestaque</c>), escolhida
+    /// no clique direito do cartão.
+    /// </summary>
+    public string CorDosQuadros { get; set; } = "github";
+
     /// <summary>Largura da sidebar em pixels, como o usuário deixou o divisor.</summary>
     public double SidebarWidth { get; set; } = 280;
 
@@ -144,6 +150,12 @@ public sealed class ContagemDeLinhas
 
     /// <summary>Quando foi contado (ISO, UTC) — o cartão mostra a data junto do número.</summary>
     public string Quando { get; set; } = "";
+
+    /// <summary>
+    /// Linhas mexidas por linguagem, na mesma contagem. Vazio na contagem de versões
+    /// anteriores: o quadro de linguagens pede para contar de novo.
+    /// </summary>
+    public Dictionary<string, long> Linguagens { get; set; } = new();
 }
 
 public sealed class Workspace

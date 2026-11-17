@@ -41,7 +41,87 @@
       <!-- perfil: só no painel geral. Enxuto de propósito — uma linha de identificação
            e uma de números, sem molduras internas -->
       <Border Classes="card" Margin="0,0,0,12" Padding="14,10" IsVisible="{Binding TemPerfil}">
-       <DockPanel DataContext="{Binding Perfil}">
+       <!-- clique direito: a cor de destaque dos quadros, como o color do github-cool-readme -->
+       <Border.ContextMenu>
+         <ContextMenu>
+           <MenuItem Header="Cor de destaque dos quadros">
+             <MenuItem.Icon><TextBlock Classes="glifo cinza" Text="{x:Static controls:Glifos.Cor}" /></MenuItem.Icon>
+             <MenuItem ToggleType="Radio" GroupName="corDosQuadros"
+                       IsChecked="{Binding Perfil.CorDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=github}"
+                       Command="{Binding Perfil.EscolherCorCommand}" CommandParameter="github">
+               <MenuItem.Header>
+                 <StackPanel Orientation="Horizontal" Spacing="4">
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Green}" VerticalAlignment="Center" />
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Lane0}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                   <TextBlock Text="GitHub (verde e azul)" VerticalAlignment="Center" />
+                 </StackPanel>
+               </MenuItem.Header>
+             </MenuItem>
+             <MenuItem ToggleType="Radio" GroupName="corDosQuadros"
+                       IsChecked="{Binding Perfil.CorDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=ambar}"
+                       Command="{Binding Perfil.EscolherCorCommand}" CommandParameter="ambar">
+               <MenuItem.Header>
+                 <StackPanel Orientation="Horizontal" Spacing="8">
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Yellow}" VerticalAlignment="Center" />
+                   <TextBlock Text="Âmbar" VerticalAlignment="Center" />
+                 </StackPanel>
+               </MenuItem.Header>
+             </MenuItem>
+             <MenuItem ToggleType="Radio" GroupName="corDosQuadros"
+                       IsChecked="{Binding Perfil.CorDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=verde}"
+                       Command="{Binding Perfil.EscolherCorCommand}" CommandParameter="verde">
+               <MenuItem.Header>
+                 <StackPanel Orientation="Horizontal" Spacing="8">
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Green}" VerticalAlignment="Center" />
+                   <TextBlock Text="Verde" VerticalAlignment="Center" />
+                 </StackPanel>
+               </MenuItem.Header>
+             </MenuItem>
+             <MenuItem ToggleType="Radio" GroupName="corDosQuadros"
+                       IsChecked="{Binding Perfil.CorDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=roxo}"
+                       Command="{Binding Perfil.EscolherCorCommand}" CommandParameter="roxo">
+               <MenuItem.Header>
+                 <StackPanel Orientation="Horizontal" Spacing="8">
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Purple}" VerticalAlignment="Center" />
+                   <TextBlock Text="Roxo" VerticalAlignment="Center" />
+                 </StackPanel>
+               </MenuItem.Header>
+             </MenuItem>
+             <MenuItem ToggleType="Radio" GroupName="corDosQuadros"
+                       IsChecked="{Binding Perfil.CorDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=ciano}"
+                       Command="{Binding Perfil.EscolherCorCommand}" CommandParameter="ciano">
+               <MenuItem.Header>
+                 <StackPanel Orientation="Horizontal" Spacing="8">
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Lane7}" VerticalAlignment="Center" />
+                   <TextBlock Text="Ciano" VerticalAlignment="Center" />
+                 </StackPanel>
+               </MenuItem.Header>
+             </MenuItem>
+             <MenuItem ToggleType="Radio" GroupName="corDosQuadros"
+                       IsChecked="{Binding Perfil.CorDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=vermelho}"
+                       Command="{Binding Perfil.EscolherCorCommand}" CommandParameter="vermelho">
+               <MenuItem.Header>
+                 <StackPanel Orientation="Horizontal" Spacing="8">
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Red}" VerticalAlignment="Center" />
+                   <TextBlock Text="Vermelho" VerticalAlignment="Center" />
+                 </StackPanel>
+               </MenuItem.Header>
+             </MenuItem>
+             <MenuItem ToggleType="Radio" GroupName="corDosQuadros"
+                       IsChecked="{Binding Perfil.CorDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=azul}"
+                       Command="{Binding Perfil.EscolherCorCommand}" CommandParameter="azul">
+               <MenuItem.Header>
+                 <StackPanel Orientation="Horizontal" Spacing="8">
+                   <Ellipse Width="9" Height="9" Fill="{DynamicResource Lane0}" VerticalAlignment="Center" />
+                   <TextBlock Text="Azul" VerticalAlignment="Center" />
+                 </StackPanel>
+               </MenuItem.Header>
+             </MenuItem>
+           </MenuItem>
+         </ContextMenu>
+       </Border.ContextMenu>
+       <StackPanel DataContext="{Binding Perfil}">
+       <DockPanel>
 
         <!-- foto redonda da conta; até ela chegar, a inicial no mesmo lugar -->
         <Panel DockPanel.Dock="Left" Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Top">
@@ -147,11 +227,179 @@
               <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" VerticalAlignment="Center" />
               <TextBlock Text="mais" Classes="faint" FontSize="9.5" VerticalAlignment="Center" Margin="2,0,0,0" />
             </StackPanel>
+            <!-- as do GitHub (repositórios públicos) só até a barra das linhas daqui chegar -->
             <TextBlock Text="{Binding Linguagens}" Classes="faint" FontSize="10.5"
-                       VerticalAlignment="Center" MaxWidth="260" TextTrimming="CharacterEllipsis" />
+                       VerticalAlignment="Center" MaxWidth="260" TextTrimming="CharacterEllipsis"
+                       IsVisible="{Binding !TemLinguagensLocais}" />
           </WrapPanel>
         </StackPanel>
        </DockPanel>
+
+       <!-- segunda faixa: os quadros no desenho do github-cool-readme. Resumo, ritmo e
+            sequências saem do calendário do GitHub; as linguagens, das linhas dos seus
+            commits aqui. Quatro, duas ou uma coluna, conforme a largura -->
+       <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderSoft}"
+               Margin="0,10,0,0" Padding="0,10,0,2" IsVisible="{Binding TemQuadros}">
+        <controls:GradeCartoes LarguraMinima="230" Espaco="28" SemSobra="True">
+
+         <!-- resumo: os totais do ano e o anel dos dias ativos; com teto, para o número
+              não fugir do rótulo quando o quadro ocupa meia largura -->
+         <DockPanel IsVisible="{Binding TemResumo}" MaxWidth="300" HorizontalAlignment="Left">
+           <TextBlock DockPanel.Dock="Top" Text="RESUMO · 12 MESES" Classes="faint" FontSize="10"
+                      LetterSpacing="0.8" Margin="0,0,0,8" />
+           <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Spacing="4" VerticalAlignment="Top"
+                       ToolTip.Tip="{Binding AtivosDica}" Background="Transparent">
+             <Panel Width="58" Height="58">
+               <Ellipse Stroke="{DynamicResource BgActive}" StrokeThickness="6" />
+               <Arc Stroke="{Binding CorDoAnel, Converter={x:Static local:Converters.ResourceBrush}}"
+                    StrokeThickness="6" StrokeLineCap="Round"
+                    StartAngle="-90" SweepAngle="{Binding AtivosAngulo}" />
+               <TextBlock Text="{Binding AtivosTexto}" FontSize="13" FontWeight="SemiBold"
+                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+             </Panel>
+             <TextBlock Text="dias ativos" Classes="faint" FontSize="10" HorizontalAlignment="Center" />
+           </StackPanel>
+           <Grid ColumnDefinitions="20,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto" MinWidth="150">
+             <TextBlock Grid.Row="0" Classes="glifo" FontSize="11" Foreground="{DynamicResource TextFaint}"
+                        Text="{x:Static controls:Glifos.Commit}" />
+             <TextBlock Grid.Row="0" Grid.Column="1" Text="Commits" Classes="faint" FontSize="11.5" Margin="0,2" />
+             <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding CommitsTexto}" FontSize="12"
+                        FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+             <TextBlock Grid.Row="1" Classes="glifo" FontSize="11" Foreground="{DynamicResource TextFaint}"
+                        Text="{x:Static controls:Glifos.PullRequest}" />
+             <TextBlock Grid.Row="1" Grid.Column="1" Text="Pull requests" Classes="faint" FontSize="11.5" Margin="0,2" />
+             <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding PullRequestsTexto}" FontSize="12"
+                        FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+             <TextBlock Grid.Row="2" Classes="glifo" FontSize="11" Foreground="{DynamicResource TextFaint}"
+                        Text="{x:Static controls:Glifos.Ver}" />
+             <TextBlock Grid.Row="2" Grid.Column="1" Text="Revisões" Classes="faint" FontSize="11.5" Margin="0,2" />
+             <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding RevisoesTexto}" FontSize="12"
+                        FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+             <TextBlock Grid.Row="3" Classes="glifo" FontSize="11" Foreground="{DynamicResource TextFaint}"
+                        Text="{x:Static controls:Glifos.Issue}" />
+             <TextBlock Grid.Row="3" Grid.Column="1" Text="Issues" Classes="faint" FontSize="11.5" Margin="0,2" />
+             <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding IssuesTexto}" FontSize="12"
+                        FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+             <!-- o que o GitHub conta e não detalha: os repositórios que o token não enxerga -->
+             <TextBlock Grid.Row="4" Classes="glifo" FontSize="11" Foreground="{DynamicResource TextFaint}"
+                        Text="{x:Static controls:Glifos.Segredo}" IsVisible="{Binding TemPrivadas}" />
+             <TextBlock Grid.Row="4" Grid.Column="1" Text="Privadas" Classes="faint" FontSize="11.5" Margin="0,2"
+                        IsVisible="{Binding TemPrivadas}" Background="Transparent"
+                        ToolTip.Tip="Contribuições que o GitHub conta mas não detalha: são de repositórios que o token não enxerga, como os da organização. Entram no quadriculado e nos dias ativos." />
+             <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding PrivadasTexto}" FontSize="12"
+                        FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"
+                        IsVisible="{Binding TemPrivadas}" />
+           </Grid>
+         </DockPanel>
+
+         <!-- linguagens: das linhas dos seus commits aqui, não dos repositórios do GitHub -->
+         <StackPanel Spacing="8" MaxWidth="380" HorizontalAlignment="Stretch">
+           <TextBlock Text="LINGUAGENS" Classes="faint" FontSize="10" LetterSpacing="0.8" Background="Transparent"
+                      ToolTip.Tip="Pelas linhas dos seus commits nos repositórios desta máquina, sem repetir o histórico do par Origem × Destino" />
+           <controls:BarraDeLinguagens Fatias="{Binding Fatias}" IsVisible="{Binding TemLinguagensLocais}" />
+           <ItemsControl ItemsSource="{Binding Legenda}" IsVisible="{Binding TemLinguagensLocais}">
+             <ItemsControl.ItemsPanel>
+               <ItemsPanelTemplate>
+                 <UniformGrid Columns="2" />
+               </ItemsPanelTemplate>
+             </ItemsControl.ItemsPanel>
+             <ItemsControl.ItemTemplate>
+               <DataTemplate>
+                 <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2">
+                   <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                            Fill="{Binding Cor, Converter={x:Static local:Converters.StringToBrush}}" />
+                   <TextBlock Text="{Binding Nome}" FontSize="11.5" VerticalAlignment="Center" />
+                   <TextBlock Text="{Binding Percentual}" Classes="faint" FontSize="11" VerticalAlignment="Center" />
+                 </StackPanel>
+               </DataTemplate>
+             </ItemsControl.ItemTemplate>
+           </ItemsControl>
+           <StackPanel Spacing="6" IsVisible="{Binding !TemLinguagensLocais}">
+             <TextBlock Text="{Binding LinguagensConvite}" Classes="faint" FontSize="11" TextWrapping="Wrap" />
+             <Button Classes="tiny verde" BorderThickness="1" BorderBrush="{DynamicResource Border}"
+                     HorizontalAlignment="Left" IsVisible="{Binding !ContandoLinhas}"
+                     Command="{Binding ContarLinhasCommand}"
+                     ToolTip.Tip="Soma as linhas dos seus commits em cada repositório local, separadas por linguagem">
+               <StackPanel Classes="comIcone">
+                 <TextBlock Classes="glifo" Text="{x:Static controls:Glifos.Atualizar}" />
+                 <TextBlock Text="Contar as linhas" />
+               </StackPanel>
+             </Button>
+             <TextBlock Text="{Binding ProgressoLinhas}" Classes="faint" FontSize="10.5"
+                        TextTrimming="CharacterEllipsis" IsVisible="{Binding ContandoLinhas}" />
+           </StackPanel>
+         </StackPanel>
+
+         <!-- ritmo semanal: o ano somado por dia da semana -->
+         <StackPanel Spacing="8" IsVisible="{Binding TemRitmo}">
+           <TextBlock Text="RITMO SEMANAL" Classes="faint" FontSize="10" LetterSpacing="0.8" />
+           <StackPanel Orientation="Horizontal" Spacing="14">
+             <ItemsControl ItemsSource="{Binding BarrasDaSemana}" VerticalAlignment="Bottom">
+               <ItemsControl.ItemsPanel>
+                 <ItemsPanelTemplate>
+                   <StackPanel Orientation="Horizontal" Spacing="2" />
+                 </ItemsPanelTemplate>
+               </ItemsControl.ItemsPanel>
+               <ItemsControl.ItemTemplate>
+                 <DataTemplate>
+                   <StackPanel Width="17" Spacing="3" Background="Transparent" ToolTip.Tip="{Binding Dica}">
+                     <Panel Height="52">
+                       <Border Width="12" Height="{Binding Altura}" VerticalAlignment="Bottom"
+                               CornerRadius="3,3,0,0"
+                               Background="{Binding $parent[ItemsControl].DataContext.CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}"
+                               Opacity="{Binding Opacidade}" />
+                     </Panel>
+                     <TextBlock Text="{Binding Nome}" Classes="faint" FontSize="9.5" HorizontalAlignment="Center"
+                                TextTrimming="None" />
+                   </StackPanel>
+                 </DataTemplate>
+               </ItemsControl.ItemTemplate>
+             </ItemsControl>
+             <StackPanel VerticalAlignment="Bottom">
+               <TextBlock Text="{Binding MaisCheioRotulo}" Classes="faint" FontSize="10" TextTrimming="None" />
+               <TextBlock Text="{Binding MaisCheioNome}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
+               <TextBlock Text="{Binding MaisVazioRotulo}" Classes="faint" FontSize="10" TextTrimming="None" />
+               <TextBlock Text="{Binding MaisVazioNome}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,4" />
+               <TextBlock Text="em dias úteis" Classes="faint" FontSize="10" />
+               <TextBlock Text="{Binding UteisTexto}" FontSize="14" FontWeight="SemiBold" />
+             </StackPanel>
+           </StackPanel>
+         </StackPanel>
+
+         <!-- sequências: dias seguidos, o melhor dia e o melhor mês, e o ano em barrinhas -->
+         <StackPanel Spacing="8" IsVisible="{Binding TemSequencias}" MaxWidth="360" HorizontalAlignment="Stretch">
+           <TextBlock Text="SEQUÊNCIAS" Classes="faint" FontSize="10" LetterSpacing="0.8" />
+           <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+             <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
+               <TextBlock Text="{Binding AtualTexto}" FontSize="15" FontWeight="SemiBold" />
+               <TextBlock Text="sequência atual" Classes="faint" FontSize="10" />
+             </StackPanel>
+             <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,6" Background="Transparent"
+                         ToolTip.Tip="{Binding MelhorDiaDica}">
+               <TextBlock Text="{Binding MelhorDiaNumero}" FontSize="15" FontWeight="SemiBold" />
+               <TextBlock Text="{Binding MelhorDiaRotulo}" Classes="faint" FontSize="10" />
+             </StackPanel>
+             <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+               <TextBlock Text="{Binding MaiorTexto}" FontSize="15" FontWeight="SemiBold" />
+               <TextBlock Text="maior sequência" Classes="faint" FontSize="10" />
+             </StackPanel>
+             <StackPanel Grid.Row="1" Grid.Column="1" Background="Transparent"
+                         ToolTip.Tip="{Binding MelhorMesDica}">
+               <TextBlock Text="{Binding MelhorMesNumero}" FontSize="15" FontWeight="SemiBold" />
+               <TextBlock Text="{Binding MelhorMesRotulo}" Classes="faint" FontSize="10" />
+             </StackPanel>
+           </Grid>
+           <controls:BarrasDoAno Dias="{Binding Dias}"
+                                 Destaque="{Binding CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}" />
+         </StackPanel>
+
+        </controls:GradeCartoes>
+       </Border>
+       </StackPanel>
       </Border>
 
       <!-- o "gh status": o que espera por você em todos os repositórios, da conta do perfil -->

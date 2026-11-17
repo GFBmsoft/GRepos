@@ -43,9 +43,22 @@ public sealed class GradeCartoes : Panel
     public static readonly AttachedProperty<bool> LinhaInteiraProperty =
         AvaloniaProperty.RegisterAttached<GradeCartoes, Control, bool>("LinhaInteira");
 
+    /// <summary>
+    /// Só divide em colunas que fecham as fileiras: com 4 itens, 4, 2 ou 1 por linha, nunca
+    /// 3 e um sozinho embaixo. É a faixa de quadros do cartão de perfil.
+    /// </summary>
+    public static readonly StyledProperty<bool> SemSobraProperty =
+        AvaloniaProperty.Register<GradeCartoes, bool>(nameof(SemSobra));
+
+    public bool SemSobra
+    {
+        get => GetValue(SemSobraProperty);
+        set => SetValue(SemSobraProperty, value);
+    }
+
     static GradeCartoes()
     {
-        AffectsMeasure<GradeCartoes>(LarguraMinimaProperty, EspacoProperty, LarguraAbertaProperty);
+        AffectsMeasure<GradeCartoes>(LarguraMinimaProperty, EspacoProperty, LarguraAbertaProperty, SemSobraProperty);
 
         // quem muda é o filho (o cartão abriu); quem precisa refazer a conta é a grade
         LinhaInteiraProperty.Changed.AddClassHandler<Control>((filho, _) =>
@@ -77,9 +90,33 @@ public sealed class GradeCartoes : Panel
         return (colunas, Math.Max(0, largura));
     }
 
+    /// <summary>
+    /// Como <see cref="Dividir(double, double, double)"/>, mas com as colunas reduzidas até
+    /// dividirem os <paramref name="itens"/> sem sobra.
+    /// </summary>
+    public static (int Colunas, double Largura) DividirSemSobra(double disponivel, double minima, double espaco, int itens)
+    {
+        var (colunas, largura) = Dividir(disponivel, minima, espaco);
+        if (itens <= 0 || double.IsInfinity(disponivel) || disponivel <= 0) return (colunas, largura);
+
+        colunas = Math.Min(colunas, itens);
+        while (colunas > 1 && itens % colunas != 0) colunas--;
+        return (colunas, Math.Max(0, (disponivel - (colunas - 1) * espaco) / colunas));
+    }
+
+    private (int Colunas, double Largura) Colunas(double disponivel)
+    {
+        if (!SemSobra) return Dividir(disponivel, LarguraMinima, Espaco);
+
+        var itens = 0;
+        foreach (var filho in Children)
+            if (filho.IsVisible && !GetLinhaInteira(filho)) itens++;
+        return DividirSemSobra(disponivel, LarguraMinima, Espaco, itens);
+    }
+
     protected override Size MeasureOverride(Size disponivel)
     {
-        var (colunas, largura) = Dividir(disponivel.Width, LarguraMinima, Espaco);
+        var (colunas, largura) = Colunas(disponivel.Width);
         var total = double.IsInfinity(disponivel.Width) ? largura : disponivel.Width;
 
         double altura = 0, alturaDaLinha = 0;
@@ -117,7 +154,7 @@ public sealed class GradeCartoes : Panel
 
     protected override Size ArrangeOverride(Size final)
     {
-        var (colunas, largura) = Dividir(final.Width, LarguraMinima, Espaco);
+        var (colunas, largura) = Colunas(final.Width);
 
         double y = 0, alturaDaLinha = 0;
         var coluna = 0;

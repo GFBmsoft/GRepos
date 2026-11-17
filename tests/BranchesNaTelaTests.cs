@@ -250,7 +250,7 @@ public class BranchesNaTelaTests
     public void Todo_item_de_menu_tem_o_glifo_na_cor_da_acao()
     {
         var janela = new BranchesWindow();
-        var telas = new Control[] { new ChangesView(), new HistoryView(), new DiffView(), janela };
+        var telas = new Control[] { new ChangesView(), new HistoryView(), new DiffView(), new PainelView(), janela };
         var problemas = new List<string>();
 
         foreach (var tela in telas)

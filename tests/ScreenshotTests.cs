@@ -588,8 +588,22 @@ public class ScreenshotTests
                     cartoes.Skip(3)),
             },
         };
-        vm.Perfil = new PerfilViewModel("GFBmsoft", cartoes.Select(c => c.Repo).ToList())
+        // a contagem guardada traz as linguagens da faixa de quadros
+        var contagem = new ContagemDeLinhas
         {
+            Adicionadas = 46_835, Removidas = 9_770, Quando = "2026-10-01T12:00:00Z",
+            Linguagens = new System.Collections.Generic.Dictionary<string, long>
+            {
+                ["Pascal"] = 38_200, ["C#"] = 12_400, ["SQL"] = 2_100, ["Go"] = 900, ["PowerShell"] = 300,
+                ["Shell"] = 120, ["Lua"] = 60,
+            },
+        };
+        vm.Perfil = new PerfilViewModel("GFBmsoft", cartoes.Select(c => c.Repo).ToList(), contagem)
+        {
+            Resumo = new GRepos.Services.ResumoDeContribuicoes
+            {
+                Commits = 238, PullRequests = 2, Revisoes = 1, Issues = 1, Privadas = 911,
+            },
             Perfil = new GRepos.Services.Perfil
             {
                 Login = "GFBmsoft",
@@ -627,7 +641,13 @@ public class ScreenshotTests
         var raiz = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", ".."));
         vm.Perfil.Foto = new Avalonia.Media.Imaging.Bitmap(Path.Combine(raiz, "app", "Assets", "app.png"));
 
-        Shot(new PainelView(), vm, "painel", 1000, 560);
+        Shot(new PainelView(), vm, "painel", 1000, 760);
+        Shot(new PainelView(), vm, "painel-largo", 1500, 640);
+        Shot(new PainelView(), vm, "painel-estreito", 760, 900);
+
+        // a cor de destaque do clique direito do cartão
+        vm.Perfil.EscolherCorCommand.Execute("ambar");
+        Shot(new PainelView(), vm, "painel-ambar", 1500, 340);
     }
 
     /// <summary>Cartão do painel aberto, com a última execução e o passo a passo.</summary>

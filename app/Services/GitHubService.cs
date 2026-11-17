@@ -79,7 +79,11 @@ public sealed class Perfil
 public sealed record DiaContribuicao(DateTime Data, int Quantidade, int Nivel);
 
 /// <summary>O último ano de contribuições da conta, dia a dia, do domingo mais antigo ao hoje.</summary>
-public sealed record Contribuicoes(int Total, IReadOnlyList<DiaContribuicao> Dias);
+public sealed record Contribuicoes(int Total, IReadOnlyList<DiaContribuicao> Dias)
+{
+    /// <summary>Commits, PRs, revisões e issues do mesmo ano; nulo se a resposta não trouxe.</summary>
+    public ResumoDeContribuicoes? Resumo { get; init; }
+}
 
 /// <summary>Pull request, como aparece no cartão do painel.</summary>
 public sealed class PullRequest
@@ -909,9 +913,12 @@ public static partial class GitHubService
         var token = await TokenAsync(login);
         if (string.IsNullOrEmpty(token)) return null;
 
+        // os totais do resumo vêm na mesma consulta: o quadro não custa uma ida a mais ao GitHub
         const string consulta =
-            "query($login:String!){user(login:$login){contributionsCollection{contributionCalendar{" +
-            "totalContributions weeks{contributionDays{date contributionCount contributionLevel}}}}}}";
+            "query($login:String!){user(login:$login){contributionsCollection{" +
+            "totalCommitContributions totalPullRequestContributions totalPullRequestReviewContributions " +
+            "totalIssueContributions restrictedContributionsCount " +
+            "contributionCalendar{totalContributions weeks{contributionDays{date contributionCount contributionLevel}}}}}}";
         var corpo = JsonSerializer.Serialize(new { query = consulta, variables = new { login } });
 
         using var req = new HttpRequestMessage(HttpMethod.Post, "https://api.github.com/graphql");
@@ -959,7 +966,19 @@ public static partial class GitHubService
                 }
             }
 
-        return new Contribuicoes(Inteiro(cal, "totalContributions"), dias);
+        return new Contribuicoes(Inteiro(cal, "totalContributions"), dias)
+        {
+            Resumo = col.TryGetProperty("totalCommitContributions", out _)
+                ? new ResumoDeContribuicoes
+                {
+                    Commits = Inteiro(col, "totalCommitContributions"),
+                    PullRequests = Inteiro(col, "totalPullRequestContributions"),
+                    Revisoes = Inteiro(col, "totalPullRequestReviewContributions"),
+                    Issues = Inteiro(col, "totalIssueContributions"),
+                    Privadas = Inteiro(col, "restrictedContributionsCount"),
+                }
+                : null,
+        };
     }
 
     /// <summary>Estrelas somadas e linguagens por frequência, a partir da lista de repos.</summary>

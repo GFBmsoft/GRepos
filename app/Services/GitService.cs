@@ -1187,8 +1187,13 @@ public static class GitService
     /// usuário — por isso também ficou muito mais rápido.
     /// </summary>
     /// <param name="autores">Trechos que identificam o autor, como "&lt;email&gt;".</param>
+    /// <param name="porLinguagem">
+    /// Recebe as linhas mexidas (adicionadas mais removidas) por linguagem, na mesma passada:
+    /// é de onde sai a barra de linguagens do cartão de perfil.
+    /// </param>
     public static async Task<(long Adicionadas, long Removidas)> ContarLinhasAsync(
-        string repo, IReadOnlyCollection<string> autores, ISet<string>? jaContados = null)
+        string repo, IReadOnlyCollection<string> autores, ISet<string>? jaContados = null,
+        IDictionary<string, long>? porLinguagem = null)
     {
         if (autores.Count == 0) return (0, 0);
 
@@ -1199,14 +1204,15 @@ public static class GitService
         };
         foreach (var a in autores) args.Add("--author=" + a);
 
-        return SomarNumstatPorCommit(await RunAsync(repo, args), jaContados ?? new HashSet<string>());
+        return SomarNumstatPorCommit(await RunAsync(repo, args), jaContados ?? new HashSet<string>(), porLinguagem);
     }
 
     /// <summary>
     /// Soma o numstat commit a commit, pulando os que já foram contados. Cada commit
     /// começa com uma linha "\x01hash".
     /// </summary>
-    internal static (long Adicionadas, long Removidas) SomarNumstatPorCommit(string saida, ISet<string> jaContados)
+    internal static (long Adicionadas, long Removidas) SomarNumstatPorCommit(
+        string saida, ISet<string> jaContados, IDictionary<string, long>? porLinguagem = null)
     {
         long mais = 0, menos = 0;
         var contando = false;
@@ -1224,8 +1230,15 @@ public static class GitService
             var partes = linha.Split('\t');
             if (partes.Length < 3) continue;
 
-            if (long.TryParse(partes[0], out var a)) mais += a;
-            if (long.TryParse(partes[1], out var r)) menos += r;
+            var temA = long.TryParse(partes[0], out var a);
+            var temR = long.TryParse(partes[1], out var r);
+            if (temA) mais += a;
+            if (temR) menos += r;
+
+            // binário vem com "-" nos dois números e não tem linha para contar
+            if (porLinguagem is not null && (temA || temR) &&
+                EstatisticasDoPerfil.LinguagemDoCaminho(partes[2]) is { } linguagem)
+                porLinguagem[linguagem] = porLinguagem.TryGetValue(linguagem, out var ja) ? ja + a + r : a + r;
         }
 
         return (mais, menos);

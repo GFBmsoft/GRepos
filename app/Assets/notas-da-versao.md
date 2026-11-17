@@ -1,3 +1,11 @@
+## 1.0.0.67 — 17/11/2026
+- **Quadros no cartão de perfil**: embaixo do quadriculado do painel geral, quatro quadros no estilo dos cartões de perfil do GitHub. Em janela larga ficam lado a lado; mais estreita, dois a dois.
+- **Resumo**: commits, pull requests, revisões e issues dos últimos 12 meses, e um anel com a parte do ano em que você teve alguma contribuição. O que o GitHub conta mas não detalha (os repositórios da organização) aparece à parte, como **Privadas**.
+- **Linguagens**: a barra colorida com o percentual de cada linguagem, pelas linhas dos seus commits nos repositórios desta máquina. Para ela aparecer, use **contar** (ou o ↻ ao lado das linhas) uma vez.
+- **Ritmo semanal**: o ano somado por dia da semana, com o dia mais cheio, o mais vazio e quanto cai em dias úteis.
+- **Sequências**: a sequência atual de dias com contribuição, a maior, o melhor dia e o melhor mês, e o ano em barrinhas com as sequências destacadas.
+- **Cor de destaque**: com o botão direito no cartão, escolha a cor das barras, do anel e das sequências: GitHub, âmbar, verde, roxo, ciano, vermelho ou azul. A escolha fica guardada.
+
 ## 1.0.0.66 — 12/11/2026
 - **Enviar na branch apagada no remoto**: quando a branch é apagada no GitHub (por exemplo, ao mesclar o pull request apagando a branch) e você usa o **Obter**, a branch daqui fica sem par. O **Enviar** ficava desligado, dizendo que ela estava em dia. Agora ele liga, a dica avisa que a branch será criada no remoto, e o envio a recria lá.
 - Nessa situação, o **Obter** e o **F5** dizem que a branch está sem par, em vez de "em dia com o remoto".

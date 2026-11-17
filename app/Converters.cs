@@ -19,6 +19,11 @@ public static class Converters
     /// </summary>
     public static readonly IValueConverter ResourceBrush = new ResourceBrushConverter();
 
+    /// <summary>Verdadeiro quando o valor é o texto do parâmetro: o item marcado de um grupo de opções.</summary>
+    public static readonly IValueConverter Igual =
+        new FuncValueConverter<object?, object?, bool>((valor, parametro) =>
+            string.Equals(valor?.ToString(), parametro?.ToString(), StringComparison.OrdinalIgnoreCase));
+
     /// <summary>Cor do grupo bem diluída — preenchimento da pílula.</summary>
     public static readonly IValueConverter SoftBrush = Alpha(0x24);
 

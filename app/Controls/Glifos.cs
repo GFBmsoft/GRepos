@@ -62,6 +62,7 @@ public static class Glifos
     public const string LadoALado = "";
     public const string QuebrarLinha = "";
     public const string Ajustes = "";
+    public const string Cor = "";
     public const string Fechar = "";
     public const string Alerta = "";
     public const string Markdown = "";

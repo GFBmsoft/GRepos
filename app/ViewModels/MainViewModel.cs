@@ -291,10 +291,17 @@ public sealed partial class MainViewModel : ObservableObject
         _ws.Settings.Linhas ??= new();
         var chave = login.ToLowerInvariant();
 
-        Painel.Perfil = new PerfilViewModel(login, _ws.Repos.ToList(), _ws.Settings.Linhas.GetValueOrDefault(chave))
+        Painel.Perfil = new PerfilViewModel(login, _ws.Repos.ToList(), _ws.Settings.Linhas.GetValueOrDefault(chave),
+                                            _ws.Settings.CorDosQuadros)
         {
             OutrasContas = contas.Where(c => !string.Equals(c, login, StringComparison.OrdinalIgnoreCase)).ToList(),
             Trocar = MostrarPerfil,
+            // a cor é do cartão, não da conta: vale para todas
+            GuardarCor = cor =>
+            {
+                _ws.Settings.CorDosQuadros = cor;
+                Persist();
+            },
             Guardar = contagem =>
             {
                 _ws.Settings.Linhas ??= new();

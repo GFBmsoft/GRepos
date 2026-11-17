@@ -99,6 +99,12 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
   ou à frente/atrás mudam (`AtualizarSelosDoRemoto`, no `MainViewModel`). Branch sem par conta
   contra `--remotes=origin`, e só com o remoto confirmado: sem remoto, o log andaria pelo
   histórico inteiro. O `↑` e o `↓` da árvore e dos cartões continuam em commits.
+- **Quadros do cartão de perfil** (1.0.0.67, no desenho do github-cool-readme): resumo, ritmo e
+  sequências saem do calendário do GitHub (a mesma consulta GraphQL do quadriculado); a lógica
+  fica em `EstatisticasDoPerfil`. As **linguagens saem das linhas locais** (o "contar", por
+  extensão), não do GitHub: o token do Git Credential Manager não tem `read:org`, e o GitHub
+  devolvia os commits da organização só como `restrictedContributionsCount` — a barra saía C# e
+  Go, sem o Pascal. A cor de destaque (`CoresDeDestaque`) é recurso do tema, não hex.
 - `/dev/null` não existe no Windows: diff de arquivo novo é montado por `NewFileDiff`, no
   formato que o `git apply` aceita (é o que faz o botão "Preparar bloco" funcionar neles).
 - A tela se atualiza sozinha pelo `RepoWatcher` (FileSystemWatcher com debounce). Ao mexer

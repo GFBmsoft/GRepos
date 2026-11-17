@@ -683,8 +683,26 @@ public class UiSmokeTests
             },
         };
 
-        // o cartão de perfil é outro template: precisa ser construído aqui também
-        vm.Perfil = new PerfilViewModel("GFBmsoft", new[] { limpo.Repo, sujo.Repo })
+        // o cartão de perfil é outro template: precisa ser construído aqui também, com os
+        // quadros populados (legenda das linguagens e barras da semana são listas)
+        vm.Perfil = PerfilComQuadros(limpo.Repo, sujo.Repo);
+
+        Render(new PainelView(), vm);
+    }
+
+    private static PerfilViewModel PerfilComQuadros(params Repo[] repos)
+    {
+        var contagem = new ContagemDeLinhas
+        {
+            Adicionadas = 46_835, Removidas = 9_770, Quando = "2026-11-17T12:00:00Z",
+            Linguagens = new System.Collections.Generic.Dictionary<string, long>
+            {
+                ["Pascal"] = 31_000, ["C#"] = 12_400, ["SQL"] = 2_100, ["Go"] = 900, ["PowerShell"] = 300,
+                ["Shell"] = 120, ["Lua"] = 60,
+            },
+        };
+
+        return new PerfilViewModel("GFBmsoft", repos, contagem)
         {
             Perfil = new GRepos.Services.Perfil
             {
@@ -694,10 +712,119 @@ public class UiSmokeTests
             },
             Dias = DiasDeTeste(),
             TotalContribuicoes = 321,
+            Resumo = new GRepos.Services.ResumoDeContribuicoes
+            {
+                Commits = 238, PullRequests = 2, Revisoes = 1, Issues = 1, Privadas = 911,
+            },
         };
-        vm.Perfil.LinhasContadas = true;
+    }
 
-        Render(new PainelView(), vm);
+    /// <summary>
+    /// O clique direito do cartão de perfil troca a cor de destaque dos quadros: a marcada no
+    /// menu acompanha a escolha, e as barras do ritmo, o anel e o ano das sequências mudam juntos.
+    /// </summary>
+    [AvaloniaFact]
+    public void Cor_de_destaque_sai_do_clique_direito_do_cartao()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var cartao = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "Financeiro" }, new RepoStatus { Branch = "main" }, "#DB4C9B", main);
+        var vm = new PainelViewModel("Todos os repositórios", "1 repositório(s)", new[] { cartao }, main)
+        {
+            Perfil = PerfilComQuadros(cartao.Repo),
+        };
+
+        var janela = new Window { Width = 1200, Height = 900, Content = new PainelView { DataContext = vm } };
+        janela.Show();
+        janela.UpdateLayout();
+
+        var comMenu = janela.GetVisualDescendants().OfType<Border>().Single(b =>
+            b.ContextMenu?.Items.OfType<MenuItem>().Any(m => Equals(m.Header, "Cor de destaque dos quadros")) == true);
+        comMenu.ContextMenu!.Open(comMenu);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var pai = comMenu.ContextMenu.Items.OfType<MenuItem>().Single();
+        Assert.Equal("Cor de destaque dos quadros", pai.Header);
+        var opcoes = pai.Items.OfType<MenuItem>().ToList();
+        Assert.Equal(7, opcoes.Count);
+        Assert.Equal(new[] { "github" }, opcoes.Where(o => o.IsChecked).Select(o => o.CommandParameter));
+
+        var roxo = opcoes.Single(o => (string?)o.CommandParameter == "roxo");
+        roxo.Command!.Execute(roxo.CommandParameter);
+        comMenu.ContextMenu.Close();
+        janela.UpdateLayout();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(new[] { "roxo" }, opcoes.Where(o => o.IsChecked).Select(o => o.CommandParameter));
+
+        var esperado = ((Avalonia.Media.ISolidColorBrush)ResourceBrushConverter.Resolve("Purple")!).Color;
+        Avalonia.Media.Color CorDe(Avalonia.Media.IBrush? b) => ((Avalonia.Media.ISolidColorBrush)b!).Color;
+
+        var barras = janela.GetVisualDescendants().OfType<Border>()
+            .Where(b => b.Width == 12 && b.CornerRadius.TopLeft == 3).ToList();
+        Assert.Equal(7, barras.Count);
+        Assert.All(barras, b => Assert.Equal(esperado, CorDe(b.Background)));
+        Assert.Equal(esperado, CorDe(janela.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Arc>().Single().Stroke));
+        Assert.Equal(esperado, CorDe(janela.GetVisualDescendants().OfType<GRepos.Controls.BarrasDoAno>().Single().Destaque));
+
+        janela.Close();
+    }
+
+    /// <summary>
+    /// A faixa de quadros do cartão de perfil (no desenho do github-cool-readme): os quatro numa
+    /// fileira em janela larga, dois a dois na estreita, nunca três e um sozinho embaixo.
+    /// </summary>
+    [AvaloniaFact]
+    public void Quadros_do_perfil_ficam_em_fileiras_fechadas()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var cartao = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "Financeiro" }, new RepoStatus { Branch = "main" }, "#DB4C9B", main);
+        var vm = new PainelViewModel("Todos os repositórios", "1 repositório(s)", new[] { cartao }, main)
+        {
+            Perfil = PerfilComQuadros(cartao.Repo),
+        };
+
+        foreach (var (largura, fileiras) in new[] { (1200, 1), (820, 2) })
+        {
+            var janela = new Window { Width = largura, Height = 900, Content = new PainelView { DataContext = vm } };
+            janela.Show();
+            janela.UpdateLayout();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            var grade = janela.GetVisualDescendants().OfType<GRepos.Controls.GradeCartoes>()
+                .First(g => g.SemSobra);
+            var quadros = grade.Children.Where(c => c.IsVisible).ToList();
+
+            Assert.Equal(4, quadros.Count);
+            Assert.Equal(fileiras, quadros.Select(q => q.Bounds.Y).Distinct().Count());
+            // nenhum quadro espremido abaixo do que o conteúdo pede, nem encavalado no vizinho
+            var coluna = GRepos.Controls.GradeCartoes.DividirSemSobra(
+                grade.Bounds.Width, grade.LarguraMinima, grade.Espaco, quadros.Count).Largura;
+            foreach (var fileira in quadros.GroupBy(q => q.Bounds.Y))
+            {
+                var emOrdem = fileira.OrderBy(q => q.Bounds.X).ToList();
+                for (var i = 1; i < emOrdem.Count; i++)
+                    Assert.True(emOrdem[i - 1].Bounds.Right <= emOrdem[i].Bounds.X, $"quadros encavalados a {largura} px");
+            }
+            foreach (var q in quadros)
+            {
+                q.Measure(Size.Infinity); // a largura que o conteúdo pede, sem aperto
+                Assert.True(q.DesiredSize.Width <= coluna + 0.5,
+                    $"quadro pede {q.DesiredSize.Width} px e a coluna tem {coluna} px a {largura} px");
+            }
+
+            // as listas foram de fato construídas
+            var textos = janela.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text).ToList();
+            Assert.Contains("Pascal", textos);
+            Assert.Contains("Outras", textos);
+            Assert.Contains("sáb", textos);
+            Assert.Contains("911", textos);
+            Assert.True(janela.GetVisualDescendants().OfType<GRepos.Controls.BarraDeLinguagens>().Single().Bounds.Width > 100);
+            Assert.True(janela.GetVisualDescendants().OfType<GRepos.Controls.BarrasDoAno>().Single().Bounds.Width > 100);
+
+            janela.Close();
+        }
     }
 
     private static System.Collections.Generic.List<GRepos.Services.DiaContribuicao> DiasDeTeste()

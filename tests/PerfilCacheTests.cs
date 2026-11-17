@@ -47,6 +47,7 @@ public class PerfilCacheTests
         },
         TotalContribuicoes = 1234,
         Dias = { new DiaContribuicao(new DateTime(2026, 10, 6), 5, 2), new DiaContribuicao(new DateTime(2026, 10, 7), 0, 0) },
+        Resumo = new ResumoDeContribuicoes { Commits = 238, Issues = 1, Privadas = 911 },
         Quando = quando,
     };
 
@@ -58,6 +59,7 @@ public class PerfilCacheTests
 
         PerfilCache.EsquecerMemoria(); // como numa abertura nova do app
         var lido = PerfilCache.Ler("gfbmsoft")!; // o login não diferencia maiúsculas
+        Assert.Equal(911, lido.Resumo!.Privadas); // o quadro de resumo volta junto
 
         Assert.Equal("Gabriel Ferreira", lido.Perfil.Nome);
         Assert.Equal(7, lido.Perfil.Estrelas);
