@@ -66,6 +66,12 @@ public sealed class Settings
     /// </summary>
     public string CorDosQuadros { get; set; } = "github";
 
+    /// <summary>
+    /// Clássico ou um dos retrô (id de <c>EstilosDosQuadros</c>: pontos, flutuante, oled), também
+    /// no clique direito do cartão.
+    /// </summary>
+    public string EstiloDosQuadros { get; set; } = "classico";
+
     /// <summary>Largura da sidebar em pixels, como o usuário deixou o divisor.</summary>
     public double SidebarWidth { get; set; } = 280;
 

@@ -23,11 +23,13 @@ public sealed partial class PerfilViewModel : ObservableObject
     private readonly string _login;
 
     public PerfilViewModel(string login, IReadOnlyList<Repo> repos, ContagemDeLinhas? contagem = null,
-                           string corDosQuadros = "github")
+                           string corDosQuadros = "github", string estiloDosQuadros = "classico")
     {
         _login = login;
         _repos = repos;
-        _corDosQuadros = CoresDeDestaque.De(corDosQuadros).Id; // direto no campo: abrir não é escolher
+        // direto nos campos: abrir com o que foi guardado não é escolher (e não grava de novo)
+        _corDosQuadros = CoresDeDestaque.De(corDosQuadros).Id;
+        _estiloDosQuadros = EstilosDosQuadros.De(estiloDosQuadros).Id;
         Titulo = login.Length > 0 ? login + "@github" : "Perfil";
 
         // a última contagem volta junto com o cartão: contar de novo é caro
@@ -192,6 +194,66 @@ public sealed partial class PerfilViewModel : ObservableObject
         OnPropertyChanged(nameof(CorDoAnel));
     }
 
+    // estilo: clássico ou retrô
+
+    /// <summary>Id de <see cref="EstilosDosQuadros"/>; muda pelo clique direito do cartão.</summary>
+    [ObservableProperty] private string _estiloDosQuadros = "classico";
+
+    /// <summary>Quem grava o estilo escolhido no workspace (o MainViewModel).</summary>
+    public Action<string>? GuardarEstilo { get; init; }
+
+    public bool EstiloRetro => EstilosDosQuadros.De(EstiloDosQuadros).Retro;
+    public bool EstiloClassico => !EstiloRetro;
+
+    /// <summary>
+    /// A largura mínima de cada quadro. O display retrô tem 150 pontos de ponta a ponta: abaixo
+    /// de uns 320 px cada ponto fica com menos de 2 px e o texto vira borrão.
+    /// </summary>
+    public double LarguraDosQuadros => EstiloRetro ? 320 : 230;
+
+    /// <summary>Os quadros retrô animados; os testes desligam para a captura sair sempre igual.</summary>
+    [ObservableProperty] private bool _quadrosAnimados = true;
+
+    [RelayCommand]
+    private void EscolherEstilo(string? id)
+    {
+        var estilo = EstilosDosQuadros.De(id).Id;
+        if (estilo == EstiloDosQuadros) return;
+
+        EstiloDosQuadros = estilo;
+        GuardarEstilo?.Invoke(estilo);
+    }
+
+    partial void OnEstiloDosQuadrosChanged(string value)
+    {
+        OnPropertyChanged(nameof(EstiloRetro));
+        OnPropertyChanged(nameof(EstiloClassico));
+        OnPropertyChanged(nameof(LarguraDosQuadros));
+        OnPropertyChanged(nameof(LinguagensRetro));
+        OnPropertyChanged(nameof(LinguagensClassico));
+    }
+
+    /// <summary>
+    /// No retrô, o quadro de linguagens só vira display com linguagens contadas; antes disso fica o
+    /// convite com o botão de contar, que display nenhum teria.
+    /// </summary>
+    public bool LinguagensRetro => EstiloRetro && TemLinguagensLocais;
+    public bool LinguagensClassico => !LinguagensRetro;
+
+    // os quatro displays, montados quando os dados mudam (não a cada quadro da animação)
+
+    [ObservableProperty] private DisplayDeLeds? _displayDoResumo;
+    [ObservableProperty] private DisplayDeLeds? _displayDasLinguagens;
+    [ObservableProperty] private DisplayDeLeds? _displayDoRitmo;
+    [ObservableProperty] private DisplayDeLeds? _displayDasSequencias;
+
+    private void MontarDisplays()
+    {
+        DisplayDoResumo = DisplaysDoPerfil.DoResumo(Resumo, Perfil?.Estrelas ?? -1, _sequencias);
+        DisplayDoRitmo = DisplaysDoPerfil.DoRitmo(_ritmo);
+        DisplayDasSequencias = DisplaysDoPerfil.DasSequencias(Dias, _sequencias);
+    }
+
     // resumo
 
     public bool TemResumo => Resumo is not null;
@@ -280,9 +342,12 @@ public sealed partial class PerfilViewModel : ObservableObject
 
     partial void OnFatiasChanged(IReadOnlyList<FatiaDeLinguagem> value)
     {
+        DisplayDasLinguagens = DisplaysDoPerfil.DasLinguagens(value);
         OnPropertyChanged(nameof(TemLinguagensLocais));
         OnPropertyChanged(nameof(Legenda));
         OnPropertyChanged(nameof(TemQuadros));
+        OnPropertyChanged(nameof(LinguagensRetro));
+        OnPropertyChanged(nameof(LinguagensClassico));
     }
 
     private static string Percentual(double fracao, int casas) =>
@@ -290,6 +355,8 @@ public sealed partial class PerfilViewModel : ObservableObject
 
     private void AvisarQuadros()
     {
+        MontarDisplays();
+
         foreach (var p in new[]
                  {
                      nameof(TemQuadros), nameof(TemResumo), nameof(CommitsTexto), nameof(PullRequestsTexto),
@@ -317,6 +384,8 @@ public sealed partial class PerfilViewModel : ObservableObject
                                   nameof(Repositorios), nameof(Seguidores), nameof(Estrelas),
                                   nameof(Linguagens) })
             OnPropertyChanged(p);
+
+        MontarDisplays(); // as estrelas da conta entram no resumo retrô
     }
 
     partial void OnErroChanged(string value) => OnPropertyChanged(nameof(TemErro));

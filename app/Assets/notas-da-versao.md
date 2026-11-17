@@ -1,3 +1,9 @@
+## 1.0.0.68 — 17/11/2026
+- **Estilo retrô nos quadros do perfil**: com o botão direito no cartão, em **Estilo dos quadros**, os quatro quadros viram displays de LEDs, como os de fliperama: **matriz de pontos** (LEDs redondos com a grade apagada atrás), **pontos flutuantes** (sem a grade) ou **OLED** (pixels quadrados). **Clássico** volta ao de antes, e a escolha fica guardada.
+- No retrô, os números passam um de cada vez, cada um entrando com um efeito diferente e um brilho que corre sobre ele; o anel dos dias ativos enche ao abrir, a barra de linguagens cresce e encolhe a cada linguagem, e o ritmo semanal acende aos poucos. Parando o mouse num quadro, a dica diz todos os números de uma vez.
+- A **cor de destaque** vira a cor do display: âmbar, verde, roxo, ciano, vermelho ou azul, sobre um painel escuro; **GitHub** usa as cores do tema do app.
+- **Quadriculado na cor de destaque**: as casinhas das contribuições e a legenda "menos … mais" passam a seguir a cor escolhida. Na cor **GitHub** continuam verdes.
+
 ## 1.0.0.67 — 17/11/2026
 - **Quadros no cartão de perfil**: embaixo do quadriculado do painel geral, quatro quadros no estilo dos cartões de perfil do GitHub. Em janela larga ficam lado a lado; mais estreita, dois a dois.
 - **Resumo**: commits, pull requests, revisões e issues dos últimos 12 meses, e um anel com a parte do ano em que você teve alguma contribuição. O que o GitHub conta mas não detalha (os repositórios da organização) aparece à parte, como **Privadas**.

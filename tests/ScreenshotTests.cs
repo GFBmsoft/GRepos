@@ -648,6 +648,18 @@ public class ScreenshotTests
         // a cor de destaque do clique direito do cartão
         vm.Perfil.EscolherCorCommand.Execute("ambar");
         Shot(new PainelView(), vm, "painel-ambar", 1500, 340);
+
+        // os retrô, parados no primeiro slide para a captura sair sempre igual
+        vm.Perfil.QuadrosAnimados = false;
+        vm.Perfil.EscolherEstiloCommand.Execute("pontos");
+        Shot(new PainelView(), vm, "painel-retro-pontos", 1600, 400);
+        vm.Perfil.EscolherCorCommand.Execute("roxo");
+        vm.Perfil.EscolherEstiloCommand.Execute("oled");
+        Shot(new PainelView(), vm, "painel-retro-oled", 1600, 400);
+        vm.Perfil.EscolherCorCommand.Execute("github");
+        vm.Perfil.EscolherEstiloCommand.Execute("flutuante");
+        Shot(new PainelView(), vm, "painel-retro-flutuante", 1600, 400);
+        Shot(new PainelView(), vm, "painel-retro-estreito", 900, 700);
     }
 
     /// <summary>Cartão do painel aberto, com a última execução e o passo a passo.</summary>

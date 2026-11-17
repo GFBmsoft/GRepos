@@ -105,6 +105,11 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
   extensão), não do GitHub: o token do Git Credential Manager não tem `read:org`, e o GitHub
   devolvia os commits da organização só como `restrictedContributionsCount` — a barra saía C# e
   Go, sem o Pascal. A cor de destaque (`CoresDeDestaque`) é recurso do tema, não hex.
+  O **estilo retrô** (matriz de pontos, flutuante, OLED) refaz os displays da referência:
+  `DisplayDeLeds` e `DisplaysDoPerfil` são lógica pura (o que está aceso no tempo t, em 150 × 73
+  pontos); `PainelDeLeds` só desenha, e só redesenha quando `Estado(t)` muda. A `FonteDePontos`
+  é nossa, com acento: ele ocupa as duas linhas acima da letra, e o layout tem de deixar esse
+  espaço (`Quadro_cabe_no_display_em_qualquer_instante` pega o que vaza).
 - `/dev/null` não existe no Windows: diff de arquivo novo é montado por `NewFileDiff`, no
   formato que o `git apply` aceita (é o que faz o botão "Preparar bloco" funcionar neles).
 - A tela se atualiza sozinha pelo `RepoWatcher` (FileSystemWatcher com debounce). Ao mexer

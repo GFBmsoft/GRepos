@@ -40,6 +40,16 @@ public sealed class GradeContribuicoes : Control
         set => SetValue(DiasProperty, value);
     }
 
+    /// <summary>A cor das casas (a cor de destaque dos quadros); sem ela, o verde do GitHub.</summary>
+    public static readonly StyledProperty<IBrush?> DestaqueProperty =
+        AvaloniaProperty.Register<GradeContribuicoes, IBrush?>(nameof(Destaque));
+
+    public IBrush? Destaque
+    {
+        get => GetValue(DestaqueProperty);
+        set => SetValue(DestaqueProperty, value);
+    }
+
     /// <summary>Largura que sobra para quem divide a linha com o quadriculado.</summary>
     public double ReservaEsquerda
     {
@@ -50,7 +60,7 @@ public sealed class GradeContribuicoes : Control
     static GradeContribuicoes()
     {
         AffectsMeasure<GradeContribuicoes>(DiasProperty, ReservaEsquerdaProperty);
-        AffectsRender<GradeContribuicoes>(DiasProperty);
+        AffectsRender<GradeContribuicoes>(DiasProperty, DestaqueProperty);
     }
 
     public GradeContribuicoes()
@@ -100,17 +110,23 @@ public sealed class GradeContribuicoes : Control
             : new Size(Rotulos + _visiveis * Passo - Espaco, Meses + 7 * Passo - Espaco);
     }
 
-    /// <summary>Nível 0 é a casa vazia; 1 a 4, o verde do tema cada vez mais forte.</summary>
-    public static IBrush Cor(int nivel)
+    /// <summary>
+    /// Nível 0 é a casa vazia; 1 a 4, a cor de destaque cada vez mais forte (o verde do tema,
+    /// sem destaque escolhido).
+    /// </summary>
+    public static IBrush Cor(int nivel, IBrush? destaque = null)
     {
         if (nivel <= 0)
             return ResourceBrushConverter.Resolve("BgActive") ?? new SolidColorBrush(Color.Parse("#232A35"));
 
-        var verde = (ResourceBrushConverter.Resolve("Green") as ISolidColorBrush)?.Color
-                    ?? Color.Parse("#3FB950");
-        var opacidade = nivel switch { 1 => 0.35, 2 => 0.55, 3 => 0.78, _ => 1.0 };
-        return new SolidColorBrush(verde, opacidade);
+        var cor = (destaque as ISolidColorBrush)?.Color
+                  ?? (ResourceBrushConverter.Resolve("Green") as ISolidColorBrush)?.Color
+                  ?? Color.Parse("#3FB950");
+        return new SolidColorBrush(cor, Opacidade(nivel));
     }
+
+    /// <summary>A força de cada nível, a mesma da legenda "menos … mais" ao lado.</summary>
+    public static double Opacidade(int nivel) => nivel switch { <= 0 => 0, 1 => 0.35, 2 => 0.55, 3 => 0.78, _ => 1.0 };
 
     private static readonly string[] NomesDosMeses =
         { "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez" };
@@ -121,7 +137,7 @@ public sealed class GradeContribuicoes : Control
 
         var texto = ResourceBrushConverter.Resolve("TextFaint") ?? Brushes.Gray;
         var fonte = new Typeface(FontFamily.Default);
-        var pincel = Enumerable.Range(0, 5).Select(Cor).ToArray();
+        var pincel = Enumerable.Range(0, 5).Select(n => Cor(n, Destaque)).ToArray();
 
         // segunda, quarta e sexta, como no GitHub: rótulo em toda linha fica poluído
         foreach (var (linha, nome) in new[] { (1, "seg"), (3, "qua"), (5, "sex") })

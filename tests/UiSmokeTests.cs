@@ -743,7 +743,7 @@ public class UiSmokeTests
         comMenu.ContextMenu!.Open(comMenu);
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-        var pai = comMenu.ContextMenu.Items.OfType<MenuItem>().Single();
+        var pai = comMenu.ContextMenu.Items.OfType<MenuItem>().Single(m => Equals(m.Header, "Cor de destaque dos quadros"));
         Assert.Equal("Cor de destaque dos quadros", pai.Header);
         var opcoes = pai.Items.OfType<MenuItem>().ToList();
         Assert.Equal(7, opcoes.Count);
@@ -766,8 +766,85 @@ public class UiSmokeTests
         Assert.All(barras, b => Assert.Equal(esperado, CorDe(b.Background)));
         Assert.Equal(esperado, CorDe(janela.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Arc>().Single().Stroke));
         Assert.Equal(esperado, CorDe(janela.GetVisualDescendants().OfType<GRepos.Controls.BarrasDoAno>().Single().Destaque));
+        Assert.Equal(esperado, CorDe(janela.GetVisualDescendants().OfType<GRepos.Controls.GradeContribuicoes>().Single().Destaque));
 
         janela.Close();
+    }
+
+    /// <summary>
+    /// "Estilo dos quadros", no mesmo clique direito: no retrô os quatro quadros viram displays de
+    /// LEDs na proporção 150 × 73 e os clássicos somem; de volta ao clássico, o contrário.
+    /// </summary>
+    [AvaloniaFact]
+    public void Estilo_retro_troca_os_quadros_pelos_displays()
+    {
+        var main = new MainViewModel(new FakeDialogs());
+        var cartao = new CartaoRepoViewModel(
+            new Repo { Id = "r1", Name = "Financeiro" }, new RepoStatus { Branch = "main" }, "#DB4C9B", main);
+        var vm = new PainelViewModel("Todos os repositórios", "1 repositório(s)", new[] { cartao }, main)
+        {
+            Perfil = PerfilComQuadros(cartao.Repo),
+        };
+        vm.Perfil!.QuadrosAnimados = false;
+
+        var janela = new Window { Width = 1600, Height = 900, Content = new PainelView { DataContext = vm } };
+        janela.Show();
+        janela.UpdateLayout();
+
+        var comMenu = janela.GetVisualDescendants().OfType<Border>().Single(b =>
+            b.ContextMenu?.Items.OfType<MenuItem>().Any(m => Equals(m.Header, "Estilo dos quadros")) == true);
+        comMenu.ContextMenu!.Open(comMenu);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var estilos = comMenu.ContextMenu.Items.OfType<MenuItem>().Single(m => Equals(m.Header, "Estilo dos quadros"))
+            .Items.OfType<MenuItem>().ToList();
+        Assert.Equal(new object?[] { "classico", "pontos", "flutuante", "oled" }, estilos.Select(e => e.CommandParameter));
+        Assert.Equal(new object?[] { "classico" }, estilos.Where(e => e.IsChecked).Select(e => e.CommandParameter));
+
+        var leds = janela.GetVisualDescendants().OfType<GRepos.Controls.PainelDeLeds>().ToList();
+        Assert.Equal(4, leds.Count);
+        Assert.All(leds, l => Assert.False(l.IsEffectivelyVisible));
+
+        var oled = estilos.Single(e => (string?)e.CommandParameter == "oled");
+        oled.Command!.Execute(oled.CommandParameter);
+        comMenu.ContextMenu.Close();
+        janela.UpdateLayout();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(new object?[] { "oled" }, estilos.Where(e => e.IsChecked).Select(e => e.CommandParameter));
+        Assert.All(leds, l =>
+        {
+            Assert.True(l.IsEffectivelyVisible);
+            Assert.NotNull(l.Display);
+            Assert.Equal("oled", l.Estilo);
+            Assert.InRange(l.Bounds.Width, 320, 450);
+            // na proporção do display, com a folga do arredondamento do layout em pixel inteiro
+            Assert.True(System.Math.Abs(l.Bounds.Width * 73 / 150 - l.Bounds.Height) <= 1,
+                $"display com {l.Bounds.Width} × {l.Bounds.Height}");
+        });
+        Assert.False(janela.GetVisualDescendants().OfType<GRepos.Controls.BarraDeLinguagens>().Single().IsEffectivelyVisible);
+        Assert.False(janela.GetVisualDescendants().OfType<Avalonia.Controls.Shapes.Arc>().Single().IsEffectivelyVisible);
+
+        // desenha de verdade nos três estilos, sem exceção no Render
+        foreach (var estilo in new[] { "oled", "pontos", "flutuante" })
+        {
+            vm.Perfil.EscolherEstiloCommand.Execute(estilo);
+            janela.UpdateLayout();
+            Assert.NotNull(janela.CaptureRenderedFrame());
+        }
+
+        // e com o relógio andando: as entradas e o anel se redesenham sem erro
+        vm.Perfil.QuadrosAnimados = true;
+        Assert.All(leds, l => Assert.NotNull(l.Tempo));
+        for (var i = 0; i < 8; i++)
+        {
+            System.Threading.Thread.Sleep(60);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.NotNull(janela.CaptureRenderedFrame());
+        }
+
+        janela.Close();
+        Assert.All(leds, l => Assert.Null(l.Tempo)); // fora da tela, o relógio para
     }
 
     /// <summary>

@@ -118,6 +118,22 @@
                </MenuItem.Header>
              </MenuItem>
            </MenuItem>
+           <!-- o desenho dos quadros: o clássico ou os displays retrô do github-cool-readme -->
+           <MenuItem Header="Estilo dos quadros">
+             <MenuItem.Icon><TextBlock Classes="glifo cinza" Text="{x:Static controls:Glifos.Estilo}" /></MenuItem.Icon>
+             <MenuItem Header="Clássico" ToggleType="Radio" GroupName="estiloDosQuadros"
+                       IsChecked="{Binding Perfil.EstiloDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=classico}"
+                       Command="{Binding Perfil.EscolherEstiloCommand}" CommandParameter="classico" />
+             <MenuItem Header="Retrô: matriz de pontos" ToggleType="Radio" GroupName="estiloDosQuadros"
+                       IsChecked="{Binding Perfil.EstiloDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=pontos}"
+                       Command="{Binding Perfil.EscolherEstiloCommand}" CommandParameter="pontos" />
+             <MenuItem Header="Retrô: pontos flutuantes" ToggleType="Radio" GroupName="estiloDosQuadros"
+                       IsChecked="{Binding Perfil.EstiloDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=flutuante}"
+                       Command="{Binding Perfil.EscolherEstiloCommand}" CommandParameter="flutuante" />
+             <MenuItem Header="Retrô: OLED" ToggleType="Radio" GroupName="estiloDosQuadros"
+                       IsChecked="{Binding Perfil.EstiloDosQuadros, Mode=OneWay, Converter={x:Static local:Converters.Igual}, ConverterParameter=oled}"
+                       Command="{Binding Perfil.EscolherEstiloCommand}" CommandParameter="oled" />
+           </MenuItem>
          </ContextMenu>
        </Border.ContextMenu>
        <StackPanel DataContext="{Binding Perfil}">
@@ -139,6 +155,7 @@
              sempre até hoje, e some em janela estreita -->
         <controls:GradeContribuicoes DockPanel.Dock="Right" Margin="16,0,0,0" VerticalAlignment="Center"
                                      Dias="{Binding Dias}" ReservaEsquerda="390"
+                                     Destaque="{Binding CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}"
                                      IsVisible="{Binding TemContribuicoes}" />
 
         <StackPanel Spacing="5" VerticalAlignment="Center">
@@ -221,10 +238,14 @@
                          VerticalAlignment="Center" Margin="0,0,6,0" />
               <TextBlock Text="menos" Classes="faint" FontSize="9.5" VerticalAlignment="Center" Margin="0,0,2,0" />
               <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource BgActive}" VerticalAlignment="Center" />
-              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" Opacity="0.35" VerticalAlignment="Center" />
-              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" Opacity="0.55" VerticalAlignment="Center" />
-              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" Opacity="0.78" VerticalAlignment="Center" />
-              <Border Width="9" Height="9" CornerRadius="2" Background="{DynamicResource Green}" VerticalAlignment="Center" />
+              <Border Width="9" Height="9" CornerRadius="2" Opacity="0.35" VerticalAlignment="Center"
+                      Background="{Binding CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}" />
+              <Border Width="9" Height="9" CornerRadius="2" Opacity="0.55" VerticalAlignment="Center"
+                      Background="{Binding CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}" />
+              <Border Width="9" Height="9" CornerRadius="2" Opacity="0.78" VerticalAlignment="Center"
+                      Background="{Binding CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}" />
+              <Border Width="9" Height="9" CornerRadius="2" VerticalAlignment="Center"
+                      Background="{Binding CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}" />
               <TextBlock Text="mais" Classes="faint" FontSize="9.5" VerticalAlignment="Center" Margin="2,0,0,0" />
             </StackPanel>
             <!-- as do GitHub (repositórios públicos) só até a barra das linhas daqui chegar -->
@@ -240,11 +261,13 @@
             commits aqui. Quatro, duas ou uma coluna, conforme a largura -->
        <Border BorderThickness="0,1,0,0" BorderBrush="{DynamicResource BorderSoft}"
                Margin="0,10,0,0" Padding="0,10,0,2" IsVisible="{Binding TemQuadros}">
-        <controls:GradeCartoes LarguraMinima="230" Espaco="28" SemSobra="True">
+        <!-- no retrô os quadros pedem mais largura: o display tem 150 pontos de ponta a ponta -->
+        <controls:GradeCartoes LarguraMinima="{Binding LarguraDosQuadros}" Espaco="28" SemSobra="True">
 
          <!-- resumo: os totais do ano e o anel dos dias ativos; com teto, para o número
               não fugir do rótulo quando o quadro ocupa meia largura -->
-         <DockPanel IsVisible="{Binding TemResumo}" MaxWidth="300" HorizontalAlignment="Left">
+         <Panel IsVisible="{Binding TemResumo}">
+         <DockPanel IsVisible="{Binding EstiloClassico}" MaxWidth="300" HorizontalAlignment="Left">
            <TextBlock DockPanel.Dock="Top" Text="RESUMO · 12 MESES" Classes="faint" FontSize="10"
                       LetterSpacing="0.8" Margin="0,0,0,8" />
            <StackPanel DockPanel.Dock="Right" Margin="12,0,0,0" Spacing="4" VerticalAlignment="Top"
@@ -295,9 +318,15 @@
                         IsVisible="{Binding TemPrivadas}" />
            </Grid>
          </DockPanel>
+         <controls:PainelDeLeds IsVisible="{Binding EstiloRetro}" MaxWidth="450" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Display="{Binding DisplayDoResumo}" Cor="{Binding CorDosQuadros}"
+                                Estilo="{Binding EstiloDosQuadros}" Animado="{Binding QuadrosAnimados}"
+                                ToolTip.Tip="{Binding DisplayDoResumo.Descricao}" />
+         </Panel>
 
          <!-- linguagens: das linhas dos seus commits aqui, não dos repositórios do GitHub -->
-         <StackPanel Spacing="8" MaxWidth="380" HorizontalAlignment="Stretch">
+         <Panel>
+         <StackPanel Spacing="8" MaxWidth="380" HorizontalAlignment="Stretch" IsVisible="{Binding LinguagensClassico}">
            <TextBlock Text="LINGUAGENS" Classes="faint" FontSize="10" LetterSpacing="0.8" Background="Transparent"
                       ToolTip.Tip="Pelas linhas dos seus commits nos repositórios desta máquina, sem repetir o histórico do par Origem × Destino" />
            <controls:BarraDeLinguagens Fatias="{Binding Fatias}" IsVisible="{Binding TemLinguagensLocais}" />
@@ -333,9 +362,15 @@
                         TextTrimming="CharacterEllipsis" IsVisible="{Binding ContandoLinhas}" />
            </StackPanel>
          </StackPanel>
+         <controls:PainelDeLeds IsVisible="{Binding LinguagensRetro}" MaxWidth="450" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Display="{Binding DisplayDasLinguagens}" Cor="{Binding CorDosQuadros}"
+                                Estilo="{Binding EstiloDosQuadros}" Animado="{Binding QuadrosAnimados}"
+                                ToolTip.Tip="{Binding DisplayDasLinguagens.Descricao}" />
+         </Panel>
 
          <!-- ritmo semanal: o ano somado por dia da semana -->
-         <StackPanel Spacing="8" IsVisible="{Binding TemRitmo}">
+         <Panel IsVisible="{Binding TemRitmo}">
+         <StackPanel Spacing="8" IsVisible="{Binding EstiloClassico}">
            <TextBlock Text="RITMO SEMANAL" Classes="faint" FontSize="10" LetterSpacing="0.8" />
            <StackPanel Orientation="Horizontal" Spacing="14">
              <ItemsControl ItemsSource="{Binding BarrasDaSemana}" VerticalAlignment="Bottom">
@@ -369,9 +404,15 @@
              </StackPanel>
            </StackPanel>
          </StackPanel>
+         <controls:PainelDeLeds IsVisible="{Binding EstiloRetro}" MaxWidth="450" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Display="{Binding DisplayDoRitmo}" Cor="{Binding CorDosQuadros}"
+                                Estilo="{Binding EstiloDosQuadros}" Animado="{Binding QuadrosAnimados}"
+                                ToolTip.Tip="{Binding DisplayDoRitmo.Descricao}" />
+         </Panel>
 
          <!-- sequências: dias seguidos, o melhor dia e o melhor mês, e o ano em barrinhas -->
-         <StackPanel Spacing="8" IsVisible="{Binding TemSequencias}" MaxWidth="360" HorizontalAlignment="Stretch">
+         <Panel IsVisible="{Binding TemSequencias}">
+         <StackPanel Spacing="8" IsVisible="{Binding EstiloClassico}" MaxWidth="360" HorizontalAlignment="Stretch">
            <TextBlock Text="SEQUÊNCIAS" Classes="faint" FontSize="10" LetterSpacing="0.8" />
            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
              <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,6">
@@ -396,6 +437,11 @@
            <controls:BarrasDoAno Dias="{Binding Dias}"
                                  Destaque="{Binding CorDasBarras, Converter={x:Static local:Converters.ResourceBrush}}" />
          </StackPanel>
+         <controls:PainelDeLeds IsVisible="{Binding EstiloRetro}" MaxWidth="450" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Display="{Binding DisplayDasSequencias}" Cor="{Binding CorDosQuadros}"
+                                Estilo="{Binding EstiloDosQuadros}" Animado="{Binding QuadrosAnimados}"
+                                ToolTip.Tip="{Binding DisplayDasSequencias.Descricao}" />
+         </Panel>
 
         </controls:GradeCartoes>
        </Border>

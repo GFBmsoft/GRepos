@@ -60,28 +60,58 @@ public sealed record FatiaDeLinguagem(string Nome, string Cor, double Fracao);
 /// ritmo semanal, o destaque das sequências e o anel dos dias ativos. As cores são recursos do
 /// tema, para valer no claro e no escuro.
 /// </summary>
-public sealed record CorDeDestaque(string Id, string Nome, string Barras, string Anel);
+/// <param name="Display">As cores do mesmo destaque nos quadros retrô.</param>
+public sealed record CorDeDestaque(string Id, string Nome, string Barras, string Anel, CoresDoDisplay Display);
 
 public static class CoresDeDestaque
 {
     /// <summary>
     /// "GitHub" é a de fábrica: o verde do quadriculado nas barras e o azul no anel. O azul é o
-    /// da trilha 0 do grafo, não o destaque do app, que o usuário troca nas preferências.
+    /// da trilha 0 do grafo, não o destaque do app, que o usuário troca nas preferências. No
+    /// retrô, "GitHub" é o texto do tema com o azul, sem painel; as outras são displays de
+    /// verdade, nos tons do github-cool-readme.
     /// </summary>
     public static readonly IReadOnlyList<CorDeDestaque> Todas = new[]
     {
-        new CorDeDestaque("github", "GitHub", "Green", "Lane0"),
-        new CorDeDestaque("ambar", "Âmbar", "Yellow", "Yellow"),
-        new CorDeDestaque("verde", "Verde", "Green", "Green"),
-        new CorDeDestaque("roxo", "Roxo", "Purple", "Purple"),
-        new CorDeDestaque("ciano", "Ciano", "Lane7", "Lane7"),
-        new CorDeDestaque("vermelho", "Vermelho", "Red", "Red"),
-        new CorDeDestaque("azul", "Azul", "Lane0", "Lane0"),
+        new CorDeDestaque("github", "GitHub", "Green", "Lane0",
+            new CoresDoDisplay("Text", "Lane0", "Lane0", 0.6, null, "Border", 0.35)),
+        new CorDeDestaque("ambar", "Âmbar", "Yellow", "Yellow",
+            CoresDoDisplay.DePainel("#FFAB1A", "#FFF2CC", "#0D0B07", 0.09)),
+        new CorDeDestaque("verde", "Verde", "Green", "Green",
+            CoresDoDisplay.DePainel("#3DFF74", "#E8FFEF", "#070D09", 0.08)),
+        new CorDeDestaque("roxo", "Roxo", "Purple", "Purple",
+            CoresDoDisplay.DePainel("#C77DFF", "#F3E6FF", "#0C0710", 0.10)),
+        new CorDeDestaque("ciano", "Ciano", "Lane7", "Lane7",
+            CoresDoDisplay.DePainel("#22E3FF", "#E0FBFF", "#050C0D", 0.08)),
+        new CorDeDestaque("vermelho", "Vermelho", "Red", "Red",
+            CoresDoDisplay.DePainel("#FF4D4D", "#FFE5E5", "#0D0606", 0.10)),
+        new CorDeDestaque("azul", "Azul", "Lane0", "Lane0",
+            CoresDoDisplay.DePainel("#4DA3FF", "#E3F0FF", "#05080D", 0.10)),
     };
 
     /// <summary>A cor pelo id; desconhecido ou vazio (workspace de versão anterior) é a GitHub.</summary>
     public static CorDeDestaque De(string? id) =>
         Todas.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase)) ?? Todas[0];
+}
+
+/// <summary>Como os quadros são desenhados: o clássico ou um dos displays retrô.</summary>
+/// <param name="Pontos">LEDs redondos; sem eles, pixels quadrados (OLED).</param>
+/// <param name="Grade">Com LEDs: os apagados aparecem fracos atrás dos acesos.</param>
+public sealed record EstiloDosQuadros(string Id, string Nome, bool Retro, bool Pontos, bool Grade);
+
+public static class EstilosDosQuadros
+{
+    public static readonly IReadOnlyList<EstiloDosQuadros> Todos = new[]
+    {
+        new EstiloDosQuadros("classico", "Clássico", false, false, false),
+        new EstiloDosQuadros("pontos", "Retrô: matriz de pontos", true, true, true),
+        new EstiloDosQuadros("flutuante", "Retrô: pontos flutuantes", true, true, false),
+        new EstiloDosQuadros("oled", "Retrô: OLED", true, false, false),
+    };
+
+    /// <summary>O estilo pelo id; desconhecido ou vazio é o clássico.</summary>
+    public static EstiloDosQuadros De(string? id) =>
+        Todos.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase)) ?? Todos[0];
 }
 
 /// <summary>
