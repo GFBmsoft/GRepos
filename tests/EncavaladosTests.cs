@@ -392,7 +392,7 @@ public class EncavaladosTests
         }
         foreach (var minimo in new[] { false, true })
             problemas.AddRange(ConferirSecoes(() => new SettingsWindow(new MainViewModel(new FakeDialogs())),
-                minimo ? "Preferências (mínima)" : "Preferências", minimo));
+                minimo ? "Configurações (mínima)" : "Configurações", minimo));
         Assert.True(problemas.Count == 0, string.Join("\n", problemas));
     }
 

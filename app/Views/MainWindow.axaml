@@ -227,10 +227,10 @@
           </ListBox.DataTemplates>
         </ListBox>
 
-        <!-- preferências no rodapé da sidebar, longe das ações do dia a dia -->
+        <!-- configurações no rodapé da sidebar, longe das ações do dia a dia -->
         <Border Grid.Row="3" BorderBrush="{DynamicResource Border}" BorderThickness="0,1,0,0" Padding="8,6">
           <Button Classes="secaoTopo" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
-                  Padding="2,2,8,2" ToolTip.Tip="Preferências: tema, contas, autenticação e notas da versão"
+                  Padding="2,2,8,2" ToolTip.Tip="Configurações: aparência, contas, terminal, a versão e as notas da versão"
                   Command="{Binding OpenSettingsCommand}">
             <StackPanel Orientation="Horizontal" Spacing="9">
               <Panel Width="26" Height="26">
@@ -239,7 +239,7 @@
                            FontFamily="Segoe Fluent Icons,Segoe MDL2 Assets,Segoe UI Symbol"
                            HorizontalAlignment="Center" VerticalAlignment="Center" />
               </Panel>
-              <TextBlock Text="Preferências" FontSize="12" VerticalAlignment="Center" />
+              <TextBlock Text="Configurações" FontSize="12" VerticalAlignment="Center" />
             </StackPanel>
           </Button>
         </Border>
@@ -474,8 +474,8 @@
           <Button Grid.Column="1" Classes="tiny azul" Margin="0,0,14,0" VerticalAlignment="Center" Height="22"
                   ToolTip.Placement="Top" ToolTip.VerticalOffset="-6"
                   IsVisible="{Binding TemAtualizacao}"
-                  IsEnabled="{Binding !Atualizando}" Command="{Binding AtualizarAgoraCommand}"
-                  ToolTip.Tip="Baixa o executável da nova versão e reinicia o aplicativo">
+                  IsEnabled="{Binding !Atualizando}" Command="{Binding AtualizacaoCommand}"
+                  ToolTip.Tip="Confere de novo, pergunta e baixa a versão nova, reiniciando o aplicativo">
             <StackPanel Orientation="Horizontal" Spacing="5">
               <Ellipse Width="6" Height="6" VerticalAlignment="Center" Fill="{DynamicResource Accent}" />
               <TextBlock Text="{Binding AtualizacaoAviso}" FontSize="11" VerticalAlignment="Center" />
@@ -493,13 +493,14 @@
           </Button>
 
           <!-- só o ícone: a versão ao lado já diz do que se trata. Ganha a cor de
-               destaque quando há versão nova, para o aviso não depender só do texto -->
+               destaque quando há versão nova, para o aviso não depender só do texto.
+               O mesmo clique do convite: procura, confere e, havendo versão nova, atualiza -->
           <Button Grid.Column="4" Classes="icon" Content="&#xE895;" Width="28" Height="22"
                   ToolTip.Placement="Top" ToolTip.VerticalOffset="-6"
                   FontSize="11" Margin="6,0,0,0" VerticalAlignment="Center"
                   Foreground="{Binding CorDoIconeAtualizacao, Converter={x:Static local:Converters.ResourceBrush}}"
                   IsEnabled="{Binding !VerificandoAtualizacao}"
-                  Command="{Binding ProcurarAtualizacaoCommand}"
+                  Command="{Binding AtualizacaoCommand}"
                   ToolTip.Tip="{Binding DicaDoIconeAtualizacao}" />
         </Grid>
       </Border>

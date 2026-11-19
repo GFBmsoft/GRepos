@@ -157,6 +157,6 @@ public class DiffExternoTests
     {
         var erro = await Assert.ThrowsAsync<FileNotFoundException>(() => DiffExterno.AbrirAsync(
             ".", VersaoDeArquivo.NoIndice("a.txt"), VersaoDeArquivo.NoDisco("a.txt"), @"Z:\nao\existe.exe", ""));
-        Assert.Contains("Preferências", erro.Message);
+        Assert.Contains("Configurações", erro.Message);
     }
 }

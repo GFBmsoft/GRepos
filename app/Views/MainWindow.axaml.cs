@@ -87,7 +87,7 @@ public partial class MainWindow : Window, IDialogService
         // normal (bubble) um TextBox no meio da tela poderia engolir a tecla.
         AddHandler(KeyDownEvent, AtalhoDeFiltro, RoutingStrategies.Tunnel);
 
-        // clique direito num grupo da árvore: subgrupo, editar e lote, sem ir às Preferências
+        // clique direito num grupo da árvore: subgrupo, editar e lote, sem ir às Configurações
         if (this.FindControl<ListBox>("TreeList") is { } arvore) arvore.ContextRequested += MenuDoGrupo;
     }
 

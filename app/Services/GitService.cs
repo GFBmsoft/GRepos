@@ -54,7 +54,7 @@ public static class GitService
             throw new GitException(
                 "A operação passou de " + (int)TempoLimiteRede.TotalSeconds + " segundos e foi cancelada. " +
                 "Costuma ser uma janela de login do Git Credential Manager esperando resposta — " +
-                "procure-a na barra de tarefas, ou configure o usuário em Preferências → Autenticação.");
+                "procure-a na barra de tarefas, ou configure o usuário em Configurações → Contas.");
         }
     }
 

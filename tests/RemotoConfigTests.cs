@@ -58,7 +58,7 @@ public class RemotoConfigTests
         {
             var erro = await Assert.ThrowsAsync<GitException>(() =>
                 RemotoConfig.AplicarAsync(dir, "https://{{user}}@github.com/org/repo.git", ""));
-            Assert.Contains("Preferências", erro.Message);
+            Assert.Contains("Configurações", erro.Message);
             Assert.Equal("https://github.com/org/repo.git", await GitService.RemoteUrlAsync(dir));
         }
         finally { Directory.Delete(dir, true); }

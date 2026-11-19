@@ -71,8 +71,8 @@ public sealed partial class TerminalSessao : ObservableObject, IDisposable
         var configurado = _gitBashConfigurado();
         var bash = GitBash.LocalizarBash(configurado) ?? throw new FileNotFoundException(
             string.IsNullOrWhiteSpace(configurado)
-                ? "Git Bash não encontrado. Informe a pasta do Git em Preferências."
-                : "bash.exe não encontrado em " + configurado.Trim() + ". Confira o caminho em Preferências.");
+                ? "Git Bash não encontrado. Informe a pasta do Git em Configurações → Terminal."
+                : "bash.exe não encontrado em " + configurado.Trim() + ". Confira o caminho em Configurações → Terminal.");
 
         _pty?.Dispose();
         var pty = ConPty.Iniciar($"\"{bash}\" --login -i", Pasta, _colunas, _linhas, Ambiente());

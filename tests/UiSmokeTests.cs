@@ -58,8 +58,9 @@ public class UiSmokeTests
     public void Preferencias_monta_com_o_campo_do_git_bash()
     {
         var main = new MainViewModel(new FakeDialogs());
-        var janela = new SettingsWindow(main);
+        var janela = new SettingsWindow(main) { SecaoAberta = "Terminal" };
         janela.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
         // o campo mostra o que o botão Terminal vai abrir, ou o aviso de que não achou
         var textos = janela.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "").ToList();
@@ -76,7 +77,8 @@ public class UiSmokeTests
 
         var lista = janela.GetVisualDescendants().OfType<ListBox>().First();
         var secoes = lista.Items.Cast<string>().ToList();
-        Assert.Equal(new[] { "Aparência", "Geral", "Obter e puxar", "Terminal", "Diff externo", "Contas", "Aplicativo", "Notas da versão" }, secoes);
+        Assert.Equal(new[] { "Aparência", "Geral", "Obter e puxar", "Terminal", "Diff externo", "Contas", "Sobre", "Notas da versão" }, secoes);
+        Assert.Equal(SettingsWindow.Secoes, secoes);
 
         bool Visivel(string rotulo) => janela.GetVisualDescendants().OfType<TextBlock>()
             .Any(t => t.Text == rotulo && t.IsEffectivelyVisible);
@@ -87,8 +89,74 @@ public class UiSmokeTests
         lista.SelectedIndex = secoes.IndexOf("Contas");
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         Assert.True(Visivel("Token de acesso pessoal"));
-        Assert.True(Visivel("CONTAS"));
+        Assert.True(Visivel("Gerenciador de credenciais"));
         Assert.False(Visivel("Tema"));
+        janela.Close();
+    }
+
+    /// <summary>
+    /// Configurações no padrão das do GNotas (EV19): cada seção da lista com o glifo dela, e as
+    /// escolhas curtas (tema, densidade, árvore, aba) em botões lado a lado, não em caixa de seleção.
+    /// </summary>
+    [AvaloniaFact]
+    public void Configuracoes_tem_glifo_nas_secoes_e_opcoes_lado_a_lado()
+    {
+        var janela = new SettingsWindow(new MainViewModel(new FakeDialogs()));
+        janela.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var lista = janela.GetVisualDescendants().OfType<ListBox>().First();
+        var glifos = lista.GetVisualDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("glifo")).ToList();
+        Assert.Equal(SettingsWindow.Secoes.Length, glifos.Count);
+        Assert.All(glifos, g => Assert.False(string.IsNullOrEmpty(g.Text)));
+
+        Assert.Empty(janela.GetVisualDescendants().OfType<ComboBox>());
+        var tema = janela.GetVisualDescendants().OfType<Border>().First(b => b.Classes.Contains("modos"));
+        var botoes = tema.GetVisualDescendants().OfType<Button>().ToList();
+        Assert.Equal(new[] { "Escuro", "Claro" }, botoes.Select(b => b.Content as string));
+        Assert.Single(botoes, b => b.Classes.Contains("ativo"));
+
+        // escolher acende a escolhida e apaga a outra
+        var apagada = botoes.First(b => !b.Classes.Contains("ativo"));
+        apagada.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Assert.True(apagada.Classes.Contains("ativo"));
+        Assert.Single(botoes, b => b.Classes.Contains("ativo"));
+        janela.Close();
+    }
+
+    /// <summary>
+    /// O Sobre das Configurações, como o do GTerm: a versão e um botão só, que procura e, achando
+    /// versão nova, vira o de atualizar (verde). Nada aqui vai à rede: a release é de mentira.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task Sobre_procura_e_o_mesmo_botao_vira_o_de_atualizar()
+    {
+        var main = new MainViewModel(new FakeDialogs())
+        {
+            VersaoDoApp = "1.0.0.10",
+            ProcurarRelease = () => Task.FromResult<GRepos.Services.Release?>(new GRepos.Services.Release { Tag = "1.0.0.11" }),
+        };
+        var janela = new SettingsWindow(main) { SecaoAberta = "Sobre" };
+        janela.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Button Botao() => janela.GetVisualDescendants().OfType<Button>()
+            .First(b => b.Classes.Contains("pilula") && (b.Classes.Contains("azul") || b.Classes.Contains("verde"))
+                        && b.GetVisualDescendants().OfType<TextBlock>().Any(t => (t.Text ?? "").Contains("tualiza")));
+        string Rotulo() => string.Join(" ", Botao().GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+
+        Assert.Contains(janela.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "GRepos 1.0.0.10");
+        Assert.Contains("Procurar atualização", Rotulo());
+        Assert.True(Botao().Classes.Contains("azul"));
+
+        Botao().RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        await Espera.Ate(() => main.TemAtualizacao);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        Assert.Contains("Atualizar para 1.0.0.11", Rotulo());
+        Assert.True(Botao().Classes.Contains("verde"));
+        Assert.Equal("Versão nova: 1.0.0.11.", main.SituacaoDaVersao);
+        Assert.Contains(janela.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Versão nova: 1.0.0.11.");
         janela.Close();
     }
 

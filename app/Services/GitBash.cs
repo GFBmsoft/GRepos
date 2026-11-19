@@ -103,8 +103,8 @@ public static class GitBash
 
         var exe = Localizar(configurado) ?? throw new FileNotFoundException(
             string.IsNullOrWhiteSpace(configurado)
-                ? "Git Bash não encontrado. Informe a pasta do Git em Preferências."
-                : "Git Bash não encontrado em " + configurado.Trim() + ". Confira o caminho em Preferências.");
+                ? "Git Bash não encontrado. Informe a pasta do Git em Configurações → Terminal."
+                : "Git Bash não encontrado em " + configurado.Trim() + ". Confira o caminho em Configurações → Terminal.");
 
         var cheia = Path.GetFullPath(pasta);
         var gitBash = Path.GetFileName(exe).Equals("git-bash.exe", StringComparison.OrdinalIgnoreCase);

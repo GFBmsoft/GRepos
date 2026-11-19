@@ -26,7 +26,7 @@ public sealed partial class PublicarRepoViewModel : ObservableObject
         Dono = Donos[0];
     }
 
-    public string Conta => _usuario.Length > 0 ? _usuario : "a conta das Preferências";
+    public string Conta => _usuario.Length > 0 ? _usuario : "a conta das Configurações";
 
     [ObservableProperty] private string _nome = "";
     [ObservableProperty] private string _descricao = "";

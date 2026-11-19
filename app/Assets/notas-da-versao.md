@@ -1,3 +1,10 @@
+## 1.0.0.69 — 19/11/2026
+- **Atualizar num clique só**: o ícone de atualização na barra de status agora procura a versão nova e, se houver, já pergunta se você quer atualizar. Antes ele só avisava, e era preciso clicar depois no convite ao lado. O convite e o **Procurar atualização** da paleta fazem o mesmo.
+- **Preferências viraram Configurações**, no mesmo visual do GNotas e do GTerm: cada seção da lista tem o seu ícone, a escolhida aparece num cartão, e cada campo traz embaixo uma explicação do que faz. Tema, densidade, estilo da árvore e a aba que abre primeiro viraram botões lado a lado.
+- **Sobre**: nova seção com a versão em uso e um botão que procura atualização. Achando uma versão nova, ele fica verde, como **Atualizar para…**, e o mesmo botão atualiza. O aviso de versão nova e o modo portátil também ficam aqui.
+- **Notas da versão**: a seção mostra todas as versões, uma embaixo da outra, da mais nova para a mais antiga, sem precisar escolher uma por vez.
+- As mensagens que mandavam para "Preferências → Autenticação" agora apontam para o lugar certo: **Configurações → Contas**, **→ Terminal** ou **→ Diff externo**.
+
 ## 1.0.0.68 — 17/11/2026
 - **Estilo retrô nos quadros do perfil**: com o botão direito no cartão, em **Estilo dos quadros**, os quatro quadros viram displays de LEDs, como os de fliperama: **matriz de pontos** (LEDs redondos com a grade apagada atrás), **pontos flutuantes** (sem a grade) ou **OLED** (pixels quadrados). **Clássico** volta ao de antes, e a escolha fica guardada.
 - No retrô, os números passam um de cada vez, cada um entrando com um efeito diferente e um brilho que corre sobre ele; o anel dos dias ativos enche ao abrir, a barra de linguagens cresce e encolhe a cada linguagem, e o ritmo semanal acende aos poucos. Parando o mouse num quadro, a dica diz todos os números de uma vez.

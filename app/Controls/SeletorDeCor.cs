@@ -38,7 +38,7 @@ public sealed class SeletorDeCor : Button
     /// <summary>Uma cor foi escolhida no painel (não dispara quando a cor muda por fora).</summary>
     public event Action<string>? Escolhida;
 
-    /// <summary>Destaques do próprio app, que já eram oferecidos nas Preferências.</summary>
+    /// <summary>Destaques do próprio app, que já eram oferecidos nas Configurações.</summary>
     public static readonly string[] Destaques =
         { "#4F8CFF", "#3FB950", "#F0883E", "#D2A8FF", "#E3B341", "#56D4BC" };
 

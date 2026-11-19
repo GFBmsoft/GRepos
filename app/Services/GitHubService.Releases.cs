@@ -92,7 +92,7 @@ public static partial class GitHubService
     {
         var token = await TokenAsync(usuario);
         if (string.IsNullOrEmpty(token))
-            throw new InvalidOperationException("Nenhum token encontrado. Configure em Preferências → Autenticação.");
+            throw new InvalidOperationException("Nenhum token encontrado. Cadastre em Configurações → Contas.");
 
         var nome = Path.GetFileName(caminho);
         using var req = new HttpRequestMessage(HttpMethod.Post,

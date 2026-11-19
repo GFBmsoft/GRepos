@@ -402,6 +402,67 @@
   <Style Selector="TextBlock.vermelho"><Setter Property="Foreground" Value="{DynamicResource Red}" /></Style>
   <Style Selector="TextBlock.cinza"><Setter Property="Foreground" Value="{DynamicResource TextDim}" /></Style>
 
+  <!-- as seções das Configurações, à esquerda, como as do GNotas e do GTerm: sem fundo, a linha do
+       mouse acende um tom e a escolhida outro, com o glifo na cor de destaque -->
+  <Style Selector="ListBox.secoes ListBoxItem">
+    <Setter Property="Margin" Value="0,0,0,1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="FocusAdorner" Value="{x:Null}" />
+  </Style>
+  <Style Selector="ListBox.secoes ListBoxItem /template/ ContentPresenter">
+    <Setter Property="CornerRadius" Value="6" />
+  </Style>
+  <Style Selector="ListBox.secoes ListBoxItem:selected /template/ ContentPresenter, ListBox.secoes ListBoxItem:selected:pointerover /template/ ContentPresenter, ListBox.secoes ListBoxItem:selected:focus /template/ ContentPresenter, ListBox.secoes ListBoxItem:selected:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BgActive}" />
+  </Style>
+  <Style Selector="ListBox.secoes ListBoxItem TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource Text}" />
+  </Style>
+  <Style Selector="ListBox.secoes ListBoxItem TextBlock.glifo">
+    <Setter Property="Foreground" Value="{DynamicResource TextFaint}" />
+  </Style>
+  <Style Selector="ListBox.secoes ListBoxItem:selected TextBlock.glifo">
+    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+  </Style>
+
+  <!-- o cartão da seção escolhida, um tom acima do fundo da janela (o BgCartao do GNotas) -->
+  <Style Selector="Border.cartaoDaSecao">
+    <Setter Property="Background" Value="{DynamicResource BgRaised}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderSoft}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="ClipToBounds" Value="True" />
+  </Style>
+
+  <!-- opções lado a lado (Escuro | Claro), como o tema nas configurações do GNotas: a escolhida
+       acende o fundo e o texto na cor de destaque -->
+  <Style Selector="Border.modos">
+    <Setter Property="CornerRadius" Value="13" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="1" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <Style Selector="Button.modo">
+    <Setter Property="Height" Value="24" />
+    <Setter Property="Padding" Value="11,0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource TextDim}" />
+  </Style>
+  <Style Selector="Button.modo:pointerover /template/ ContentPresenter, Button.modo:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BgHover}" />
+  </Style>
+  <Style Selector="Button.modo.ativo /template/ ContentPresenter, Button.modo.ativo:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource BgActive}" />
+  </Style>
+  <Style Selector="Button.modo.ativo">
+    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+  </Style>
+
   <!-- menus: cartão arredondado, item em pílula e o glifo na cor da ação (ItemDeMenu) -->
   <Style Selector="MenuFlyoutPresenter, ContextMenu">
     <Setter Property="Background" Value="{DynamicResource BgRaised}" />

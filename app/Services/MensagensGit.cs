@@ -157,7 +157,7 @@ public static class MensagensGit
         if (Tem("Could not resolve host") || Tem("Failed to connect") || Tem("Connection timed out") || Tem("Could not connect"))
             return new Aviso(titulo, "Sem conexão com o servidor. Confira a internet ou a VPN e tente de novo.");
         if (Tem("Authentication failed") || Tem("could not read Username") || Tem("Invalid username or"))
-            return new Aviso(titulo, "O GitHub não aceitou a credencial. Confira o usuário e o token em Preferências → Contas.");
+            return new Aviso(titulo, "O GitHub não aceitou a credencial. Confira o usuário e o token em Configurações → Contas.");
         if (Tem("Permission denied") || Tem("Write access to repository not granted") || Tem("returned error: 403"))
             return new Aviso(titulo, "Sua conta não tem permissão de escrita neste repositório.");
         if (Tem("Repository not found") || Tem("returned error: 404"))

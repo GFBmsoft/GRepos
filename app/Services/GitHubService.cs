@@ -619,7 +619,7 @@ public static partial class GitHubService
             throw new InvalidOperationException(
                 $"GitHub respondeu {(int)resp.StatusCode} ao consultar {oque}." +
                 (resp.StatusCode == System.Net.HttpStatusCode.NotFound
-                    ? " Repositório privado costuma exigir token em Preferências → Autenticação."
+                    ? " Repositório privado costuma exigir token em Configurações → Contas."
                     : ""));
 
         return await resp.Content.ReadAsStringAsync();
@@ -746,7 +746,7 @@ public static partial class GitHubService
         var token = await TokenAsync(usuario);
         if (string.IsNullOrEmpty(token))
             throw new InvalidOperationException(
-                "Nenhum token encontrado. Configure em Preferências → Autenticação.");
+                "Nenhum token encontrado. Cadastre em Configurações → Contas.");
 
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -808,7 +808,7 @@ public static partial class GitHubService
     {
         if (string.IsNullOrWhiteSpace(login))
             throw new InvalidOperationException(
-                "Informe o usuário do GitHub em Preferências → Autenticação.");
+                "Informe o usuário do GitHub em Configurações → Contas.");
 
         login = login.Trim();
         // as duas consultas saem juntas: uma não depende da outra, e em sequência o
@@ -1185,7 +1185,7 @@ public static partial class GitHubService
         var token = await TokenAsync(usuario);
         if (string.IsNullOrEmpty(token))
             throw new InvalidOperationException(
-                "Nenhum token encontrado. Configure em Preferências → Autenticação.");
+                "Nenhum token encontrado. Cadastre em Configurações → Contas.");
 
         using var req = new HttpRequestMessage(metodo, url);
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

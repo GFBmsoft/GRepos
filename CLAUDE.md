@@ -68,7 +68,7 @@ velha. A barra de status mostra a data do executável em uso, justamente para co
 
 **Notas da versão.** Antes de criar a tag `1.0.0.N`, acrescente a versão no topo de
 `app/Assets/notas-da-versao.md` (`## 1.0.0.N — dd/mm/aaaa` e os itens), escrita para quem
-usa o app, não como assunto de commit. É o que aparece em Preferências → Notas da versão;
+usa o app, não como assunto de commit. É o que aparece em Configurações → Notas da versão;
 `NotasDaVersaoTests` falha se o arquivo sair do formato ou da ordem.
 
 ## Regras
@@ -129,6 +129,14 @@ usa o app, não como assunto de commit. É o que aparece em Preferências → No
   use `Assembly.GetEntryAssembly()?.Location` — **vazio** significa arquivo único. Não
   deduza pelo nome do arquivo: o usuário renomeia o .exe, e procurar um ".dll de mesmo
   nome" dava falso positivo em qualquer executável renomeado dentro do `dist`.
+- **Configurações no padrão do GNotas e do GTerm** (a EV19 do GNotas): seções com glifo à esquerda
+  (`ListBox.secoes`) e a escolhida num cartão (`ComposeEmSecoes` com nome, glifo e a função que monta
+  a página na primeira visita); dentro, `Pagina`, `Campo` (nome, controle e `Ajuda` apagada) e
+  `Opcoes` (escolhas curtas lado a lado, no lugar de ComboBox). O Salvar lê os controles, então eles
+  nascem no construtor, não dentro da página. **Atualização é um clique só**, como no GTerm:
+  `AtualizacaoCommand` (ícone e convite da barra, paleta) procura, confere e pergunta; o botão do Sobre
+  procura (`ProcurarAtualizacaoCommand`) e, achando, vira o verde "Atualizar para X". Nos testes,
+  `VersaoDoApp`, `ProcurarRelease`, `PodeTrocar` e `AbrirPagina` trocam a rede e o navegador.
 - O usuário das preferências só serve ao git se chegar em `GitService.CredentialUser`
   (feito no `InitAsync` e no `SetGithubUser`). Sem isso o git procura credencial sem
   conta, não acha o token e abre a janela de login a cada envio.

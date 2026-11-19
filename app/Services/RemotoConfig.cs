@@ -27,12 +27,12 @@ public static class RemotoConfig
         if (modelo.Length == 0) return null;
 
         if (modelo.Contains("{{user}}", StringComparison.OrdinalIgnoreCase) && usuario.Length == 0)
-            throw new GitException("Defina o usuário do GitHub em Preferências → Autenticação.");
+            throw new GitException("Defina o usuário do GitHub em Configurações → Contas.");
 
         var guardado = usuario.Length > 0 ? await GitHubService.TokenDoUsuarioAsync(usuario) : null;
         var usaToken = UrlTemplate.UsaToken(modelo);
         if (usaToken && string.IsNullOrEmpty(guardado))
-            throw new GitException($"Nenhum token salvo para “{usuario}”. Salve em Preferências → Autenticação.");
+            throw new GitException($"Nenhum token salvo para “{usuario}”. Salve em Configurações → Contas.");
 
         var atual = await GitService.RemoteUrlAsync(repo);
         var token = usaToken ? guardado : null;

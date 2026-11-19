@@ -65,7 +65,7 @@ public static partial class GitHubService
         var token = await TokenAsync(usuario);
         if (string.IsNullOrEmpty(token))
             throw new InvalidOperationException(
-                "Baixar artefato exige token, mesmo em repositório público. Configure em Preferências → Autenticação.");
+                "Baixar artefato exige token, mesmo em repositório público. Cadastre em Configurações → Contas.");
 
         var zip = Path.Combine(Path.GetTempPath(), $"grepos-artefato-{artefato.Id}.zip");
         try

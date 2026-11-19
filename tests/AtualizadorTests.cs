@@ -226,3 +226,116 @@ public class AtualizadorTests
         try { Directory.Delete(dir, true); } catch (Exception) { /* pasta temporária */ }
     }
 }
+
+/// <summary>
+/// O clique da barra de status (o ícone e o convite), como no GTerm: um só procura, confere e,
+/// havendo versão nova, pergunta e atualiza. Nada aqui chega à rede, abre o navegador ou baixa.
+/// </summary>
+public class AtualizacaoNumCliqueTests
+{
+    private sealed class Dialogos : GRepos.ViewModels.IDialogService
+    {
+        public System.Collections.Generic.List<string> Perguntas { get; } = new();
+        public System.Threading.Tasks.Task<bool> ConfirmAsync(string t, string m)
+        {
+            Perguntas.Add(m);
+            return System.Threading.Tasks.Task.FromResult(false); // desiste: nada é baixado
+        }
+        public System.Threading.Tasks.Task<string?> PickFolderAsync(string t) => System.Threading.Tasks.Task.FromResult<string?>(null);
+        public System.Threading.Tasks.Task<string?> PromptAsync(string t, string l, string i = "") => System.Threading.Tasks.Task.FromResult<string?>(null);
+        public System.Threading.Tasks.Task<(string Nome, string Cor)?> ShowGroupAsync(string t, string n, string c) => System.Threading.Tasks.Task.FromResult<(string, string)?>(null);
+        public System.Threading.Tasks.Task ShowAddRepoAsync(GRepos.ViewModels.MainViewModel m) => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowRepoConfigAsync(GRepos.ViewModels.MainViewModel m, GRepos.Models.Repo r) => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowSettingsAsync(GRepos.ViewModels.MainViewModel m) => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowBranchesAsync(GRepos.ViewModels.MainViewModel m, GRepos.Models.Repo r) => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowEsteiraAsync(string s, string b, string u, string n, int v) => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowNovidadesAsync() => System.Threading.Tasks.Task.CompletedTask;
+        public System.Threading.Tasks.Task ShowStashAsync(GRepos.ViewModels.MainViewModel m, GRepos.Models.Repo r) => System.Threading.Tasks.Task.CompletedTask;
+    }
+
+    private static (GRepos.ViewModels.MainViewModel Main, Dialogos Dialogos, System.Collections.Generic.List<string> Paginas) Montar(
+        Release? release, bool podeTrocar = true)
+    {
+        var dialogos = new Dialogos();
+        var paginas = new System.Collections.Generic.List<string>();
+        var main = new GRepos.ViewModels.MainViewModel(dialogos)
+        {
+            VersaoDoApp = "1.0.0.10",
+            ProcurarRelease = () => System.Threading.Tasks.Task.FromResult(release),
+            PodeTrocar = _ => podeTrocar,
+            AbrirPagina = paginas.Add,
+        };
+        return (main, dialogos, paginas);
+    }
+
+    private static Release ReleaseNova() => new()
+    {
+        Tag = "1.0.0.11",
+        Url = "https://github.com/GFBmsoft/GRepos/releases/tag/1.0.0.11",
+        Arquivos = { new ReleaseAsset { Nome = "GRepos-1.0.0.11-standalone.exe", Tamanho = 115 * 1024 * 1024, Url = "https://exemplo/x.exe" } },
+    };
+
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public async System.Threading.Tasks.Task Com_versao_nova_um_clique_procura_e_ja_pergunta_se_atualiza()
+    {
+        var (main, dialogos, paginas) = Montar(ReleaseNova());
+        Assert.False(main.TemAtualizacao); // ninguém tinha procurado ainda
+
+        await main.AtualizacaoCommand.ExecuteAsync(null);
+
+        Assert.Equal("1.0.0.11", main.AtualizacaoTag);
+        var pergunta = Assert.Single(dialogos.Perguntas);
+        Assert.Contains("Baixar a versão 1.0.0.11 (115 MB)", pergunta);
+        Assert.Empty(paginas);
+        Assert.False(main.Atualizando); // desistiu na pergunta: o convite continua na barra
+        Assert.Equal("Atualização 1.0.0.11 disponível", main.AtualizacaoAviso);
+    }
+
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public async System.Threading.Tasks.Task Em_dia_o_clique_diz_e_nao_pergunta_nada()
+    {
+        var (main, dialogos, paginas) = Montar(new Release { Tag = "1.0.0.10" });
+
+        await main.AtualizacaoCommand.ExecuteAsync(null);
+
+        Assert.False(main.TemAtualizacao);
+        Assert.Equal("Em dia: é a versão mais nova.", main.SituacaoDaVersao);
+        Assert.Empty(dialogos.Perguntas);
+        Assert.Empty(paginas);
+    }
+
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public async System.Threading.Tasks.Task Build_de_pasta_abre_a_pagina_da_release_em_vez_de_trocar()
+    {
+        var (main, dialogos, paginas) = Montar(ReleaseNova(), podeTrocar: false);
+
+        await main.AtualizacaoCommand.ExecuteAsync(null);
+
+        Assert.Empty(dialogos.Perguntas);
+        Assert.Equal(new[] { "https://github.com/GFBmsoft/GRepos/releases/tag/1.0.0.11" }, paginas);
+    }
+
+    [Avalonia.Headless.XUnit.AvaloniaFact]
+    public async System.Threading.Tasks.Task Versao_que_sumiu_tira_o_convite_da_barra()
+    {
+        var release = ReleaseNova();
+        var dialogos = new Dialogos();
+        var main = new GRepos.ViewModels.MainViewModel(dialogos)
+        {
+            VersaoDoApp = "1.0.0.10",
+            ProcurarRelease = () => System.Threading.Tasks.Task.FromResult<Release?>(release),
+            PodeTrocar = _ => true,
+            AbrirPagina = _ => { },
+        };
+        await main.ProcurarAtualizacaoCommand.ExecuteAsync(null);
+        Assert.True(main.TemAtualizacao);
+        Assert.Equal("Atualizar para 1.0.0.11", main.RotuloDeAtualizar);
+
+        // a release foi retirada (ou esta já é a mais nova): a procura seguinte apaga o convite
+        release = new Release { Tag = "1.0.0.10" };
+        await main.ProcurarAtualizacaoCommand.ExecuteAsync(null);
+        Assert.False(main.TemAtualizacao);
+        Assert.Equal("Procurar atualização", main.RotuloDeAtualizar);
+        Assert.Equal("Em dia: é a versão mais nova.", main.SituacaoDaVersao);
+    }
+}

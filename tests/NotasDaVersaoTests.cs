@@ -12,7 +12,7 @@ using Xunit;
 
 namespace GRepos.Tests;
 
-/// <summary>Notas da versão: o formato do arquivo, o que vai embutido e a seção das Preferências.</summary>
+/// <summary>Notas da versão: o formato do arquivo, o que vai embutido e a seção das Configurações.</summary>
 public class NotasDaVersaoTests
 {
     [Fact]
@@ -75,27 +75,30 @@ public class NotasDaVersaoTests
         public System.Threading.Tasks.Task ShowStashAsync(MainViewModel m, Repo r) => System.Threading.Tasks.Task.CompletedTask;
     }
 
+    /// <summary>
+    /// A seção das notas mostra todas as versões em sequência, da mais nova para a mais antiga,
+    /// como o Sobre do GNotas: cada uma com o título dela e os itens embaixo.
+    /// </summary>
     [AvaloniaFact]
-    public void Secao_das_preferencias_troca_a_nota_com_a_versao()
+    public void Secao_das_configuracoes_mostra_todas_as_versoes_em_sequencia()
     {
         var janela = new SettingsWindow(new MainViewModel(new FakeDialogs()));
         janela.Show();
-
-        var lista = janela.GetVisualDescendants().OfType<ListBox>().First();
-        lista.SelectedIndex = lista.Items.Cast<string>().ToList().IndexOf("Notas da versão");
+        janela.SecaoAberta = "Notas da versão";
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
         var notas = NotasDaVersao.Carregar();
-        var versoes = janela.GetVisualDescendants().OfType<ComboBox>()
-            .First(c => c.Items.Cast<string>().FirstOrDefault() == notas[0].Rotulo);
-        var texto = janela.GetVisualDescendants().OfType<MarkdownView>().First();
+        var texto = janela.GetVisualDescendants().OfType<MarkdownView>().Single();
         Assert.True(texto.IsEffectivelyVisible);
-        Assert.Equal(notas[versoes.SelectedIndex].Notas, texto.Markdown);
 
-        versoes.SelectedIndex = notas.Count - 1;
-        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
-        Assert.Equal(notas[^1].Notas, texto.Markdown);
+        var mais = texto.Markdown.IndexOf("### " + notas[0].Rotulo, StringComparison.Ordinal);
+        var menos = texto.Markdown.IndexOf("### " + notas[^1].Rotulo, StringComparison.Ordinal);
+        Assert.True(mais >= 0 && menos > mais, "a mais nova primeiro, a mais antiga no fim");
+        Assert.Contains(notas[0].Notas, texto.Markdown);
         Assert.Contains("Primeira versão publicada", texto.Markdown);
+
+        // desenhada de verdade: as versões todas, uma embaixo da outra, passam de muitas telas
+        Assert.True(texto.Bounds.Height > 2000, $"altura das notas: {texto.Bounds.Height}");
         janela.Close();
     }
 }

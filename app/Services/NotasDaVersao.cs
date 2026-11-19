@@ -65,7 +65,7 @@ public static class NotasDaVersao
         }
         catch (Exception)
         {
-            return new List<NotaDaVersao>(); // a seção mostra "sem notas" em vez de derrubar as Preferências
+            return new List<NotaDaVersao>(); // a seção mostra "sem notas" em vez de derrubar as Configurações
         }
     }
 

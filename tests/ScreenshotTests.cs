@@ -463,7 +463,39 @@ public class ScreenshotTests
         confirmar.Close();
     }
 
-    /// <summary>Preferências na seção das notas: a versão escolhida e o que mudou nela.</summary>
+    /// <summary>
+    /// Cada seção das Configurações, no padrão das do GNotas (EV19), no escuro e no claro. O Sobre
+    /// aparece com uma versão nova achada: o botão verde de atualizar e o que a procura disse.
+    /// </summary>
+    [AvaloniaFact]
+    public void Configuracoes_em_cada_secao()
+    {
+        var app = Avalonia.Application.Current!;
+        var antes = app.RequestedThemeVariant;
+        try
+        {
+            foreach (var (tema, sufixo) in new[] { (Avalonia.Styling.ThemeVariant.Dark, ""), (Avalonia.Styling.ThemeVariant.Light, "-claro") })
+            {
+                app.RequestedThemeVariant = tema;
+                foreach (var secao in SettingsWindow.Secoes)
+                {
+                    var main = new MainViewModel(new FakeDialogs()) { VersaoDoApp = "1.0.0.68" };
+                    main.AtualizacaoTag = "1.0.0.69";
+                    main.SituacaoDaVersao = "Versão nova: 1.0.0.69.";
+                    var janela = new SettingsWindow(main) { SecaoAberta = secao };
+                    var nome = secao.ToLowerInvariant().Replace(' ', '-').Replace("ê", "e").Replace("õ", "o").Replace("ã", "a");
+                    ShotJanela(janela, "configuracoes-" + nome + sufixo, 800, 600);
+                    janela.Close();
+                }
+            }
+        }
+        finally
+        {
+            app.RequestedThemeVariant = antes;
+        }
+    }
+
+    /// <summary>Configurações na seção das notas: todas as versões, da mais nova para a mais antiga.</summary>
     [AvaloniaFact]
     public void Preferencias_na_secao_de_notas_da_versao()
     {
@@ -473,11 +505,11 @@ public class ScreenshotTests
         lista.SelectedIndex = lista.Items.Cast<string>().ToList().IndexOf("Notas da versão");
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
-        ShotJanela(janela, "preferencias-notas", 720, 560);
+        ShotJanela(janela, "preferencias-notas", 800, 600);
     }
 
     /// <summary>
-    /// Preferências com grupos: são as linhas de grupo, com botões encostados à direita,
+    /// Configurações com grupos: são as linhas de grupo, com botões encostados à direita,
     /// que denunciam a barra de rolagem passando por cima do conteúdo.
     /// </summary>
     [AvaloniaFact]
@@ -496,7 +528,7 @@ public class ScreenshotTests
             // duas contas: a lista de contas é o que a seção de autenticação desenha
             var contaAntes = GitService.CredentialUser;
             main.SetContas(new[] { "GFBmsoft", "bmsoftsistemas" }, "GFBmsoft");
-            try {             ShotJanela(new SettingsWindow(main), "preferencias", 720, 560); }
+            try {             ShotJanela(new SettingsWindow(main), "preferencias", 800, 600); }
             finally { GitService.CredentialUser = contaAntes; }
         }
         finally

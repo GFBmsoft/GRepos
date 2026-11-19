@@ -130,8 +130,8 @@ public static class DiffExterno
     {
         var exe = Localizar(configurado) ?? throw new FileNotFoundException(
             string.IsNullOrWhiteSpace(configurado)
-                ? "Nenhuma ferramenta de diff configurada. Informe a pasta de instalação em Preferências → Diff externo."
-                : "Ferramenta de diff não encontrada em " + configurado.Trim() + ". Confira o caminho em Preferências.");
+                ? "Nenhuma ferramenta de diff configurada. Informe a pasta de instalação em Configurações → Diff externo."
+                : "Ferramenta de diff não encontrada em " + configurado.Trim() + ". Confira o caminho em Configurações → Diff externo.");
 
         LimparAntigos();
         var pasta = Path.Combine(PastaTemporaria, Path.GetRandomFileName());

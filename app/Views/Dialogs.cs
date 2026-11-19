@@ -207,91 +207,148 @@ public abstract class DialogWindow : Window
     }
 
     /// <summary>
-    /// Diálogo com muitos campos: a lista de seções fica à esquerda e só a escolhida
-    /// aparece à direita. As outras continuam montadas (só escondidas), então o que foi
-    /// digitado numa seção não se perde ao visitar outra, e o Salvar lê todas.
+    /// Diálogo com muitos campos, no padrão das configurações do GNotas (a EV19 dele): as seções
+    /// numa lista à esquerda, cada uma com o seu glifo, e a escolhida num cartão à direita, com
+    /// o título dela no alto. Cada página é montada na primeira visita e guardada: o que foi
+    /// digitado numa seção não se perde ao visitar outra, e o Salvar lê os controles, que já
+    /// existem antes de a seção deles ser aberta.
     /// </summary>
-    protected void ComposeEmSecoes(string heading, IReadOnlyList<(string Nome, IEnumerable<Control> Corpo)> secoes,
+    protected ListBox ComposeEmSecoes(IReadOnlyList<(string Nome, string Glifo, Func<Control> Pagina)> secoes,
         IEnumerable<Control> footer)
     {
-        var titulo = new TextBlock
-        {
-            Text = heading,
-            FontSize = 14.5,
-            FontWeight = FontWeight.SemiBold,
-            Margin = new Thickness(0, 0, 0, 12),
-        };
-
+        var nomes = secoes.Select(s => s.Nome).ToList();
         var lista = new ListBox
         {
-            ItemsSource = secoes.Select(s => s.Nome).ToList(),
-            Background = Brushes.Transparent,
-            Margin = new Thickness(0, 0, 14, 0),
-            // a densidade compacta das listas do app deixaria os nomes colados
-            ItemTemplate = new FuncDataTemplate<string>((nome, _) =>
-                new TextBlock { Text = nome, FontSize = 12.5, Margin = new Thickness(8, 5) }),
+            Classes = { "secoes" },
+            ItemsSource = nomes,
+            Margin = new Thickness(0, 6, 10, 0),
+            ItemTemplate = new FuncDataTemplate<string>((nome, _) => new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                Height = 30,
+                Margin = new Thickness(10, 0),
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = secoes[Math.Max(0, nomes.IndexOf(nome))].Glifo,
+                        Classes = { "glifo" },
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
+                    new TextBlock { Text = nome, FontSize = 13, VerticalAlignment = VerticalAlignment.Center },
+                },
+            }),
         };
 
-        var nomeDaSecao = Secao("", primeira: true);
-        var paineis = new Panel();
-        foreach (var (_, corpo) in secoes)
-        {
-            var painel = new StackPanel { Spacing = 0, IsVisible = false };
-            foreach (var c in corpo) painel.Children.Add(c);
-            paineis.Children.Add(painel);
-        }
-
-        var rolagem = new ScrollViewer
+        var conteudo = new ScrollViewer
         {
             AllowAutoHide = false,
             VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-            Padding = new Thickness(0, 0, FolgaDaBarra, 0),
-            Content = paineis,
         };
+        var montadas = new Dictionary<int, Control>();
 
         lista.SelectionChanged += (_, _) =>
         {
             var escolhida = Math.Max(0, lista.SelectedIndex);
-            for (var i = 0; i < paineis.Children.Count; i++) paineis.Children[i].IsVisible = i == escolhida;
-            nomeDaSecao.Text = secoes[escolhida].Nome.ToUpperInvariant();
-            rolagem.Offset = default; // seção nova começa do topo, não onde a anterior parou
+            if (!montadas.TryGetValue(escolhida, out var pagina))
+                montadas[escolhida] = pagina = secoes[escolhida].Pagina();
+            conteudo.Content = pagina;
+            conteudo.Offset = default; // seção nova começa do topo, não onde a anterior parou
         };
-        lista.SelectedIndex = 0;
+
+        var cartao = new Border { Classes = { "cartaoDaSecao" }, Child = conteudo };
 
         var foot = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
             Spacing = 8,
-            Margin = new Thickness(0, 14, 0, 0),
+            Margin = new Thickness(0, 10, 0, 0),
         };
         foreach (var c in footer) foot.Children.Add(c);
 
-        var separador = new Border { Width = 1, Margin = new Thickness(0, 0, 14, 0) };
-        separador.Bind(Border.BackgroundProperty, new DynamicResourceExtension("Border"));
-
         var grade = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("170,Auto,*"),
-            RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("190,*"),
+            RowDefinitions = new RowDefinitions("*,Auto"),
+            Margin = new Thickness(10, 10, 12, 12),
         };
-        void Por(Control c, int linha, int coluna, int linhas = 1, int colunas = 1)
-        {
-            Grid.SetRow(c, linha);
-            Grid.SetColumn(c, coluna);
-            Grid.SetRowSpan(c, linhas);
-            Grid.SetColumnSpan(c, colunas);
-            grade.Children.Add(c);
-        }
-        Por(titulo, 0, 0, colunas: 3);
-        Por(lista, 1, 0, linhas: 2);
-        Por(separador, 1, 1, linhas: 2);
-        Por(nomeDaSecao, 1, 2);
-        Por(rolagem, 2, 2);
-        Por(foot, 3, 0, colunas: 3);
+        Grid.SetColumn(cartao, 1);
+        Grid.SetRow(foot, 1);
+        Grid.SetColumnSpan(foot, 2);
+        grade.Children.Add(lista);
+        grade.Children.Add(cartao);
+        grade.Children.Add(foot);
+        Content = grade;
 
-        Content = new Border { Padding = new Thickness(16), Child = grade };
+        lista.SelectedIndex = 0;
+        return lista;
+    }
+
+    // ------------------------------------------------ as peças das seções, como as do GNotas
+
+    /// <summary>Uma página de seção: o título grande no alto e os campos com respiro entre eles.</summary>
+    protected static StackPanel Pagina(string titulo, params Control[] filhos)
+    {
+        var p = new StackPanel { Spacing = 20, Margin = new Thickness(26, 22, 26, 26) };
+        p.Children.Add(new TextBlock
+        {
+            Text = titulo,
+            FontSize = 17,
+            FontWeight = FontWeight.SemiBold,
+            Margin = new Thickness(0, 0, 0, 6),
+        });
+        foreach (var f in filhos) p.Children.Add(f);
+        return p;
+    }
+
+    /// <summary>Um campo: o nome em negrito, o controle e, embaixo, a explicação (apagada).</summary>
+    protected static StackPanel Campo(string nome, Control controle, string? ajuda = null)
+    {
+        var p = new StackPanel { Spacing = 8 };
+        p.Children.Add(new TextBlock { Text = nome, FontSize = 13, FontWeight = FontWeight.SemiBold });
+        p.Children.Add(controle);
+        if (ajuda is not null) p.Children.Add(Ajuda(ajuda));
+        return p;
+    }
+
+    /// <summary>A explicação de um campo: apagada, e sem passar de uma largura que se leia bem.</summary>
+    protected static TextBlock Ajuda(string texto) => new()
+    {
+        Text = texto,
+        FontSize = 11.5,
+        TextWrapping = TextWrapping.Wrap,
+        MaxWidth = 560,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Classes = { "faint" },
+    };
+
+    /// <summary>
+    /// Opções lado a lado numa pílula (Escuro | Claro), como o tema nas configurações do GNotas.
+    /// Escolher uma acende ela e chama <paramref name="escolher"/> com a posição.
+    /// </summary>
+    protected static Border Opcoes(IReadOnlyList<string> textos, int atual, Action<int> escolher)
+    {
+        var sp = new StackPanel { Orientation = Orientation.Horizontal };
+        void Marcar(int escolhida)
+        {
+            for (var i = 0; i < sp.Children.Count; i++) sp.Children[i].Classes.Set("ativo", i == escolhida);
+        }
+        for (var i = 0; i < textos.Count; i++)
+        {
+            var indice = i;
+            var b = new Button { Classes = { "modo" }, Content = textos[i] };
+            b.Click += (_, _) =>
+            {
+                Marcar(indice);
+                escolher(indice);
+            };
+            sp.Children.Add(b);
+        }
+        Marcar(atual);
+        return new Border { Classes = { "modos" }, Child = sp };
     }
 }
 
@@ -801,7 +858,7 @@ public sealed class RepoConfigWindow : DialogWindow
         void AtualizarPrevia()
         {
             dicaUrl.Text = "{{user}} vira " +
-                (usuarioConta.Length > 0 ? $"“{usuarioConta}”" : "o usuário de Preferências → Autenticação") +
+                (usuarioConta.Length > 0 ? $"“{usuarioConta}”" : "o usuário de Configurações → Contas") +
                 ". O token não vai no link.";
             var texto = RemotoConfig.Previa(remotoAtual, urlBox.Text, usuarioConta);
             previa.Text = texto ?? "";
@@ -812,14 +869,14 @@ public sealed class RepoConfigWindow : DialogWindow
         {
             if (usuarioConta.Length == 0)
             {
-                autenticacao.Text = "✗ Nenhuma conta do GitHub em Preferências → Autenticação.";
+                autenticacao.Text = "✗ Nenhuma conta do GitHub em Configurações → Contas.";
                 return;
             }
 
             var temToken = !string.IsNullOrEmpty(await GitHubService.TokenDoUsuarioAsync(usuarioConta));
             autenticacao.Text = temToken
                 ? $"✓ O git usa o token da conta “{usuarioConta}”, guardado no Windows."
-                : $"✗ Nenhum token salvo para “{usuarioConta}”. Salve em Preferências → Autenticação.";
+                : $"✗ Nenhum token salvo para “{usuarioConta}”. Salve em Configurações → Contas.";
         }
 
         conta.SelectionChanged += async (_, _) =>
@@ -912,45 +969,48 @@ public sealed class SettingsWindow : DialogWindow
     private static readonly string[] Accents =
         { "#4F8CFF", "#3FB950", "#F0883E", "#D2A8FF", "#E3B341", "#56D4BC" };
 
-    public SettingsWindow(MainViewModel main) : base("Preferências", 720)
+    /// <summary>As seções, na ordem da lista à esquerda (os testes conferem por aqui).</summary>
+    public static readonly string[] Secoes =
+        { "Aparência", "Geral", "Obter e puxar", "Terminal", "Diff externo", "Contas", "Sobre", "Notas da versão" };
+
+    private readonly ListBox _lista;
+
+    /// <summary>A seção aberta (os testes trocam por aqui).</summary>
+    public string? SecaoAberta
+    {
+        get => _lista.SelectedItem as string;
+        set => _lista.SelectedItem = value;
+    }
+
+    /// <summary>
+    /// As configurações, no padrão das do GNotas e do GTerm: as seções à esquerda e a escolhida
+    /// num cartão. A versão, a procura de atualização e onde ficam as configurações estão no Sobre.
+    /// </summary>
+    public SettingsWindow(MainViewModel main) : base("Configurações", 800)
     {
         // são muitos campos: ficam separados por seção, com a lista à esquerda. A janela abre num
         // tamanho confortável e o usuário estica se quiser ver mais de uma vez
         SizeToContent = SizeToContent.Manual;
         CanResize = true;
-        Height = 560;
-        MinWidth = 600;
-        MinHeight = 420;
+        Height = 600;
+        MinWidth = 660;
+        MinHeight = 440;
         MaxHeight = double.PositiveInfinity;
 
         var s = main.Settings;
 
-        var theme = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "Escuro", "Claro" },
-            SelectedIndex = s.Theme == "light" ? 1 : 0,
-        };
-        var density = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "Compacta", "Confortável" },
-            SelectedIndex = s.Density == "confortavel" ? 1 : 0,
-        };
-        var estiloArvore = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "Minimalista", "Pílulas" },
-            SelectedIndex = s.ArvoreMinimalista ? 0 : 1,
-        };
-        var abaInicial = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = new[] { "Alterações", "Histórico" },
-            SelectedIndex = s.DefaultTab == "historico" ? 1 : 0,
-        };
-        var refresh = new NumericUpDown { Minimum = 0, Maximum = 3600, Value = s.AutoRefreshSeconds, Increment = 10 };
-        var esteiras = new NumericUpDown { Minimum = 1, Maximum = 50, Value = s.EsteirasVisiveis, Increment = 1 };
+        // as escolhas de botões lado a lado guardam a posição; o Salvar lê daqui
+        var temaEscolhido = s.Theme == "light" ? 1 : 0;
+        var densidadeEscolhida = s.Density == "confortavel" ? 1 : 0;
+        var arvoreEscolhida = s.ArvoreMinimalista ? 0 : 1;
+        var abaEscolhida = s.DefaultTab == "historico" ? 1 : 0;
+        var theme = Opcoes(new[] { "Escuro", "Claro" }, temaEscolhido, i => temaEscolhido = i);
+        var density = Opcoes(new[] { "Compacta", "Confortável" }, densidadeEscolhida, i => densidadeEscolhida = i);
+        var estiloArvore = Opcoes(new[] { "Minimalista", "Pílulas" }, arvoreEscolhida, i => arvoreEscolhida = i);
+        var abaInicial = Opcoes(new[] { "Alterações", "Histórico" }, abaEscolhida, i => abaEscolhida = i);
+
+        var refresh = new NumericUpDown { Minimum = 0, Maximum = 3600, Value = s.AutoRefreshSeconds, Increment = 10, Width = 150, HorizontalAlignment = HorizontalAlignment.Left };
+        var esteiras = new NumericUpDown { Minimum = 1, Maximum = 50, Value = s.EsteirasVisiveis, Increment = 1, Width = 150, HorizontalAlignment = HorizontalAlignment.Left };
         var todasAsTags = new CheckBox
         {
             Content = "Trazer todas as tags do remoto",
@@ -967,48 +1027,65 @@ public sealed class SettingsWindow : DialogWindow
             IsChecked = s.AvisarAtualizacao,
         };
 
-        // Sem isto, quem abriu o app minutos antes de sair uma release ficava 24h sem
-        // saber: a consulta é uma por dia e não havia como pedir outra.
-        var procurar = BtnDiscreto("Procurar agora");
-        var resultadoBusca = new TextBlock
+        // procurar e, achando versão nova, atualizar: o mesmo botão, como no GTerm. Quem atualiza é
+        // o comando do convite da barra de status, que procura de novo, pergunta e baixa; a janela
+        // fecha antes, porque atualizar reinicia o aplicativo
+        var botaoDaVersao = new Button { Classes = { "pilula", "azul" }, HorizontalAlignment = HorizontalAlignment.Left };
+        var situacaoDaVersao = new TextBlock
         {
             FontSize = 11.5,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 12), // senão "Grupos" cola no texto
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 0, 0),
             Classes = { "faint" },
-            Text = MainViewModel.VersaoEmUso.Length > 0
-                ? "Consultado uma vez por dia."
-                : "Build local não tem versão para comparar — o aviso fica desligado.",
         };
 
-        procurar.Click += async (_, _) =>
+        void MostrarVersao()
         {
-            try
+            var nova = main.TemAtualizacao;
+            botaoDaVersao.Classes.Set("azul", !nova);
+            botaoDaVersao.Classes.Set("verde", nova);
+            botaoDaVersao.IsEnabled = main.VersaoDoApp.Length > 0 && !main.VerificandoAtualizacao && !main.Atualizando;
+            botaoDaVersao.Content = new StackPanel
             {
-                procurar.IsEnabled = false;
-                resultadoBusca.Text = "Consultando…";
-                await main.VerificarAtualizacaoAsync(forcar: true);
-                resultadoBusca.Text = main.TemAtualizacao
-                    ? $"Versão {main.AtualizacaoTag} disponível — o aviso está na barra de status."
-                    : "Você já está na versão mais recente.";
-            }
-            catch (Exception ex)
+                Classes = { "comIcone" },
+                Children =
+                {
+                    new TextBlock { Classes = { "glifo" }, Text = nova ? Glifos.Instalar : Glifos.Atualizar },
+                    new TextBlock { Text = main.RotuloDeAtualizar },
+                },
+            };
+            situacaoDaVersao.Text = main.VersaoDoApp.Length == 0
+                ? "Build local, sem versão: não há com o que comparar."
+                : main.SituacaoDaVersao;
+        }
+
+        void VersaoMudou(object? _, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(MainViewModel.SituacaoDaVersao) or nameof(MainViewModel.RotuloDeAtualizar)
+                or nameof(MainViewModel.VerificandoAtualizacao) or nameof(MainViewModel.Atualizando))
+                MostrarVersao();
+        }
+
+        MostrarVersao();
+        main.PropertyChanged += VersaoMudou;
+        Closed += (_, _) => main.PropertyChanged -= VersaoMudou;
+
+        botaoDaVersao.Click += (_, _) =>
+        {
+            if (!main.TemAtualizacao)
             {
-                resultadoBusca.Text = ex.Message;
+                main.ProcurarAtualizacaoCommand.Execute(null);
+                return;
             }
-            finally
-            {
-                procurar.IsEnabled = true;
-            }
+            Close();
+            main.AtualizacaoCommand.Execute(null);
         };
 
-        var linhaAtualizacao = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Spacing = 10,
-            Margin = new Thickness(0, 6, 0, 0),
-            Children = { procurar },
-        };
+        var linhaDaVersao = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        Grid.SetColumn(situacaoDaVersao, 1);
+        linhaDaVersao.Children.Add(botaoDaVersao);
+        linhaDaVersao.Children.Add(situacaoDaVersao);
 
         // ------------------------------------------------ onde ficam as configurações
 
@@ -1021,7 +1098,6 @@ public sealed class SettingsWindow : DialogWindow
         {
             FontSize = 11.5,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 4, 0, 12),
             Classes = { "faint" },
         };
 
@@ -1031,7 +1107,6 @@ public sealed class SettingsWindow : DialogWindow
         {
             FontSize = 11.5,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 4, 0, 12),
             Foreground = new SolidColorBrush(Color.Parse("#E5534B")),
             IsVisible = false,
         };
@@ -1068,7 +1143,7 @@ public sealed class SettingsWindow : DialogWindow
 
             MostrarOndeFica();
         };
-        var logLimit = new NumericUpDown { Minimum = 50, Maximum = 5000, Value = s.LogLimit, Increment = 50 };
+        var logLimit = new NumericUpDown { Minimum = 50, Maximum = 5000, Value = s.LogLimit, Increment = 50, Width = 150, HorizontalAlignment = HorizontalAlignment.Left };
 
         // ------------------------------------------------------------ terminal
 
@@ -1294,7 +1369,7 @@ public sealed class SettingsWindow : DialogWindow
             PasswordChar = '●',
             Watermark = "cole aqui o personal access token",
         };
-        var contasPanel = new StackPanel { Spacing = 2, Margin = new Thickness(0, 0, 0, 10) };
+        var contasPanel = new StackPanel { Spacing = 2 };
         var situacao = new TextBlock
         {
             FontSize = 11.5,
@@ -1517,109 +1592,113 @@ public sealed class SettingsWindow : DialogWindow
             main.SetAvisarAtualizacao(avisarAtualizacao.IsChecked == true);
             main.BuscarTodasAsTags = todasAsTags.IsChecked == true;
             main.SincronizarTodasAsBranches = todasAsBranches.IsChecked == true;
-            main.SetArvoreMinimalista(estiloArvore.SelectedIndex == 0);
+            main.SetArvoreMinimalista(arvoreEscolhida == 0);
             main.SetEsteirasVisiveis((int)(esteiras.Value ?? 6));
             main.SetGitBashPath(gitBash.Text ?? "");
             main.SetDiffExterno(diffExterno.Text ?? "", diffArgs.Text ?? "");
             main.ApplySettings(
-                theme.SelectedIndex == 1 ? "light" : "dark",
+                temaEscolhido == 1 ? "light" : "dark",
                 accent,
-                density.SelectedIndex == 1 ? "confortavel" : "compacta",
+                densidadeEscolhida == 1 ? "confortavel" : "compacta",
                 (int)(refresh.Value ?? 60),
                 (int)(logLimit.Value ?? 300),
-                abaInicial.SelectedIndex == 1 ? "historico" : "alteracoes");
+                abaEscolhida == 1 ? "historico" : "alteracoes");
             Close();
         };
 
-        var aparencia = new List<Control>
+        gitBashUsado.Margin = new Thickness(0);
+        diffUsado.Margin = new Thickness(0);
+
+        var temGrupos = groupsPanel.Children.Count > 0;
+        Control PaginaDaAparencia() => Pagina("Aparência", new Control?[]
         {
-            Field("Tema", theme),
-            Field("Cor de destaque", linhaDestaque),
-            Field("Densidade das listas", density),
-            Field("Estilo da árvore", estiloArvore),
-        };
-        if (groupsPanel.Children.Count > 0) aparencia.Add(Field("Grupos", groupsPanel));
+            Campo("Tema", theme),
+            Campo("Cor de destaque", linhaDestaque,
+                "Os botões acesos, a seleção e os destaques. Digite o código, escolha na paleta ou numa bolinha."),
+            Campo("Densidade das listas", density),
+            Campo("Estilo da árvore", estiloArvore,
+                "Minimalista: a seta, o ponto e o nome na cor do grupo. Pílulas: o grupo numa pílula colorida."),
+            temGrupos
+                ? Campo("Grupos", groupsPanel,
+                    "A amostra de cada linha troca a cor do grupo. Excluir tira só o grupo: os subgrupos e os repositórios dele sobem um nível.")
+                : null,
+        }.OfType<Control>().ToArray());
 
-        var campoDiff = Field("Pasta de instalação (ou caminho do .exe)", linhaDiff);
-        campoDiff.Margin = new Thickness(0);
+        Control PaginaGeral() => Pagina("Geral",
+            Campo("Abrir o repositório em", abaInicial, "A aba que aparece ao escolher um repositório na árvore."),
+            Campo("Atualizar o status sozinho", refresh, "A cada quantos segundos; 0 desliga."),
+            Campo("Commits carregados no histórico", logLimit),
+            Campo("Execuções mostradas na esteira", esteiras));
 
-        // ------------------------------------------------------ notas da versão
+        Control PaginaObterEPuxar() => Pagina("Obter e puxar",
+            Campo("Ao obter e puxar", new StackPanel { Spacing = 6, Children = { todasAsTags, todasAsBranches } },
+                "A branch atual e as que têm commit só seu nunca são mexidas: as locais só avançam quando estão apenas " +
+                "atrás da remota. As mesmas opções ficam no clique direito de Obter e Puxar."));
 
-        var notas = NotasDaVersao.Carregar();
-        var textoDaNota = new MarkdownView();
-        var versoes = new ComboBox
-        {
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            ItemsSource = notas.Select(n => n.Rotulo).ToList(),
-        };
-        versoes.SelectionChanged += (_, _) =>
-            textoDaNota.Markdown = versoes.SelectedIndex >= 0 ? notas[versoes.SelectedIndex].Notas : "";
-        // abre na versão em uso: é a pergunta de quem acabou de atualizar
-        if (notas.Count > 0) versoes.SelectedIndex = NotasDaVersao.IndiceDa(notas, MainViewModel.VersaoEmUso);
+        Control PaginaDoTerminal() => Pagina("Terminal",
+            Campo("Git Bash", new StackPanel { Spacing = 6, Children = { linhaGitBash, gitBashUsado } },
+                "A pasta de instalação do Git ou o caminho do git-bash.exe. Vazio, o GRepos procura sozinho."));
 
-        var secoes = new List<(string, IEnumerable<Control>)>
-        {
-            ("Aparência", aparencia),
-            ("Geral", new Control[]
+        Control PaginaDoDiff() => Pagina("Diff externo",
+            Campo("Ferramenta", new StackPanel { Spacing = 6, Children = { linhaDiff, diffUsado } },
+                "Aberta pelo botão Diff externo do painel de diferenças. Beyond Compare, WinMerge, Meld, KDiff3, P4Merge, " +
+                "TortoiseGitMerge e VS Code são reconhecidos pela pasta de instalação; outra, informe o caminho do .exe."),
+            Campo("Argumentos", diffArgs, "$LOCAL é o lado esquerdo e $REMOTE o direito."));
+
+        Control PaginaDasContas() => Pagina("Contas",
+            Campo("Contas do GitHub", contasPanel,
+                "A principal vale para os repositórios que não escolhem outra em Configurar repositório."),
+            Campo("Usuário", usuario),
+            Campo("Token de acesso pessoal", new StackPanel { Spacing = 8, Children = { token, acoesToken, situacao } }),
+            Campo("Gerenciador de credenciais", new StackPanel { Spacing = 8, Children = { helperTexto, configurarHelper } }));
+
+        Control PaginaSobre() => Pagina("Sobre",
+            new StackPanel
             {
-                Field("Abrir o repositório em", abaInicial),
-                Field("Atualizar status automaticamente (segundos, 0 desliga)", refresh),
-                Field("Commits carregados no histórico", logLimit),
-                Field("Execuções mostradas na esteira", esteiras),
-            }),
-            ("Obter e puxar", new Control[]
-            {
-                todasAsTags,
-                todasAsBranches,
-                Label("A branch atual e as que têm commit só seu nunca são mexidas: as locais só avançam quando estão apenas atrás da remota. As mesmas opções ficam no clique direito de Obter e Puxar."),
-            }),
-            ("Terminal", new Control[]
-            {
-                Field("Git Bash (pasta do Git ou caminho do git-bash.exe)", linhaGitBash),
-                gitBashUsado,
-            }),
-            ("Diff externo", new Control[]
-            {
-                Label("Ferramenta de comparação aberta pelo botão \"Diff externo\" do painel de diferenças: " +
-                      "Beyond Compare, WinMerge, Meld, KDiff3, P4Merge, TortoiseGitMerge ou VS Code são reconhecidos pela pasta."),
-                campoDiff,
-                diffUsado,
-                Field("Argumentos — $LOCAL é o lado esquerdo, $REMOTE o direito", diffArgs),
-            }),
-            ("Contas", new Control[]
-            {
-                Label("Contas do GitHub. A principal vale para os repositórios que não escolhem outra em Configurar repositório."),
-                contasPanel,
-                Field("Usuário", usuario),
-                Field("Token de acesso pessoal", token),
-                acoesToken,
-                situacao,
-                Secao("Gerenciador de credenciais"),
-                helperTexto,
-                new StackPanel { Margin = new Thickness(0, 8, 0, 0), Children = { configurarHelper } },
-            }),
-            ("Aplicativo", new Control[]
-            {
-                avisarAtualizacao,
-                linhaAtualizacao,
-                resultadoBusca,
-                portatil,
-                ondeFica,
-                erroPortatil,
-            }),
-            ("Notas da versão", notas.Count == 0
-                ? new Control[] { Label("Este executável não traz as notas da versão.") }
-                : new Control[]
+                Spacing = 10,
+                Children =
                 {
-                    Label(MainViewModel.VersaoEmUso.Length > 0
-                        ? "Você está na " + MainViewModel.VersaoEmUso + ". Escolha uma versão para ver o que mudou nela."
-                        : "Build local, sem versão publicada. Escolha uma versão para ver o que mudou nela."),
-                    Field("Versão", versoes),
-                    textoDaNota,
-                }),
-        };
+                    new SelectableTextBlock { Text = main.Versao, FontSize = 14, FontWeight = FontWeight.SemiBold },
+                    linhaDaVersao,
+                },
+            },
+            Campo("Aviso de versão nova", avisarAtualizacao,
+                "Com ele, o GRepos procura uma vez por dia e, havendo versão nova, o convite aparece na barra de status. " +
+                "O botão acima e o ícone da barra procuram na hora, ligado ou não."),
+            Campo("Onde ficam as configurações", new StackPanel { Spacing = 6, Children = { portatil, ondeFica, erroPortatil } }));
 
-        ComposeEmSecoes("Preferências", secoes, new[] { close, save });
+        Control PaginaDasNotas()
+        {
+            // todas as versões em sequência, da mais nova para a mais antiga, como no Sobre do GNotas;
+            // a em uso ganha a marca. Montada só na primeira visita: são todas as versões já publicadas
+            var notas = NotasDaVersao.Carregar();
+            if (notas.Count == 0)
+                return Pagina("Notas da versão", Ajuda("Este executável não traz as notas da versão."));
+
+            var emUso = MainViewModel.VersaoEmUso.Length > 0 ? NotasDaVersao.IndiceDa(notas, MainViewModel.VersaoEmUso) : -1;
+            var texto = new System.Text.StringBuilder();
+            for (var i = 0; i < notas.Count; i++)
+                texto.Append("### ").Append(notas[i].Rotulo).Append(i == emUso ? " · em uso" : "").Append("\n\n")
+                     .Append(notas[i].Notas).Append("\n\n");
+
+            return Pagina("Notas da versão",
+                Ajuda(emUso >= 0
+                    ? "Você está na " + MainViewModel.VersaoEmUso + ". O que mudou em cada versão, da mais nova para a mais antiga."
+                    : "Build local, sem versão publicada. O que mudou em cada versão, da mais nova para a mais antiga."),
+                new MarkdownView { Markdown = texto.ToString(), Margin = new Thickness(0, -14, 0, 0) });
+        }
+
+        _lista = ComposeEmSecoes(new (string, string, Func<Control>)[]
+        {
+            (Secoes[0], Glifos.Cor, PaginaDaAparencia),
+            (Secoes[1], Glifos.Ajustes, PaginaGeral),
+            (Secoes[2], Glifos.Obter, PaginaObterEPuxar),
+            (Secoes[3], Glifos.Terminal, PaginaDoTerminal),
+            (Secoes[4], Glifos.Comparar, PaginaDoDiff),
+            (Secoes[5], Glifos.Autoria, PaginaDasContas),
+            (Secoes[6], Glifos.Sobre, PaginaSobre),
+            (Secoes[7], Glifos.Documento, PaginaDasNotas),
+        }, new[] { close, save });
     }
 }
 

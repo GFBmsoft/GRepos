@@ -1248,9 +1248,9 @@ public sealed partial class MainViewModel : ObservableObject
         Acao("Atualizar todos os repositórios", "varre o status de todos", RefreshAllCommand);
         Acao("Adicionar repositório…", "pasta local ou clone do GitHub", AddRepoCommand);
         Acao("Novo grupo…", "", AddGroupCommand);
-        Acao("Preferências…", "", OpenSettingsCommand);
+        Acao("Configurações…", "", OpenSettingsCommand);
         Acao("Novidades", "o que mudou em cada versão", AbrirNovidadesCommand);
-        Acao("Procurar atualização", "", ProcurarAtualizacaoCommand);
+        Acao("Procurar atualização", "e, havendo versão nova, instalar", AtualizacaoCommand);
         return itens;
     }
 
@@ -2698,10 +2698,19 @@ public sealed partial class MainViewModel : ObservableObject
 
     private Release? _release;
 
+    // só os testes trocam: nenhum deles chega à rede, abre o navegador ou baixa alguma coisa
+    internal string VersaoDoApp { get; set; } = VersaoEmUso;
+    internal Func<Task<Release?>>? ProcurarRelease { get; set; }
+    internal Func<string?, bool> PodeTrocar { get; set; } = exe => Atualizador.PodeTrocarSozinho(exe);
+    internal Action<string> AbrirPagina { get; set; } = ShellService.AbrirUrl;
+
     [ObservableProperty] private string _atualizacaoTag = "";
     [ObservableProperty] private string _atualizacaoAviso = "";
     [ObservableProperty] private bool _atualizando;
     [ObservableProperty] private bool _verificandoAtualizacao;
+
+    /// <summary>O que deu a última procura: procurando, em dia, versão nova ou o erro. Fica no Sobre das Configurações.</summary>
+    [ObservableProperty] private string _situacaoDaVersao = "";
 
     public bool TemAtualizacao => AtualizacaoTag.Length > 0;
 
@@ -2709,37 +2718,41 @@ public sealed partial class MainViewModel : ObservableObject
     public string CorDoIconeAtualizacao => TemAtualizacao ? "Accent" : "TextFaint";
 
     public string DicaDoIconeAtualizacao => TemAtualizacao
-        ? $"Versão {AtualizacaoTag} disponível"
-        : "Procurar uma versão nova";
+        ? $"Atualizar para a versão {AtualizacaoTag}"
+        : "Procurar atualização e, havendo versão nova, instalar";
+
+    /// <summary>"GRepos 1.0.0.68", ou "GRepos (build local)": o que o Sobre das Configurações mostra.</summary>
+    public string Versao => VersaoDoApp.Length > 0 ? "GRepos " + VersaoDoApp : "GRepos (build local)";
+
+    /// <summary>O botão do Sobre: procura enquanto não há versão nova à vista; achando, passa a atualizar.</summary>
+    public string RotuloDeAtualizar => TemAtualizacao ? "Atualizar para " + AtualizacaoTag : "Procurar atualização";
 
     /// <summary>
-    /// Busca pedida pelo ícone do rodapé. Diferente da automática, esta sempre responde
-    /// alguma coisa: silêncio depois de clicar não diz se procurou ou se deu errado.
+    /// O botão do Sobre, sem versão nova à vista: só procura e diz o que achou, como no GTerm.
+    /// Achando, aparece o convite na barra de status e o mesmo botão passa a ser o de atualizar.
     /// </summary>
     [RelayCommand]
     private async Task ProcurarAtualizacaoAsync()
     {
         if (VerificandoAtualizacao) return;
+        if (VersaoDoApp.Length == 0)
+        {
+            SituacaoDaVersao = "Build local, sem versão: não há com o que comparar.";
+            return;
+        }
 
         VerificandoAtualizacao = true;
+        SituacaoDaVersao = "Procurando atualização…";
         try
         {
-            if (VersaoEmUso.Length == 0)
-            {
-                Notify("Este é um build local, sem versão carimbada para comparar com a release.");
-                return;
-            }
-
             await VerificarAtualizacaoAsync(forcar: true);
-            Notify(TemAtualizacao
-                ? $"Versão {AtualizacaoTag} disponível — o aviso está aqui na barra."
-                : $"Você já está na versão mais recente ({VersaoEmUso}).");
+            SituacaoDaVersao = TemAtualizacao ? $"Versão nova: {AtualizacaoTag}." : "Em dia: é a versão mais nova.";
         }
         catch (Exception e)
         {
-            // dizer "você já está na mais recente" quando a consulta falhou era mentira:
-            // o usuário clicava de novo, a segunda passava e só aí a versão nova aparecia
-            Notify("Não foi possível consultar a versão mais recente: " + e.Message, true);
+            // dizer "em dia" quando a consulta falhou era mentira: o usuário clicava de novo,
+            // a segunda passava e só aí a versão nova aparecia
+            SituacaoDaVersao = "Não foi possível procurar: " + e.Message;
         }
         finally
         {
@@ -2747,14 +2760,58 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// O clique da barra de status (o ícone e o convite) e o da paleta: um só resolve, como no
+    /// GTerm. Procura sempre, porque a versão vista ao abrir já pode ter sido passada por outra,
+    /// e havendo uma mais nova pergunta se atualiza. Eram dois cliques: o ícone só procurava e
+    /// avisava, e quem atualizava era o convite ao lado dele.
+    /// </summary>
+    [RelayCommand]
+    private async Task AtualizacaoAsync()
+    {
+        if (VerificandoAtualizacao || Atualizando) return;
+        if (VersaoDoApp.Length == 0)
+        {
+            SituacaoDaVersao = "Build local, sem versão: não há com o que comparar.";
+            Notify("Este é um build local, sem versão carimbada para comparar com a release.");
+            return;
+        }
+
+        VerificandoAtualizacao = true;
+        SituacaoDaVersao = "Procurando atualização…";
+        try
+        {
+            await VerificarAtualizacaoAsync(forcar: true);
+        }
+        catch (Exception e)
+        {
+            SituacaoDaVersao = "Não foi possível procurar: " + e.Message;
+            Notify("Não foi possível consultar a versão mais recente: " + e.Message, true);
+            return;
+        }
+        finally
+        {
+            VerificandoAtualizacao = false;
+        }
+
+        if (!TemAtualizacao)
+        {
+            SituacaoDaVersao = "Em dia: é a versão mais nova.";
+            Notify($"Você já está na versão mais recente ({VersaoDoApp}).");
+            return;
+        }
+
+        SituacaoDaVersao = $"Versão nova: {AtualizacaoTag}.";
+        await AtualizarAgoraAsync();
+    }
+
     partial void OnAtualizacaoTagChanged(string value)
     {
         foreach (var p in new[] { nameof(TemAtualizacao), nameof(CorDoIconeAtualizacao),
-                                  nameof(DicaDoIconeAtualizacao) })
+                                  nameof(DicaDoIconeAtualizacao), nameof(RotuloDeAtualizar) })
             OnPropertyChanged(p);
 
-        if (value.Length > 0 && AtualizacaoAviso.Length == 0)
-            AtualizacaoAviso = $"Atualização {value} disponível";
+        if (value.Length > 0) AtualizacaoAviso = $"Atualização {value} disponível";
     }
 
     /// <summary>Versão em execução, quando carimbada pelo workflow; vazia em build local.</summary>
@@ -2771,7 +2828,7 @@ public sealed partial class MainViewModel : ObservableObject
         // pedida pelo usuário, a busca acontece mesmo com o aviso automático desligado
         if (!forcar && !_ws.Settings.AvisarAtualizacao) return;
 
-        var atual = VersaoEmUso;
+        var atual = VersaoDoApp;
         if (atual.Length == 0) return;
 
         try
@@ -2786,7 +2843,7 @@ public sealed partial class MainViewModel : ObservableObject
 
             if (forcar || !recente)
             {
-                _release = await GitHubService.UltimaReleaseAsync(Atualizador.Slug, _ws.Settings.GithubUser);
+                _release = await (ProcurarRelease ?? UltimaReleaseDoGRepos)();
                 tag = _release?.Tag ?? "";
 
                 _ws.Settings.UltimaChecagem = DateTime.UtcNow.ToString("o");
@@ -2794,7 +2851,8 @@ public sealed partial class MainViewModel : ObservableObject
                 Persist();
             }
 
-            if (tag.Length > 0 && Atualizador.TemNovidade(atual, tag)) AtualizacaoTag = tag;
+            // a versão nova que sumiu (ou que já é esta) tira o convite da barra
+            AtualizacaoTag = tag.Length > 0 && Atualizador.TemNovidade(atual, tag) ? tag : "";
         }
         catch (Exception) when (!forcar)
         {
@@ -2803,34 +2861,36 @@ public sealed partial class MainViewModel : ObservableObject
         }
     }
 
+    private Task<Release?> UltimaReleaseDoGRepos() =>
+        GitHubService.UltimaReleaseAsync(Atualizador.Slug, _ws.Settings.GithubUser);
+
     /// <summary>
     /// Baixa a release e troca o executável. Só o de arquivo único pode ser trocado por
     /// aqui; no build de pasta resta abrir a página, onde o usuário escolhe o que baixar.
     /// </summary>
-    [RelayCommand]
     private async Task AtualizarAgoraAsync()
     {
         if (Atualizando) return;
 
         try
         {
-            _release ??= await GitHubService.UltimaReleaseAsync(Atualizador.Slug, _ws.Settings.GithubUser);
+            _release ??= await (ProcurarRelease ?? UltimaReleaseDoGRepos)();
 
             var exe = Atualizador.CaminhoDoExe();
             var arquivo = _release?.Standalone;
 
-            if (arquivo is null || !Atualizador.PodeTrocarSozinho(exe))
+            if (arquivo is null || !PodeTrocar(exe))
             {
-                ShellService.AbrirUrl(_release?.Url is { Length: > 0 } u
+                AbrirPagina(_release?.Url is { Length: > 0 } u
                     ? u
                     : $"https://github.com/{Atualizador.Slug}/releases/latest");
                 return;
             }
 
-            var mb = arquivo.Tamanho / 1024d / 1024d;
+            var tamanho = arquivo.Tamanho > 0 ? $" ({arquivo.Tamanho / 1024d / 1024d:N0} MB)" : "";
             var ok = await _dialogs.ConfirmAsync(
                 "Atualizar o GRepos",
-                $"Baixar a versão {AtualizacaoTag} ({mb:N0} MB) e reiniciar o aplicativo?\n\n" +
+                $"Baixar a versão {AtualizacaoTag}{tamanho} e reiniciar o aplicativo?\n\n" +
                 "O executável atual é guardado como cópia e volta sozinho se algo falhar.");
             if (!ok) return;
 

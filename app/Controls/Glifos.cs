@@ -74,4 +74,10 @@ public static class Glifos
     public const string Anexar = "";
     public const string Subir = "";
     public const string Descer = "";
+
+    // as seções das Configurações, como as do GNotas e do GTerm: o Sobre (Info)
+    public const string Sobre = "";
+
+    // instalar a versão nova, no botão do Sobre que achou uma (o mesmo glifo do GTerm)
+    public const string Instalar = "";
 }
